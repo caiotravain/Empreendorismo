@@ -1,0 +1,2748 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Dashboard Médico - SaaS Platform{% endblock %}
+
+{% block content %}
+<!-- Patient Selection Header - Always Visible -->
+<div class="row mb-3">
+    <div class="col-12">
+        <div class="card border-0 shadow-sm" id="patient-selection-header">
+            <div class="card-body py-3">
+                <div class="d-flex justify-content-between align-items-center">
+                    <div class="d-flex align-items-center">
+                        <i class="fas fa-user-circle fa-2x text-primary me-3"></i>
+                        <div>
+                            <h5 class="mb-0" id="selected-patient-name">Nenhum paciente selecionado</h5>
+                            <small class="text-muted" id="selected-patient-info">Selecione um paciente na agenda para acessar os módulos</small>
+                        </div>
+                    </div>
+                    <div class="d-flex align-items-center">
+                        <span class="badge bg-secondary me-2" id="patient-status-badge">Aguardando seleção</span>
+                        <button class="btn btn-outline-primary btn-sm" onclick="clearPatientSelection()" id="clear-patient-btn" style="display: none;">
+                            <i class="fas fa-times me-1"></i>Limpar Seleção
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row">
+    <div class="col-12">
+        <div class="d-flex justify-content-between align-items-center mb-4">
+            <h1 class="h3 mb-0">
+                <i class="fas fa-user-md me-2"></i>Dashboard Médico
+            </h1>
+            <div class="btn-group" role="group">
+                <button type="button" class="btn btn-primary" onclick="switchTab('agenda')">
+                    <i class="fas fa-calendar-alt me-1"></i>Agenda
+                </button>
+                <button type="button" class="btn btn-outline-primary disabled" id="prontuarios-btn" onclick="switchTab('prontuarios')" disabled>
+                    <i class="fas fa-file-medical me-1"></i>Prontuários
+                </button>
+                <button type="button" class="btn btn-outline-primary disabled" id="exames-btn" onclick="switchTab('exames')" disabled>
+                    <i class="fas fa-vial me-1"></i>Histórico de Exames
+                </button>
+                <button type="button" class="btn btn-outline-primary disabled" id="timeline-btn" onclick="switchTab('timeline')" disabled>
+                    <i class="fas fa-history me-1"></i>Linha do Tempo Clínica
+                </button>
+                <button type="button" class="btn btn-outline-primary disabled" id="prescricao-btn" onclick="switchTab('prescricao')" disabled>
+                    <i class="fas fa-prescription-bottle-alt me-1"></i>Prescrição Online
+                </button>
+                <button type="button" class="btn btn-outline-primary disabled" id="indicadores-btn" onclick="switchTab('indicadores')" disabled>
+                    <i class="fas fa-chart-line me-1"></i>Indicadores
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Agenda Tab -->
+<div id="agenda-tab" class="tab-content active">
+    
+
+    <div class="row">
+        <!-- Agenda do Dia -->
+        <div class="col-lg-8 mb-4">
+            <div class="card shadow mb-4">
+                <div class="card-header py-3">
+                    <div class="d-flex justify-content-between align-items-center mb-3">
+                        <h6 class="m-0 font-weight-bold text-primary">Agenda</h6>
+                        <button class="btn btn-primary btn-sm" onclick="showNewAppointmentModal()">
+                            <i class="fas fa-plus me-1"></i>Nova Consulta
+                        </button>
+                    </div>
+                    
+                    <!-- Calendar Navigation -->
+                    <div class="d-flex justify-content-between align-items-center mb-3">
+                        <div class="d-flex align-items-center">
+                            <button class="btn btn-outline-secondary btn-sm me-2" onclick="navigateWeek(-1)">
+                                <i class="fas fa-chevron-left"></i>
+                            </button>
+                            <h5 class="mb-0 me-3" id="current-week-display">9 - 15 Jan 2025</h5>
+                            <button class="btn btn-outline-secondary btn-sm" onclick="navigateWeek(1)">
+                                <i class="fas fa-chevron-right"></i>
+                            </button>
+                            <button class="btn btn-outline-primary btn-sm ms-3" onclick="goToToday()">
+                                Hoje
+                            </button>
+                        </div>
+                        
+                        <!-- View Toggle -->
+                        <div class="btn-group" role="group">
+                            <button type="button" class="btn btn-outline-primary btn-sm" onclick="switchCalendarView('day')" id="day-view-btn">
+                                Dia
+                            </button>
+                            <button type="button" class="btn btn-primary btn-sm" onclick="switchCalendarView('week')" id="week-view-btn">
+                                Semana
+                            </button>
+
+                        </div>
+                    </div>
+                </div>
+                <div class="card-body p-0">
+                    <!-- Day View -->
+                    <div id="day-view" class="calendar-view" style="display: none;">
+                        <div class="table-responsive">
+                            <table class="table table-hover mb-0">
+                                <thead>
+                                    <tr>
+                                        <th>Horário</th>
+                                        <th>Paciente</th>
+                                        <th>Tipo</th>
+                                        <th>Status</th>
+                                        <th>Ações</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% if today_appointments %}
+                                        {% for appointment in today_appointments %}
+                                        <tr>
+                                            <td>{{ appointment.appointment_time|time:"H:i" }}</td>
+                                            <td>{{ appointment.patient.full_name }}</td>
+                                            <td>{{ appointment.get_appointment_type_display }}</td>
+                                            <td>
+                                                {% if appointment.status == 'completed' %}
+                                                    <span class="badge bg-success">Concluída</span>
+                                                {% elif appointment.status == 'scheduled' %}
+                                                    <span class="badge bg-info">Agendada</span>
+                                                {% elif appointment.status == 'confirmed' %}
+                                                    <span class="badge bg-primary">Confirmada</span>
+                                                {% elif appointment.status == 'in_progress' %}
+                                                    <span class="badge bg-warning">Em Andamento</span>
+                                                {% elif appointment.status == 'cancelled' %}
+                                                    <span class="badge bg-danger">Cancelada</span>
+                                                {% elif appointment.status == 'no_show' %}
+                                                    <span class="badge bg-secondary">Não Compareceu</span>
+                                                {% else %}
+                                                    <span class="badge bg-secondary">{{ appointment.get_status_display }}</span>
+                                                {% endif %}
+                                            </td>
+                                            <td>
+                                                <button class="btn btn-sm btn-outline-primary" onclick="selectPatient('{{ appointment.patient.full_name }}', '{{ appointment.patient.id }}')">
+                                                    {% if appointment.status == 'completed' %}
+                                                        Ver Prontuário
+                                                    {% elif appointment.status == 'scheduled' or appointment.status == 'confirmed' %}
+                                                        Iniciar
+                                                    {% else %}
+                                                        Detalhes
+                                                    {% endif %}
+                                                </button>
+                                            </td>
+                                        </tr>
+                                        {% endfor %}
+                                    {% else %}
+                                        <tr>
+                                            <td colspan="5" class="text-center text-muted">
+                                                {% if current_doctor %}
+                                                    Nenhuma consulta agendada para hoje
+                                                {% else %}
+                                                    Faça login como médico para ver as consultas
+                                                {% endif %}
+                                            </td>
+                                        </tr>
+                                    {% endif %}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+
+                    <!-- Week View (Google Calendar Style) - Default -->
+                    <div id="week-view" class="calendar-view">
+                        <div class="calendar-week-container">
+                            <!-- Time column -->
+                            <div class="calendar-time-column">
+                                <div class="time-header"></div>
+                                <div class="time-slots">
+                                    <div class="time-slot">00:00</div>
+                                    <div class="time-slot">00:30</div>
+                                    <div class="time-slot">01:00</div>
+                                    <div class="time-slot">01:30</div>
+                                    <div class="time-slot">02:00</div>
+                                    <div class="time-slot">02:30</div>
+                                    <div class="time-slot">03:00</div>
+                                    <div class="time-slot">03:30</div>
+                                    <div class="time-slot">04:00</div>
+                                    <div class="time-slot">04:30</div>
+                                    <div class="time-slot">05:00</div>
+                                    <div class="time-slot">05:30</div>
+                                    <div class="time-slot">06:00</div>
+                                    <div class="time-slot">06:30</div>
+                                    <div class="time-slot">07:00</div>
+                                    <div class="time-slot">07:30</div>
+                                    <div class="time-slot">08:00</div>
+                                    <div class="time-slot">08:30</div>
+                                    <div class="time-slot">09:00</div>
+                                    <div class="time-slot">09:30</div>
+                                    <div class="time-slot">10:00</div>
+                                    <div class="time-slot">10:30</div>
+                                    <div class="time-slot">11:00</div>
+                                    <div class="time-slot">11:30</div>
+                                    <div class="time-slot">12:00</div>
+                                    <div class="time-slot">12:30</div>
+                                    <div class="time-slot">13:00</div>
+                                    <div class="time-slot">13:30</div>
+                                    <div class="time-slot">14:00</div>
+                                    <div class="time-slot">14:30</div>
+                                    <div class="time-slot">15:00</div>
+                                    <div class="time-slot">15:30</div>
+                                    <div class="time-slot">16:00</div>
+                                    <div class="time-slot">16:30</div>
+                                    <div class="time-slot">17:00</div>
+                                    <div class="time-slot">17:30</div>
+                                    <div class="time-slot">18:00</div>
+                                    <div class="time-slot">18:30</div>
+                                    <div class="time-slot">19:00</div>
+                                    <div class="time-slot">19:30</div>
+                                    <div class="time-slot">20:00</div>
+                                    <div class="time-slot">20:30</div>
+                                    <div class="time-slot">21:00</div>
+                                    <div class="time-slot">21:30</div>
+                                    <div class="time-slot">22:00</div>
+                                    <div class="time-slot">22:30</div>
+                                    <div class="time-slot">23:00</div>
+                                    <div class="time-slot">23:30</div>
+                                </div>
+                            </div>
+                            
+                            <!-- Days of the week -->
+                            <div class="calendar-days-container">
+                                <div class="calendar-day-header">
+                                    <div class="day-header">Dom</div>
+                                    <div class="day-header">Seg</div>
+                                    <div class="day-header">Ter</div>
+                                    <div class="day-header">Qua</div>
+                                    <div class="day-header">Qui</div>
+                                    <div class="day-header">Sex</div>
+                                    <div class="day-header">Sáb</div>
+                                </div>
+                                
+                                <div class="calendar-day-dates">
+                                    <div class="day-date">12</div>
+                                    <div class="day-date">13</div>
+                                    <div class="day-date">14</div>
+                                    <div class="day-date">15</div>
+                                    <div class="day-date">16</div>
+                                    <div class="day-date">17</div>
+                                    <div class="day-date">18</div>
+                                </div>
+                                
+                                <div class="calendar-grid">
+                                    <!-- Sunday -->
+                                    <div class="day-column">
+                                        <div class="time-grid">
+                                            {% for appointment in week_appointments %}
+                                                {% if appointment.appointment_date|date:"w" == "0" %}
+                                                    <div class="calendar-event" 
+                                                         data-time="{{ appointment.appointment_time|time:'H:i' }}" 
+                                                         data-duration="{{ appointment.duration_minutes }}" 
+                                                         data-color="{% if appointment.status == 'completed' %}#34a853{% elif appointment.status == 'cancelled' %}#ea4335{% elif appointment.status == 'in_progress' %}#fbbc04{% else %}#4285f4{% endif %}" 
+                                                         onclick="selectPatient('{{ appointment.patient.full_name }}', '{{ appointment.patient.id }}')">
+                                                        <div class="event-title">{{ appointment.patient.full_name }}</div>
+                                                        <div class="event-time">{{ appointment.appointment_time|time:"H:i" }}</div>
+                                                        <div class="event-type">{{ appointment.get_appointment_type_display }}</div>
+                                                    </div>
+                                                {% endif %}
+                                            {% endfor %}
+                                        </div>
+                                    </div>
+                                    
+                                    <!-- Monday -->
+                                    <div class="day-column">
+                                        <div class="time-grid">
+                                            {% for appointment in week_appointments %}
+                                                {% if appointment.appointment_date|date:"w" == "1" %}
+                                                    <div class="calendar-event" 
+                                                         data-time="{{ appointment.appointment_time|time:'H:i' }}" 
+                                                         data-duration="{{ appointment.duration_minutes }}" 
+                                                         data-color="{% if appointment.status == 'completed' %}#34a853{% elif appointment.status == 'cancelled' %}#ea4335{% elif appointment.status == 'in_progress' %}#fbbc04{% else %}#4285f4{% endif %}" 
+                                                         onclick="selectPatient('{{ appointment.patient.full_name }}', '{{ appointment.patient.id }}')">
+                                                        <div class="event-title">{{ appointment.patient.full_name }}</div>
+                                                        <div class="event-time">{{ appointment.appointment_time|time:"H:i" }}</div>
+                                                        <div class="event-type">{{ appointment.get_appointment_type_display }}</div>
+                                                    </div>
+                                                {% endif %}
+                                            {% endfor %}
+                                        </div>
+                                    </div>
+                                    
+                                    <!-- Tuesday -->
+                                    <div class="day-column">
+                                        <div class="time-grid">
+                                            {% for appointment in week_appointments %}
+                                                {% if appointment.appointment_date|date:"w" == "2" %}
+                                                    <div class="calendar-event" 
+                                                         data-time="{{ appointment.appointment_time|time:'H:i' }}" 
+                                                         data-duration="{{ appointment.duration_minutes }}" 
+                                                         data-color="{% if appointment.status == 'completed' %}#34a853{% elif appointment.status == 'cancelled' %}#ea4335{% elif appointment.status == 'in_progress' %}#fbbc04{% else %}#4285f4{% endif %}" 
+                                                         onclick="selectPatient('{{ appointment.patient.full_name }}', '{{ appointment.patient.id }}')">
+                                                        <div class="event-title">{{ appointment.patient.full_name }}</div>
+                                                        <div class="event-time">{{ appointment.appointment_time|time:"H:i" }}</div>
+                                                        <div class="event-type">{{ appointment.get_appointment_type_display }}</div>
+                                                    </div>
+                                                {% endif %}
+                                            {% endfor %}
+                                        </div>
+                                    </div>
+                                    
+                                    <!-- Wednesday -->
+                                    <div class="day-column">
+                                        <div class="time-grid">
+                                            {% for appointment in week_appointments %}
+                                                {% if appointment.appointment_date|date:"w" == "3" %}
+                                                    <div class="calendar-event" 
+                                                         data-time="{{ appointment.appointment_time|time:'H:i' }}" 
+                                                         data-duration="{{ appointment.duration_minutes }}" 
+                                                         data-color="{% if appointment.status == 'completed' %}#34a853{% elif appointment.status == 'cancelled' %}#ea4335{% elif appointment.status == 'in_progress' %}#fbbc04{% else %}#4285f4{% endif %}" 
+                                                         onclick="selectPatient('{{ appointment.patient.full_name }}', '{{ appointment.patient.id }}')">
+                                                        <div class="event-title">{{ appointment.patient.full_name }}</div>
+                                                        <div class="event-time">{{ appointment.appointment_time|time:"H:i" }}</div>
+                                                        <div class="event-type">{{ appointment.get_appointment_type_display }}</div>
+                                                    </div>
+                                                {% endif %}
+                                            {% endfor %}
+                                        </div>
+                                    </div>
+                                    
+                                    <!-- Thursday -->
+                                    <div class="day-column">
+                                        <div class="time-grid">
+                                            {% for appointment in week_appointments %}
+                                                {% if appointment.appointment_date|date:"w" == "4" %}
+                                                    <div class="calendar-event" 
+                                                         data-time="{{ appointment.appointment_time|time:'H:i' }}" 
+                                                         data-duration="{{ appointment.duration_minutes }}" 
+                                                         data-color="{% if appointment.status == 'completed' %}#34a853{% elif appointment.status == 'cancelled' %}#ea4335{% elif appointment.status == 'in_progress' %}#fbbc04{% else %}#4285f4{% endif %}" 
+                                                         onclick="selectPatient('{{ appointment.patient.full_name }}', '{{ appointment.patient.id }}')">
+                                                        <div class="event-title">{{ appointment.patient.full_name }}</div>
+                                                        <div class="event-time">{{ appointment.appointment_time|time:"H:i" }}</div>
+                                                        <div class="event-type">{{ appointment.get_appointment_type_display }}</div>
+                                                    </div>
+                                                {% endif %}
+                                            {% endfor %}
+                                        </div>
+                                    </div>
+                                    
+                                    <!-- Friday -->
+                                    <div class="day-column">
+                                        <div class="time-grid">
+                                            {% for appointment in week_appointments %}
+                                                {% if appointment.appointment_date|date:"w" == "5" %}
+                                                    <div class="calendar-event" 
+                                                         data-time="{{ appointment.appointment_time|time:'H:i' }}" 
+                                                         data-duration="{{ appointment.duration_minutes }}" 
+                                                         data-color="{% if appointment.status == 'completed' %}#34a853{% elif appointment.status == 'cancelled' %}#ea4335{% elif appointment.status == 'in_progress' %}#fbbc04{% else %}#4285f4{% endif %}" 
+                                                         onclick="selectPatient('{{ appointment.patient.full_name }}', '{{ appointment.patient.id }}')">
+                                                        <div class="event-title">{{ appointment.patient.full_name }}</div>
+                                                        <div class="event-time">{{ appointment.appointment_time|time:"H:i" }}</div>
+                                                        <div class="event-type">{{ appointment.get_appointment_type_display }}</div>
+                                                    </div>
+                                                {% endif %}
+                                            {% endfor %}
+                                        </div>
+                                    </div>
+                                    
+                                    <!-- Saturday -->
+                                    <div class="day-column">
+                                        <div class="time-grid">
+                                            {% for appointment in week_appointments %}
+                                                {% if appointment.appointment_date|date:"w" == "6" %}
+                                                    <div class="calendar-event" 
+                                                         data-time="{{ appointment.appointment_time|time:'H:i' }}" 
+                                                         data-duration="{{ appointment.duration_minutes }}" 
+                                                         data-color="{% if appointment.status == 'completed' %}#34a853{% elif appointment.status == 'cancelled' %}#ea4335{% elif appointment.status == 'in_progress' %}#fbbc04{% else %}#4285f4{% endif %}" 
+                                                         onclick="selectPatient('{{ appointment.patient.full_name }}', '{{ appointment.patient.id }}')">
+                                                        <div class="event-title">{{ appointment.patient.full_name }}</div>
+                                                        <div class="event-time">{{ appointment.appointment_time|time:"H:i" }}</div>
+                                                        <div class="event-type">{{ appointment.get_appointment_type_display }}</div>
+                                                    </div>
+                                                {% endif %}
+                                            {% endfor %}
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Ações Rápidas -->
+        <div class="col-lg-4 mb-4">
+            <div class="card shadow mb-4">
+                <div class="card-header py-3">
+                    <h6 class="m-0 font-weight-bold text-primary">Ações Rápidas</h6>
+                </div>
+                <div class="card-body">
+                    <div class="d-grid gap-2">
+                        <button class="btn btn-primary" onclick="showNewAppointmentModal()">
+                            <i class="fas fa-plus me-2"></i>Nova Consulta
+                        </button>
+                        <button class="btn btn-outline-primary">
+                            <i class="fas fa-user-plus me-2"></i>Novo Paciente
+                        </button>
+                        <button class="btn btn-outline-primary">
+                            <i class="fas fa-prescription-bottle-alt me-2"></i>Nova Prescrição
+                        </button>
+                        <button class="btn btn-outline-primary">
+                            <i class="fas fa-file-medical me-2"></i>Ver Prontuários
+                        </button>
+                    </div>
+                </div>
+            </div>
+            <div class="row">
+        <!-- Modern Stats Cards - Stacked Vertically -->
+        <div class="col-12 mb-3">
+            <div class="stats-card stats-card-primary">
+                <div class="stats-card-body">
+                    <div class="stats-content">
+                        <div class="stats-info">
+                            <h6 class="stats-title">Consultas Hoje</h6>
+                            <h3 class="stats-number" id="consultas-hoje">{{ stats.consultas_hoje|default:"0" }}</h3>
+                        </div>
+                        <div class="stats-icon">
+                            <i class="fas fa-calendar-check"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-12 mb-3">
+            <div class="stats-card stats-card-success">
+                <div class="stats-card-body">
+                    <div class="stats-content">
+                        <div class="stats-info">
+                            <h6 class="stats-title">Pacientes Atendidos</h6>
+                            <h3 class="stats-number" id="pacientes-atendidos">{{ stats.pacientes_atendidos|default:"0" }}</h3>
+                        </div>
+                        <div class="stats-icon">
+                            <i class="fas fa-user-check"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-12 mb-3">
+            <div class="stats-card stats-card-info">
+                <div class="stats-card-body">
+                    <div class="stats-content">
+                        <div class="stats-info">
+                            <h6 class="stats-title">Consultas Pendentes</h6>
+                            <h3 class="stats-number" id="consultas-pendentes">{{ stats.consultas_pendentes|default:"0" }}</h3>
+                        </div>
+                        <div class="stats-icon">
+                            <i class="fas fa-clock"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-12 mb-3">
+            <div class="stats-card stats-card-warning">
+                <div class="stats-card-body">
+                    <div class="stats-content">
+                        <div class="stats-info">
+                            <h6 class="stats-title">Próxima Consulta</h6>
+                            <h3 class="stats-number" id="proxima-consulta">{{ stats.proxima_consulta|default:"--:--" }}</h3>
+                        </div>
+                        <div class="stats-icon">
+                            <i class="fas fa-hourglass-half"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+        </div>
+    </div>
+</div>
+
+<!-- Prontuários Tab -->
+<div id="prontuarios-tab" class="tab-content" style="display: none;">
+    <div class="row">
+        <div class="col-12">
+            {% if selected_patient %}
+                <!-- Patient Prontuario Editor -->
+                <div class="alert alert-info" role="alert">
+                    <i class="fas fa-info-circle me-2"></i>
+                    <span id="patient-info-prontuarios">
+                        Prontuário de: {{ selected_patient.full_name }}
+                    </span>
+                </div>
+                
+                <!-- Prontuario Editor -->
+                <div class="card shadow mb-4">
+                    <div class="card-header py-3 d-flex justify-content-between align-items-center">
+                        <h6 class="m-0 font-weight-bold text-primary">
+                            <i class="fas fa-file-medical me-2"></i>Prontuário Médico
+                        </h6>
+                        <div class="d-flex gap-2">
+                            <button class="btn btn-success btn-sm" onclick="saveNewRecord()">
+                                <i class="fas fa-save me-1"></i>Salvar Nova Entrada
+                            </button>
+                            <button class="btn btn-outline-primary btn-sm" onclick="printProntuario()">
+                                <i class="fas fa-print me-1"></i>Imprimir
+                            </button>
+                        </div>
+                    </div>
+                    <div class="card-body p-0">
+                        <!-- Existing Records Display -->
+                        <div id="existing-records" class="p-4" style="background-color: #f8f9fa; border-bottom: 1px solid #dee2e6;">
+                            <h6 class="text-muted mb-3">
+                                <i class="fas fa-history me-2"></i>Registros Existentes
+                            </h6>
+                            <div id="records-content" style="max-height: 400px; overflow-y: auto;">
+                                {% if medical_records %}
+                                    <!-- Show records from newest to oldest as summaries -->
+                                    {% for record in medical_records %}
+                                        <div class="record-entry mb-3 p-3 bg-white rounded border-start border-primary border-3 cursor-pointer" 
+                                             onclick="showRecordPopup({{ record.id }}, '{{ record.datetime|date:"d/m/Y" }}', '{{ record.datetime|time:"H:i" }}', '{{ record.doctor.full_name|escapejs }}', '{{ record.content|escapejs }}')">
+                                            <div class="d-flex justify-content-between align-items-start mb-2">
+                                                <div>
+                                                    <h6 class="text-primary mb-1">
+                                                        <i class="fas fa-calendar-day me-2"></i>{{ record.datetime|date:"d/m/Y" }}
+                                                    </h6>
+                                                    <small class="text-muted">
+                                                        <i class="fas fa-clock me-1"></i>{{ record.datetime|time:"H:i" }}
+                                                    </small>
+                                                </div>
+                                                <div class="d-flex align-items-center">
+                                                    <small class="text-muted me-2">
+                                                        Dr. {{ record.doctor.full_name }}
+                                                    </small>
+                                                    <i class="fas fa-expand-arrows-alt text-muted"></i>
+                                                </div>
+                                            </div>
+                                            <div class="record-summary">
+                                                <p class="mb-0 text-muted">
+                                                    {{ record.content|truncatechars:150 }}
+                                                    {% if record.content|length > 150 %}
+                                                        <span class="text-primary">... (clique para ver completo)</span>
+                                                    {% endif %}
+                                                </p>
+                                            </div>
+                                        </div>
+                                    {% endfor %}
+                                    
+                                    <!-- Load More Button -->
+                                    {% if has_more_records %}
+                                        <div class="text-center mt-3">
+                                            <button class="btn btn-outline-primary btn-sm" onclick="loadOlderRecords({{ next_offset }})">
+                                                <i class="fas fa-history me-1"></i>Carregar Registros Anteriores
+                                            </button>
+                                            <small class="text-muted d-block mt-1">
+                                                Mostrando {{ medical_records|length }} de {{ total_records }} registros
+                                            </small>
+                                        </div>
+                                    {% else %}
+                                        <div class="text-center mt-3">
+                                            <small class="text-muted">
+                                                <i class="fas fa-check-circle me-1"></i>
+                                                Todos os {{ total_records }} registros foram carregados
+                                            </small>
+                                        </div>
+                                    {% endif %}
+                                {% else %}
+                                    <div class="text-center text-muted py-4">
+                                        <i class="fas fa-file-medical fa-3x mb-3"></i>
+                                        <p>Nenhum registro médico encontrado para este paciente.</p>
+                                        <p>Adicione o primeiro registro abaixo.</p>
+                                    </div>
+                                {% endif %}
+                            </div>
+                        </div>
+                        
+                        <!-- New Record Editor -->
+                        <div class="p-4">
+                            <h6 class="text-success mb-3">
+                                <i class="fas fa-plus-circle me-2"></i>Nova Entrada no Prontuário
+                            </h6>
+                            <form id="new-record-form">
+                                <input type="hidden" id="patient-id" value="{{ selected_patient.id }}">
+                                <div class="mb-3">
+                                    <label for="new-record-content" class="form-label">Conteúdo da Entrada:</label>
+                                    <textarea 
+                                        id="new-record-content" 
+                                        class="form-control" 
+                                        rows="8" 
+                                        placeholder="Digite aqui o conteúdo da nova entrada no prontuário..."
+                                        style="font-family: 'Courier New', monospace; font-size: 14px;"
+                                    ></textarea>
+                                    <div class="form-text">
+                                        <i class="fas fa-info-circle me-1"></i>
+                                        Esta entrada será adicionada ao prontuário com a data e hora atual.
+                                    </div>
+                                </div>
+                                <div class="d-flex justify-content-end gap-2">
+                                    <button type="button" class="btn btn-outline-secondary" onclick="clearNewRecord()">
+                                        <i class="fas fa-eraser me-1"></i>Limpar
+                                    </button>
+                                    <button type="submit" class="btn btn-success">
+                                        <i class="fas fa-save me-1"></i>Salvar Entrada
+                                    </button>
+                                </div>
+                            </form>
+                        </div>
+                    </div>
+                </div>
+            {% else %}
+                <!-- Patient Selection Required -->
+                <div class="alert alert-warning" role="alert">
+                    <i class="fas fa-exclamation-triangle me-2"></i>
+                    <strong>Seleção de Paciente Necessária</strong><br>
+                    Por favor, selecione um paciente na agenda para visualizar e editar o prontuário.
+                </div>
+                
+                <!-- Patients with Medical Records -->
+                <div class="card shadow mb-4">
+                    <div class="card-header py-3 d-flex justify-content-between align-items-center">
+                        <h6 class="m-0 font-weight-bold text-primary">Pacientes com Prontuários</h6>
+                    </div>
+                    <div class="card-body">
+                        <div class="table-responsive">
+                            <table class="table table-hover">
+                                <thead>
+                                    <tr>
+                                        <th>Paciente</th>
+                                        <th>Última Consulta</th>
+                                        <th>Total de Registros</th>
+                                        <th>Último Registro</th>
+                                        <th>Ações</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% if patients_with_records %}
+                                        {% for patient_data in patients_with_records %}
+                                        <tr>
+                                            <td>
+                                                <div class="d-flex align-items-center">
+                                                    <i class="fas fa-user-circle fa-2x text-primary me-3"></i>
+                                                    <div>
+                                                        <strong>{{ patient_data.patient.full_name }}</strong>
+                                                        <br>
+                                                        <small class="text-muted">{{ patient_data.patient.email }}</small>
+                                                    </div>
+                                                </div>
+                                            </td>
+                                            <td>{{ patient_data.latest_record.datetime|date:"d/m/Y" }}</td>
+                                            <td>
+                                                <span class="badge bg-info">{{ patient_data.total_records }} registro{{ patient_data.total_records|pluralize }}</span>
+                                            </td>
+                                            <td>
+                                                <div class="text-truncate" style="max-width: 200px;" title="{{ patient_data.latest_record.content }}">
+                                                    {{ patient_data.latest_record.content|truncatechars:50 }}
+                                                </div>
+                                            </td>
+                                            <td>
+                                                <button class="btn btn-sm btn-outline-primary" onclick="selectPatient('{{ patient_data.patient.full_name }}', '{{ patient_data.patient.id }}')">
+                                                    <i class="fas fa-eye me-1"></i>Abrir Prontuário
+                                                </button>
+                                            </td>
+                                        </tr>
+                                        {% endfor %}
+                                    {% else %}
+                                        <tr>
+                                            <td colspan="5" class="text-center text-muted">
+                                                {% if current_doctor %}
+                                                    Nenhum prontuário encontrado
+                                                {% else %}
+                                                    Faça login como médico para ver os prontuários
+                                                {% endif %}
+                                            </td>
+                                        </tr>
+                                    {% endif %}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+<!-- Histórico de Exames Tab -->
+<div id="exames-tab" class="tab-content" style="display: none;">
+    <div class="row">
+        <div class="col-12">
+            <div class="alert alert-info" role="alert">
+                <i class="fas fa-info-circle me-2"></i>
+                <span id="patient-info-exames">Visualizando histórico de exames do paciente selecionado</span>
+            </div>
+            <div class="card shadow mb-4">
+                <div class="card-header py-3 d-flex justify-content-between align-items-center">
+                    <h6 class="m-0 font-weight-bold text-primary">Histórico de Exames</h6>
+                    <button class="btn btn-primary btn-sm">
+                        <i class="fas fa-plus me-1"></i>Solicitar Exame
+                    </button>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <div class="card">
+                                <div class="card-body">
+                                    <h6 class="card-title">Exames Pendentes</h6>
+                                    <div class="list-group">
+                                        <div class="list-group-item d-flex justify-content-between align-items-center">
+                                            Hemograma Completo - Maria Silva
+                                            <span class="badge bg-warning rounded-pill">Pendente</span>
+                                        </div>
+                                        <div class="list-group-item d-flex justify-content-between align-items-center">
+                                            Glicemia - João Santos
+                                            <span class="badge bg-warning rounded-pill">Pendente</span>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <div class="card">
+                                <div class="card-body">
+                                    <h6 class="card-title">Exames Recentes</h6>
+                                    <div class="list-group">
+                                        <div class="list-group-item d-flex justify-content-between align-items-center">
+                                            Colesterol Total - Ana Costa
+                                            <span class="badge bg-success rounded-pill">Normal</span>
+                                        </div>
+                                        <div class="list-group-item d-flex justify-content-between align-items-center">
+                                            Pressão Arterial - Pedro Oliveira
+                                            <span class="badge bg-danger rounded-pill">Alterado</span>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Linha do Tempo Clínica Tab -->
+<div id="timeline-tab" class="tab-content" style="display: none;">
+    <div class="row">
+        <div class="col-12">
+            <div class="alert alert-info" role="alert">
+                <i class="fas fa-info-circle me-2"></i>
+                <span id="patient-info-timeline">Visualizando linha do tempo clínica do paciente selecionado</span>
+            </div>
+            <div class="card shadow mb-4">
+                <div class="card-header py-3">
+                    <h6 class="m-0 font-weight-bold text-primary">Linha do Tempo Clínica</h6>
+                </div>
+                <div class="card-body">
+                    <div class="timeline">
+                        <div class="timeline-item">
+                            <div class="timeline-marker bg-primary"></div>
+                            <div class="timeline-content">
+                                <h6 class="timeline-title">Consulta de Rotina</h6>
+                                <p class="timeline-text">Maria Silva - Hipertensão controlada</p>
+                                <small class="text-muted">09/01/2025 - 09:00</small>
+                            </div>
+                        </div>
+                        <div class="timeline-item">
+                            <div class="timeline-marker bg-success"></div>
+                            <div class="timeline-content">
+                                <h6 class="timeline-title">Exame Laboratorial</h6>
+                                <p class="timeline-text">João Santos - Glicemia dentro dos parâmetros</p>
+                                <small class="text-muted">08/01/2025 - 14:30</small>
+                            </div>
+                        </div>
+                        <div class="timeline-item">
+                            <div class="timeline-marker bg-info"></div>
+                            <div class="timeline-content">
+                                <h6 class="timeline-title">Prescrição Médica</h6>
+                                <p class="timeline-text">Ana Costa - Medicamento para dor de cabeça</p>
+                                <small class="text-muted">07/01/2025 - 16:00</small>
+                            </div>
+                        </div>
+                        <div class="timeline-item">
+                            <div class="timeline-marker bg-warning"></div>
+                            <div class="timeline-content">
+                                <h6 class="timeline-title">Retorno Agendado</h6>
+                                <p class="timeline-text">Pedro Oliveira - Acompanhamento pós-cirúrgico</p>
+                                <small class="text-muted">06/01/2025 - 10:15</small>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Prescrição Online Tab -->
+<div id="prescricao-tab" class="tab-content" style="display: none;">
+    <div class="row">
+        <div class="col-12">
+            <div class="alert alert-info" role="alert">
+                <i class="fas fa-info-circle me-2"></i>
+                <span id="patient-info-prescricao">Visualizando prescrições do paciente selecionado</span>
+            </div>
+            <div class="card shadow mb-4">
+                <div class="card-header py-3 d-flex justify-content-between align-items-center">
+                    <h6 class="m-0 font-weight-bold text-primary">Prescrições Médicas</h6>
+                    <button class="btn btn-primary btn-sm">
+                        <i class="fas fa-plus me-1"></i>Nova Prescrição
+                    </button>
+                </div>
+                <div class="card-body">
+                    <div class="table-responsive">
+                        <table class="table table-hover">
+                            <thead>
+                                <tr>
+                                    <th>Paciente</th>
+                                    <th>Medicamento</th>
+                                    <th>Dosagem</th>
+                                    <th>Data</th>
+                                    <th>Status</th>
+                                    <th>Ações</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr>
+                                    <td>Maria Silva</td>
+                                    <td>Losartana 50mg</td>
+                                    <td>1 comprimido/dia</td>
+                                    <td>09/01/2025</td>
+                                    <td><span class="badge bg-success">Ativa</span></td>
+                                    <td>
+                                        <button class="btn btn-sm btn-outline-primary">Imprimir</button>
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <td>João Santos</td>
+                                    <td>Metformina 850mg</td>
+                                    <td>2 comprimidos/dia</td>
+                                    <td>08/01/2025</td>
+                                    <td><span class="badge bg-success">Ativa</span></td>
+                                    <td>
+                                        <button class="btn btn-sm btn-outline-primary">Imprimir</button>
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <td>Ana Costa</td>
+                                    <td>Dipirona 500mg</td>
+                                    <td>1 comprimido a cada 6h</td>
+                                    <td>07/01/2025</td>
+                                    <td><span class="badge bg-warning">Pendente</span></td>
+                                    <td>
+                                        <button class="btn btn-sm btn-outline-primary">Finalizar</button>
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Indicadores Tab -->
+<div id="indicadores-tab" class="tab-content" style="display: none;">
+    <div class="row">
+        <div class="col-xl-3 col-md-6 mb-4">
+            <div class="card border-left-primary shadow h-100 py-2">
+                <div class="card-body">
+                    <div class="row no-gutters align-items-center">
+                        <div class="col mr-2">
+                            <div class="text-xs font-weight-bold text-primary text-uppercase mb-1">
+                                Pacientes Ativos
+                            </div>
+                            <div class="h5 mb-0 font-weight-bold text-gray-800">156</div>
+                        </div>
+                        <div class="col-auto">
+                            <i class="fas fa-users fa-2x text-gray-300"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-xl-3 col-md-6 mb-4">
+            <div class="card border-left-success shadow h-100 py-2">
+                <div class="card-body">
+                    <div class="row no-gutters align-items-center">
+                        <div class="col mr-2">
+                            <div class="text-xs font-weight-bold text-success text-uppercase mb-1">
+                                Consultas/Mês
+                            </div>
+                            <div class="h5 mb-0 font-weight-bold text-gray-800">89</div>
+                        </div>
+                        <div class="col-auto">
+                            <i class="fas fa-calendar-check fa-2x text-gray-300"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-xl-3 col-md-6 mb-4">
+            <div class="card border-left-info shadow h-100 py-2">
+                <div class="card-body">
+                    <div class="row no-gutters align-items-center">
+                        <div class="col mr-2">
+                            <div class="text-xs font-weight-bold text-info text-uppercase mb-1">
+                                Exames Solicitados
+                            </div>
+                            <div class="h5 mb-0 font-weight-bold text-gray-800">23</div>
+                        </div>
+                        <div class="col-auto">
+                            <i class="fas fa-vial fa-2x text-gray-300"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-xl-3 col-md-6 mb-4">
+            <div class="card border-left-warning shadow h-100 py-2">
+                <div class="card-body">
+                    <div class="row no-gutters align-items-center">
+                        <div class="col mr-2">
+                            <div class="text-xs font-weight-bold text-warning text-uppercase mb-1">
+                                Prescrições Ativas
+                            </div>
+                            <div class="h5 mb-0 font-weight-bold text-gray-800">67</div>
+                        </div>
+                        <div class="col-auto">
+                            <i class="fas fa-prescription-bottle-alt fa-2x text-gray-300"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="row">
+        <div class="col-lg-8 mb-4">
+            <div class="card shadow mb-4">
+                <div class="card-header py-3">
+                    <h6 class="m-0 font-weight-bold text-primary">Gráficos de Performance</h6>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-6">
+                            <h6>Consultas por Mês</h6>
+                            <p class="text-muted">Gráfico de consultas realizadas nos últimos 6 meses</p>
+                        </div>
+                        <div class="col-md-6">
+                            <h6>Tipos de Consulta</h6>
+                            <p class="text-muted">Distribuição dos tipos de consulta realizadas</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-lg-4 mb-4">
+            <div class="card shadow mb-4">
+                <div class="card-header py-3">
+                    <h6 class="m-0 font-weight-bold text-primary">Alertas e Lembretes</h6>
+                </div>
+                <div class="card-body">
+                    <div class="alert alert-warning" role="alert">
+                        <i class="fas fa-exclamation-triangle me-2"></i>
+                        3 pacientes com retorno pendente
+                    </div>
+                    <div class="alert alert-info" role="alert">
+                        <i class="fas fa-info-circle me-2"></i>
+                        5 exames aguardando resultado
+                    </div>
+                    <div class="alert alert-success" role="alert">
+                        <i class="fas fa-check-circle me-2"></i>
+                        Todas as prescrições em dia
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Medical Record Popup Modal -->
+<div class="modal fade" id="recordPopupModal" tabindex="-1" aria-labelledby="recordPopupModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="recordPopupModalLabel">
+                    <i class="fas fa-file-medical me-2"></i>Registro Médico
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <div class="row mb-3">
+                    <div class="col-md-6">
+                        <strong><i class="fas fa-calendar-day me-2"></i>Data:</strong>
+                        <span id="popup-date"></span>
+                    </div>
+                    <div class="col-md-6">
+                        <strong><i class="fas fa-clock me-2"></i>Hora:</strong>
+                        <span id="popup-time"></span>
+                    </div>
+                </div>
+                <div class="row mb-3">
+                    <div class="col-12">
+                        <strong><i class="fas fa-user-md me-2"></i>Médico:</strong>
+                        <span id="popup-doctor"></span>
+                    </div>
+                </div>
+                <hr>
+                <div class="row">
+                    <div class="col-12">
+                        <strong><i class="fas fa-file-alt me-2"></i>Conteúdo:</strong>
+                        <div class="mt-2 p-3 bg-light rounded" style="max-height: 400px; overflow-y: auto;">
+                            <div id="popup-content" class="record-popup-content"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                    <i class="fas fa-times me-1"></i>Fechar
+                </button>
+                <button type="button" class="btn btn-primary" onclick="printRecord()">
+                    <i class="fas fa-print me-1"></i>Imprimir
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- New Appointment Modal -->
+<div class="modal fade" id="newAppointmentModal" tabindex="-1" aria-labelledby="newAppointmentModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="newAppointmentModalLabel">
+                    <i class="fas fa-calendar-plus me-2"></i>Nova Consulta
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <form id="newAppointmentForm">
+                <div class="modal-body">
+                    <div class="row">
+                        <!-- Patient Selection -->
+                        <div class="col-md-6 mb-3">
+                            <label for="appointment-patient" class="form-label">
+                                <i class="fas fa-user me-1"></i>Paciente <span class="text-danger">*</span>
+                            </label>
+                            <select class="form-select" id="appointment-patient" name="patient" required>
+                                <option value="">Selecione um paciente...</option>
+                                <!-- Patients will be loaded dynamically -->
+                            </select>
+                            <div class="form-text">
+                                <a href="#" onclick="showNewPatientModal()" class="text-decoration-none">
+                                    <i class="fas fa-plus me-1"></i>Adicionar novo paciente
+                                </a>
+                            </div>
+                        </div>
+
+                        <!-- Doctor Selection -->
+                        <div class="col-md-6 mb-3">
+                            <label for="appointment-doctor" class="form-label">
+                                <i class="fas fa-user-md me-1"></i>Médico <span class="text-danger">*</span>
+                            </label>
+                            <select class="form-select" id="appointment-doctor" name="doctor" required>
+                                <option value="">Selecione um médico...</option>
+                                <!-- Doctors will be loaded dynamically -->
+                            </select>
+                        </div>
+                    </div>
+
+                    <div class="row">
+                        <!-- Appointment Date -->
+                        <div class="col-md-6 mb-3">
+                            <label for="appointment-date" class="form-label">
+                                <i class="fas fa-calendar me-1"></i>Data da Consulta <span class="text-danger">*</span>
+                            </label>
+                            <input type="date" class="form-control" id="appointment-date" name="appointment_date" required>
+                        </div>
+
+                        <!-- Appointment Time -->
+                        <div class="col-md-6 mb-3">
+                            <label for="appointment-time" class="form-label">
+                                <i class="fas fa-clock me-1"></i>Horário <span class="text-danger">*</span>
+                            </label>
+                            <input type="time" class="form-control" id="appointment-time" name="appointment_time" required>
+                        </div>
+                    </div>
+
+                    <div class="row">
+                        <!-- Duration -->
+                        <div class="col-md-4 mb-3">
+                            <label for="appointment-duration" class="form-label">
+                                <i class="fas fa-hourglass-half me-1"></i>Duração (min)
+                            </label>
+                            <select class="form-select" id="appointment-duration" name="duration_minutes">
+                                <option value="15">15 minutos</option>
+                                <option value="30" selected>30 minutos</option>
+                                <option value="45">45 minutos</option>
+                                <option value="60">1 hora</option>
+                                <option value="90">1h 30min</option>
+                                <option value="120">2 horas</option>
+                            </select>
+                        </div>
+
+                        <!-- Appointment Type -->
+                        <div class="col-md-4 mb-3">
+                            <label for="appointment-type" class="form-label">
+                                <i class="fas fa-stethoscope me-1"></i>Tipo de Consulta
+                            </label>
+                            <select class="form-select" id="appointment-type" name="appointment_type">
+                                <option value="consultation">Consulta</option>
+                                <option value="follow_up">Retorno</option>
+                                <option value="checkup">Check-up</option>
+                                <option value="emergency">Emergência</option>
+                                <option value="procedure">Procedimento</option>
+                                <option value="therapy">Terapia</option>
+                                <option value="other">Outro</option>
+                            </select>
+                        </div>
+
+                        <!-- Status -->
+                        <div class="col-md-4 mb-3">
+                            <label for="appointment-status" class="form-label">
+                                <i class="fas fa-info-circle me-1"></i>Status
+                            </label>
+                            <select class="form-select" id="appointment-status" name="status">
+                                <option value="scheduled">Agendada</option>
+                                <option value="confirmed">Confirmada</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <!-- Location -->
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label for="appointment-location" class="form-label">
+                                <i class="fas fa-map-marker-alt me-1"></i>Local
+                            </label>
+                            <input type="text" class="form-control" id="appointment-location" name="location" 
+                                   placeholder="Ex: Sala 1, Consultório A">
+                        </div>
+
+                        <!-- Reminder -->
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">
+                                <i class="fas fa-bell me-1"></i>Lembrete
+                            </label>
+                            <div class="form-check">
+                                <input class="form-check-input" type="checkbox" id="appointment-reminder" name="send_reminder">
+                                <label class="form-check-label" for="appointment-reminder">
+                                    Enviar lembrete para o paciente
+                                </label>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Reason -->
+                    <div class="mb-3">
+                        <label for="appointment-reason" class="form-label">
+                            <i class="fas fa-comment me-1"></i>Motivo da Consulta
+                        </label>
+                        <textarea class="form-control" id="appointment-reason" name="reason" rows="3" 
+                                  placeholder="Descreva o motivo da consulta..."></textarea>
+                    </div>
+
+                    <!-- Notes -->
+                    <div class="mb-3">
+                        <label for="appointment-notes" class="form-label">
+                            <i class="fas fa-sticky-note me-1"></i>Observações
+                        </label>
+                        <textarea class="form-control" id="appointment-notes" name="notes" rows="2" 
+                                  placeholder="Observações adicionais..."></textarea>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                        <i class="fas fa-times me-1"></i>Cancelar
+                    </button>
+                    <button type="submit" class="btn btn-primary">
+                        <i class="fas fa-save me-1"></i>Agendar Consulta
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- New Patient Modal (Quick Add) -->
+<div class="modal fade" id="newPatientModal" tabindex="-1" aria-labelledby="newPatientModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="newPatientModalLabel">
+                    <i class="fas fa-user-plus me-2"></i>Novo Paciente
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <form id="newPatientForm">
+                <div class="modal-body">
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label for="patient-first-name" class="form-label">Nome <span class="text-danger">*</span></label>
+                            <input type="text" class="form-control" id="patient-first-name" name="first_name" required>
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label for="patient-last-name" class="form-label">Sobrenome <span class="text-danger">*</span></label>
+                            <input type="text" class="form-control" id="patient-last-name" name="last_name" required>
+                        </div>
+                    </div>
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label for="patient-email" class="form-label">Email</label>
+                            <input type="email" class="form-control" id="patient-email" name="email">
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label for="patient-phone" class="form-label">Telefone</label>
+                            <input type="tel" class="form-control" id="patient-phone" name="phone">
+                        </div>
+                    </div>
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label for="patient-birth-date" class="form-label">Data de Nascimento <span class="text-danger">*</span></label>
+                            <input type="date" class="form-control" id="patient-birth-date" name="date_of_birth" required>
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label for="patient-gender" class="form-label">Sexo <span class="text-danger">*</span></label>
+                            <select class="form-select" id="patient-gender" name="gender" required>
+                                <option value="">Selecione...</option>
+                                <option value="M">Masculino</option>
+                                <option value="F">Feminino</option>
+                                <option value="O">Outro</option>
+                            </select>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                        <i class="fas fa-times me-1"></i>Cancelar
+                    </button>
+                    <button type="submit" class="btn btn-success">
+                        <i class="fas fa-save me-1"></i>Salvar Paciente
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_css %}
+<style>
+.cursor-pointer {
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.cursor-pointer:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+}
+
+.record-entry:hover {
+    background-color: #f8f9fa !important;
+}
+
+.record-summary {
+    max-height: 60px;
+    overflow: hidden;
+}
+
+.record-popup-content {
+    white-space: pre-wrap;
+    font-family: 'Courier New', monospace;
+    font-size: 14px;
+    line-height: 1.6;
+}
+
+/* Appointment Modal Styles */
+#newAppointmentModal .modal-dialog {
+    max-width: 800px;
+}
+
+#newAppointmentModal .form-label {
+    font-weight: 600;
+    color: #495057;
+    margin-bottom: 0.5rem;
+}
+
+#newAppointmentModal .form-control,
+#newAppointmentModal .form-select {
+    border-radius: 0.375rem;
+    border: 1px solid #ced4da;
+    transition: border-color 0.15s ease-in-out, box-shadow 0.15s ease-in-out;
+}
+
+#newAppointmentModal .form-control:focus,
+#newAppointmentModal .form-select:focus {
+    border-color: #80bdff;
+    box-shadow: 0 0 0 0.2rem rgba(0, 123, 255, 0.25);
+}
+
+#newAppointmentModal .text-danger {
+    color: #dc3545 !important;
+}
+
+#newAppointmentModal .form-text a {
+    color: #007bff;
+    text-decoration: none;
+    font-size: 0.875rem;
+}
+
+#newAppointmentModal .form-text a:hover {
+    text-decoration: underline;
+}
+
+#newAppointmentModal .modal-header {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    border-bottom: none;
+}
+
+#newAppointmentModal .modal-header .btn-close {
+    filter: invert(1);
+}
+
+#newAppointmentModal .modal-title {
+    font-weight: 600;
+}
+
+#newAppointmentModal .modal-footer {
+    border-top: 1px solid #dee2e6;
+    background-color: #f8f9fa;
+}
+
+/* Patient Modal Styles */
+#newPatientModal .modal-dialog {
+    max-width: 600px;
+}
+
+#newPatientModal .form-label {
+    font-weight: 600;
+    color: #495057;
+    margin-bottom: 0.5rem;
+}
+
+#newPatientModal .form-control,
+#newPatientModal .form-select {
+    border-radius: 0.375rem;
+    border: 1px solid #ced4da;
+    transition: border-color 0.15s ease-in-out, box-shadow 0.15s ease-in-out;
+}
+
+#newPatientModal .form-control:focus,
+#newPatientModal .form-select:focus {
+    border-color: #28a745;
+    box-shadow: 0 0 0 0.2rem rgba(40, 167, 69, 0.25);
+}
+
+#newPatientModal .text-danger {
+    color: #dc3545 !important;
+}
+
+#newPatientModal .modal-header {
+    background: linear-gradient(135deg, #28a745 0%, #20c997 100%);
+    color: white;
+    border-bottom: none;
+}
+
+#newPatientModal .modal-header .btn-close {
+    filter: invert(1);
+}
+
+#newPatientModal .modal-title {
+    font-weight: 600;
+}
+
+#newPatientModal .modal-footer {
+    border-top: 1px solid #dee2e6;
+    background-color: #f8f9fa;
+}
+
+/* Loading states */
+.btn:disabled {
+    opacity: 0.65;
+    cursor: not-allowed;
+}
+
+.fa-spinner {
+    animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+}
+
+/* Form validation styles */
+.is-invalid {
+    border-color: #dc3545;
+}
+
+.is-valid {
+    border-color: #28a745;
+}
+
+.invalid-feedback {
+    display: block;
+    width: 100%;
+    margin-top: 0.25rem;
+    font-size: 0.875rem;
+    color: #dc3545;
+}
+
+.valid-feedback {
+    display: block;
+    width: 100%;
+    margin-top: 0.25rem;
+    font-size: 0.875rem;
+    color: #28a745;
+}
+
+/* Modern Stats Cards Styles - Vertical Stack */
+.stats-card {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    border: none;
+    border-radius: 15px;
+    box-shadow: 0 8px 25px rgba(0, 0, 0, 0.1);
+    transition: all 0.3s ease;
+    overflow: hidden;
+    position: relative;
+    height: 80px;
+}
+
+.stats-card::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: linear-gradient(135deg, rgba(255, 255, 255, 0.1) 0%, rgba(255, 255, 255, 0.05) 100%);
+    pointer-events: none;
+}
+
+.stats-card:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 15px 35px rgba(0, 0, 0, 0.15);
+}
+
+.stats-card-primary {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+}
+
+.stats-card-success {
+    background: linear-gradient(135deg, #56ab2f 0%, #a8e6cf 100%);
+}
+
+.stats-card-info {
+    background: linear-gradient(135deg, #3498db 0%, #2980b9 100%);
+}
+
+.stats-card-warning {
+    background: linear-gradient(135deg, #f39c12 0%, #e67e22 100%);
+}
+
+.stats-card-body {
+    padding: 1rem 1.5rem;
+    position: relative;
+    z-index: 1;
+    height: 100%;
+    display: flex;
+    align-items: center;
+}
+
+.stats-content {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    color: white;
+    width: 100%;
+}
+
+.stats-info {
+    flex: 1;
+}
+
+.stats-title {
+    font-size: 0.8rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    margin-bottom: 0.25rem;
+    opacity: 0.9;
+}
+
+.stats-number {
+    font-size: 2rem;
+    font-weight: 700;
+    margin: 0;
+    line-height: 1;
+}
+
+.stats-icon {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 50px;
+    height: 50px;
+    background: rgba(255, 255, 255, 0.2);
+    border-radius: 50%;
+    backdrop-filter: blur(10px);
+    border: 1px solid rgba(255, 255, 255, 0.3);
+    flex-shrink: 0;
+}
+
+.stats-icon i {
+    font-size: 1.25rem;
+    color: white;
+}
+
+/* Animation for numbers */
+.stats-number {
+    animation: countUp 1s ease-out;
+}
+
+@keyframes countUp {
+    from {
+        opacity: 0;
+        transform: translateY(20px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+    .stats-card {
+        height: 70px;
+    }
+    
+    .stats-card-body {
+        padding: 0.75rem 1rem;
+    }
+    
+    .stats-title {
+        font-size: 0.75rem;
+    }
+    
+    .stats-number {
+        font-size: 1.75rem;
+    }
+    
+    .stats-icon {
+        width: 45px;
+        height: 45px;
+    }
+    
+    .stats-icon i {
+        font-size: 1.1rem;
+    }
+}
+
+/* Calendar Full Screen Styles */
+.calendar-week-container {
+    height: calc(100vh - 300px);
+    min-height: 500px;
+    max-height: 800px;
+    overflow: hidden;
+    display: flex;
+    border: 1px solid #e3e6f0;
+    border-radius: 8px;
+}
+
+.calendar-time-column {
+    width: 80px;
+    background-color: #f8f9fc;
+    border-right: 1px solid #e3e6f0;
+    flex-shrink: 0;
+}
+
+.time-header {
+    height: 40px;
+    background-color: #5a5c69;
+    color: white;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 600;
+    font-size: 0.875rem;
+}
+
+.time-slots {
+    height: calc(100% - 40px);
+    overflow-y: auto;
+    scrollbar-width: thin;
+    scrollbar-color: #c1c1c1 #f1f1f1;
+}
+
+.time-slots::-webkit-scrollbar {
+    width: 6px;
+}
+
+.time-slots::-webkit-scrollbar-track {
+    background: #f1f1f1;
+}
+
+.time-slots::-webkit-scrollbar-thumb {
+    background: #c1c1c1;
+    border-radius: 3px;
+}
+
+.time-slots::-webkit-scrollbar-thumb:hover {
+    background: #a8a8a8;
+}
+
+.time-slot {
+    height: 30px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.75rem;
+    color: #6c757d;
+    border-bottom: 1px solid #e3e6f0;
+    background-color: #fff;
+}
+
+.time-slot:nth-child(even) {
+    background-color: #f8f9fc;
+}
+
+.calendar-days-container {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+}
+
+.calendar-day-header {
+    height: 40px;
+    background-color: #5a5c69;
+    color: white;
+    display: flex;
+    border-bottom: 1px solid #e3e6f0;
+}
+
+.day-header {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 600;
+    font-size: 0.875rem;
+    border-right: 1px solid #e3e6f0;
+}
+
+.day-header:last-child {
+    border-right: none;
+}
+
+.calendar-day-dates {
+    height: 40px;
+    background-color: #f8f9fc;
+    display: flex;
+    border-bottom: 1px solid #e3e6f0;
+}
+
+.day-date {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 600;
+    font-size: 0.875rem;
+    color: #5a5c69;
+    border-right: 1px solid #e3e6f0;
+}
+
+.day-date:last-child {
+    border-right: none;
+}
+
+.day-date.today {
+    background-color: #e3f2fd;
+    color: #1976d2;
+    border-radius: 50%;
+    width: 30px;
+    height: 30px;
+    margin: 0 auto;
+}
+
+.calendar-grid {
+    flex: 1;
+    display: flex;
+    overflow-y: auto;
+    scrollbar-width: thin;
+    scrollbar-color: #c1c1c1 #f1f1f1;
+}
+
+.calendar-grid::-webkit-scrollbar {
+    width: 6px;
+}
+
+.calendar-grid::-webkit-scrollbar-track {
+    background: #f1f1f1;
+}
+
+.calendar-grid::-webkit-scrollbar-thumb {
+    background: #c1c1c1;
+    border-radius: 3px;
+}
+
+.calendar-grid::-webkit-scrollbar-thumb:hover {
+    background: #a8a8a8;
+}
+
+.day-column {
+    flex: 1;
+    border-right: 1px solid #e3e6f0;
+    position: relative;
+}
+
+.day-column:last-child {
+    border-right: none;
+}
+
+.day-column.today {
+    background-color: rgba(25, 118, 210, 0.05);
+}
+
+.time-grid {
+    position: relative;
+    height: 1440px; /* 24 hours * 60 minutes = 1440px */
+}
+
+.time-grid::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background-image: 
+        repeating-linear-gradient(
+            to bottom,
+            transparent 0px,
+            transparent 29px,
+            #e3e6f0 30px,
+            #e3e6f0 30px
+        );
+    pointer-events: none;
+}
+
+.calendar-event {
+    position: absolute;
+    left: 2px;
+    right: 2px;
+    background-color: #4285f4;
+    color: white;
+    border-radius: 4px;
+    padding: 2px 4px;
+    font-size: 0.75rem;
+    cursor: pointer;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
+    transition: all 0.2s ease;
+    z-index: 10;
+}
+
+.calendar-event:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.3);
+}
+
+.event-title {
+    font-weight: 600;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.event-time {
+    font-size: 0.7rem;
+    opacity: 0.9;
+}
+
+.event-type {
+    font-size: 0.65rem;
+    opacity: 0.8;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+/* Current time indicator */
+.current-time-line {
+    position: absolute;
+    left: 0;
+    right: 0;
+    height: 2px;
+    background-color: #dc3545;
+    z-index: 20;
+    box-shadow: 0 0 4px rgba(220, 53, 69, 0.5);
+}
+
+.current-time-line::before {
+    content: '';
+    position: absolute;
+    left: -4px;
+    top: -3px;
+    width: 8px;
+    height: 8px;
+    background-color: #dc3545;
+    border-radius: 50%;
+    box-shadow: 0 0 4px rgba(220, 53, 69, 0.5);
+}
+</style>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+let selectedPatient = null;
+
+function switchTab(tabName) {
+    // Check if trying to access other tabs without selecting a patient
+    if (tabName !== 'agenda' && !selectedPatient) {
+        alert('Por favor, selecione um paciente na agenda primeiro.');
+        return;
+    }
+    
+    // Hide all tab contents
+    const tabContents = document.querySelectorAll('.tab-content');
+    tabContents.forEach(content => {
+        content.style.display = 'none';
+        content.classList.remove('active');
+    });
+    
+    // Show selected tab content
+    const selectedTab = document.getElementById(tabName + '-tab');
+    if (selectedTab) {
+        selectedTab.style.display = 'block';
+        selectedTab.classList.add('active');
+    }
+    
+    // Update button states
+    const buttons = document.querySelectorAll('.btn-group .btn');
+    buttons.forEach(btn => {
+        btn.classList.remove('btn-primary');
+        btn.classList.add('btn-outline-primary');
+    });
+    
+    // Highlight active button
+    event.target.classList.remove('btn-outline-primary');
+    event.target.classList.add('btn-primary');
+}
+
+function selectPatient(patientName, patientId) {
+    selectedPatient = {
+        name: patientName,
+        id: patientId
+    };
+    
+    // Update the persistent patient selection header
+    updatePatientSelectionHeader(patientName, 'selected');
+    
+    // Enable all other tabs
+    const disabledButtons = document.querySelectorAll('.btn-group .btn.disabled');
+    disabledButtons.forEach(btn => {
+        btn.classList.remove('disabled');
+        btn.disabled = false;
+    });
+    
+    // Update patient info in all tabs
+    updatePatientInfo(patientName);
+    
+    // Load patient-specific data for prontuarios tab
+    loadPatientProntuarios(patientId);
+    
+    // Show success message
+    showNotification(`Paciente ${patientName} selecionado. Agora você pode acessar os outros módulos.`, 'success');
+    
+    // Update the page title to show selected patient
+    document.title = `Dashboard Médico - ${patientName}`;
+}
+
+function updatePatientSelectionHeader(patientName, status) {
+    const patientNameElement = document.getElementById('selected-patient-name');
+    const patientInfoElement = document.getElementById('selected-patient-info');
+    const patientStatusBadge = document.getElementById('patient-status-badge');
+    const clearPatientBtn = document.getElementById('clear-patient-btn');
+    const patientHeader = document.getElementById('patient-selection-header');
+    
+    if (status === 'selected') {
+        patientNameElement.textContent = patientName;
+        patientInfoElement.textContent = 'Paciente selecionado - Acesso liberado a todos os módulos';
+        patientStatusBadge.textContent = 'Paciente Selecionado';
+        patientStatusBadge.className = 'badge bg-success me-2';
+        clearPatientBtn.style.display = 'inline-block';
+        patientHeader.className = 'card border-success shadow-sm';
+    } else {
+        patientNameElement.textContent = 'Nenhum paciente selecionado';
+        patientInfoElement.textContent = 'Selecione um paciente na agenda para acessar os módulos';
+        patientStatusBadge.textContent = 'Aguardando seleção';
+        patientStatusBadge.className = 'badge bg-secondary me-2';
+        clearPatientBtn.style.display = 'none';
+        patientHeader.className = 'card border-0 shadow-sm';
+    }
+}
+
+function clearPatientSelection() {
+    selectedPatient = null;
+    
+    // Update the persistent patient selection header
+    updatePatientSelectionHeader('', 'none');
+    
+    // Disable all other tabs except agenda
+    const allButtons = document.querySelectorAll('.btn-group .btn');
+    allButtons.forEach((btn, index) => {
+        if (index > 0) { // Skip the first button (Agenda)
+            btn.classList.add('disabled');
+            btn.disabled = true;
+        }
+    });
+    
+    // Switch back to agenda tab
+    switchTab('agenda');
+    
+    // Show info message
+    showNotification('Seleção de paciente limpa. Selecione um paciente na agenda para continuar.', 'info');
+    
+    // Reset page title
+    document.title = 'Dashboard Médico - MedSaaS';
+}
+
+function updatePatientInfo(patientName) {
+    // Update patient info in prontuários tab
+    const prontuariosInfo = document.getElementById('patient-info-prontuarios');
+    if (prontuariosInfo) {
+        prontuariosInfo.textContent = `Visualizando prontuário de: ${patientName}`;
+    }
+    
+    // Update patient info in exames tab
+    const examesInfo = document.getElementById('patient-info-exames');
+    if (examesInfo) {
+        examesInfo.textContent = `Visualizando histórico de exames de: ${patientName}`;
+    }
+    
+    // Update patient info in timeline tab
+    const timelineInfo = document.getElementById('patient-info-timeline');
+    if (timelineInfo) {
+        timelineInfo.textContent = `Visualizando linha do tempo clínica de: ${patientName}`;
+    }
+    
+    // Update patient info in prescrição tab
+    const prescricaoInfo = document.getElementById('patient-info-prescricao');
+    if (prescricaoInfo) {
+        prescricaoInfo.textContent = `Visualizando prescrições de: ${patientName}`;
+    }
+}
+
+function loadPatientProntuarios(patientId, offset = 0) {
+    // Load patient-specific medical records for prontuarios tab
+    if (patientId) {
+        // Make AJAX request to get patient-specific records
+        const url = `/dashboard/prontuarios/?patient_id=${patientId}&offset=${offset}&limit=2`;
+        fetch(url)
+            .then(response => response.text())
+            .then(html => {
+                // Update the prontuarios tab content
+                const prontuariosTab = document.getElementById('prontuarios-tab');
+                if (prontuariosTab) {
+                    // Parse the response and extract the prontuarios tab content
+                    const parser = new DOMParser();
+                    const doc = parser.parseFromString(html, 'text/html');
+                    const newProntuariosTab = doc.getElementById('prontuarios-tab');
+                    if (newProntuariosTab) {
+                        prontuariosTab.innerHTML = newProntuariosTab.innerHTML;
+                        // Re-attach event listeners
+                        attachProntuarioEventListeners();
+                    }
+                }
+            })
+            .catch(error => {
+                console.error('Error loading patient prontuarios:', error);
+            });
+    }
+}
+
+function loadOlderRecords(offset) {
+    const patientId = document.getElementById('patient-id');
+    if (patientId) {
+        // Show loading state
+        const loadBtn = event.target;
+        const originalText = loadBtn.innerHTML;
+        loadBtn.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i>Carregando...';
+        loadBtn.disabled = true;
+        
+        // Load older records and append them
+        loadOlderRecordsAjax(patientId.value, offset, loadBtn, originalText);
+    }
+}
+
+function loadOlderRecordsAjax(patientId, offset, loadBtn, originalText) {
+    const url = `/dashboard/prontuarios/?patient_id=${patientId}&offset=${offset}&limit=3`;
+    
+    fetch(url)
+        .then(response => response.text())
+        .then(html => {
+            // Parse the response to extract only the new records
+            const parser = new DOMParser();
+            const doc = parser.parseFromString(html, 'text/html');
+            const newRecordsContent = doc.getElementById('records-content');
+            
+            if (newRecordsContent) {
+                const currentRecordsContent = document.getElementById('records-content');
+                
+                // Find and remove the existing load more button
+                const existingLoadMoreContainer = currentRecordsContent.querySelector('.text-center.mt-3');
+                if (existingLoadMoreContainer) {
+                    existingLoadMoreContainer.remove();
+                }
+                
+                // Extract new records and new load more button from response
+                const newRecords = newRecordsContent.querySelectorAll('.record-entry');
+                const newLoadMoreContainer = newRecordsContent.querySelector('.text-center.mt-3');
+                
+                // Append all new records at the end
+                newRecords.forEach(record => {
+                    currentRecordsContent.appendChild(record);
+                });
+                
+                // Add the new load more button or completion message at the very end
+                if (newLoadMoreContainer) {
+                    currentRecordsContent.appendChild(newLoadMoreContainer);
+                } else {
+                    // If no more records, show completion message
+                    const completionDiv = document.createElement('div');
+                    completionDiv.className = 'text-center mt-3';
+                    completionDiv.innerHTML = `
+                        <small class="text-muted">
+                            <i class="fas fa-check-circle me-1"></i>
+                            Todos os registros foram carregados
+                        </small>
+                    `;
+                    currentRecordsContent.appendChild(completionDiv);
+                }
+            }
+        })
+        .catch(error => {
+            console.error('Error loading older records:', error);
+            showNotification('Erro ao carregar registros anteriores.', 'error');
+        })
+        .finally(() => {
+            // Restore button state
+            loadBtn.innerHTML = originalText;
+            loadBtn.disabled = false;
+        });
+}
+
+function attachProntuarioEventListeners() {
+    // Attach form submit event listener
+    const form = document.getElementById('new-record-form');
+    if (form) {
+        form.addEventListener('submit', function(e) {
+            e.preventDefault();
+            saveNewRecord();
+        });
+    }
+}
+
+function saveNewRecord() {
+    const patientId = document.getElementById('patient-id');
+    const content = document.getElementById('new-record-content');
+    
+    if (!patientId || !content) {
+        showNotification('Erro: Dados do paciente não encontrados.', 'error');
+        return;
+    }
+    
+    const contentText = content.value.trim();
+    if (!contentText) {
+        showNotification('Por favor, digite o conteúdo da entrada.', 'warning');
+        content.focus();
+        return;
+    }
+    
+    // Show loading state
+    const submitBtn = document.querySelector('#new-record-form button[type="submit"]');
+    const originalText = submitBtn.innerHTML;
+    submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i>Salvando...';
+    submitBtn.disabled = true;
+    
+    // Prepare form data
+    const formData = new FormData();
+    formData.append('patient_id', patientId.value);
+    formData.append('content', contentText);
+    
+    // Make AJAX request
+    fetch('/dashboard/add-medical-record/', {
+        method: 'POST',
+        body: formData,
+        headers: {
+            'X-CSRFToken': getCookie('csrftoken')
+        }
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            // Clear the form
+            content.value = '';
+            
+            // Reload the prontuarios tab to show the new record
+            loadPatientProntuarios(patientId.value);
+            
+            showNotification('Entrada salva com sucesso!', 'success');
+        } else {
+            showNotification('Erro ao salvar: ' + (data.error || 'Erro desconhecido'), 'error');
+        }
+    })
+    .catch(error => {
+        console.error('Error saving record:', error);
+        showNotification('Erro ao salvar a entrada. Tente novamente.', 'error');
+    })
+    .finally(() => {
+        // Restore button state
+        submitBtn.innerHTML = originalText;
+        submitBtn.disabled = false;
+    });
+}
+
+function clearNewRecord() {
+    const content = document.getElementById('new-record-content');
+    if (content) {
+        content.value = '';
+        content.focus();
+    }
+}
+
+function printProntuario() {
+    const patientName = selectedPatient ? selectedPatient.name : 'Paciente';
+    const printWindow = window.open('', '_blank');
+    
+    // Get the records content
+    const recordsContent = document.getElementById('records-content');
+    if (!recordsContent) {
+        showNotification('Nenhum conteúdo para imprimir.', 'warning');
+        return;
+    }
+    
+    printWindow.document.write(`
+        <!DOCTYPE html>
+        <html>
+        <head>
+            <title>Prontuário - ${patientName}</title>
+            <style>
+                body { font-family: Arial, sans-serif; margin: 20px; }
+                .header { text-align: center; margin-bottom: 30px; border-bottom: 2px solid #333; padding-bottom: 10px; }
+                .record-date-group { margin-bottom: 20px; }
+                .date-header { color: #007bff; font-weight: bold; border-bottom: 1px solid #ccc; padding-bottom: 5px; margin-bottom: 10px; }
+                .record-entry { margin-bottom: 15px; padding: 10px; border-left: 3px solid #007bff; background-color: #f8f9fa; }
+                .record-time { font-size: 12px; color: #666; }
+                .record-content { margin-top: 5px; }
+                @media print { body { margin: 0; } }
+            </style>
+        </head>
+        <body>
+            <div class="header">
+                <h1>Prontuário Médico</h1>
+                <h2>${patientName}</h2>
+                <p>Data de impressão: ${new Date().toLocaleDateString('pt-BR')}</p>
+            </div>
+            ${recordsContent.innerHTML}
+        </body>
+        </html>
+    `);
+    
+    printWindow.document.close();
+    printWindow.print();
+}
+
+// Helper function to get CSRF token
+function getCookie(name) {
+    let cookieValue = null;
+    if (document.cookie && document.cookie !== '') {
+        const cookies = document.cookie.split(';');
+        for (let i = 0; i < cookies.length; i++) {
+            const cookie = cookies[i].trim();
+            if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                break;
+            }
+        }
+    }
+    return cookieValue;
+}
+
+// Global variable to store current record data for printing
+let currentRecordData = null;
+
+function showRecordPopup(recordId, date, time, doctor, content) {
+    // Store record data for printing
+    currentRecordData = {
+        id: recordId,
+        date: date,
+        time: time,
+        doctor: doctor,
+        content: content
+    };
+    
+    // Populate modal with record data
+    document.getElementById('popup-date').textContent = date;
+    document.getElementById('popup-time').textContent = time;
+    document.getElementById('popup-doctor').textContent = doctor;
+    document.getElementById('popup-content').textContent = content;
+    
+    // Show the modal
+    const modal = new bootstrap.Modal(document.getElementById('recordPopupModal'));
+    modal.show();
+}
+
+function printRecord() {
+    if (!currentRecordData) {
+        showNotification('Nenhum registro selecionado para impressão.', 'warning');
+        return;
+    }
+    
+    const printWindow = window.open('', '_blank');
+    const patientName = selectedPatient ? selectedPatient.name : 'Paciente';
+    
+    printWindow.document.write(`
+        <!DOCTYPE html>
+        <html>
+        <head>
+            <title>Registro Médico - ${patientName}</title>
+            <style>
+                body { 
+                    font-family: Arial, sans-serif; 
+                    margin: 20px; 
+                    line-height: 1.6;
+                }
+                .header { 
+                    text-align: center; 
+                    margin-bottom: 30px; 
+                    border-bottom: 2px solid #333; 
+                    padding-bottom: 10px; 
+                }
+                .record-info {
+                    background-color: #f8f9fa;
+                    padding: 15px;
+                    border-radius: 5px;
+                    margin-bottom: 20px;
+                }
+                .record-content {
+                    background-color: #fff;
+                    border: 1px solid #ddd;
+                    padding: 20px;
+                    border-radius: 5px;
+                    white-space: pre-wrap;
+                    font-family: 'Courier New', monospace;
+                    font-size: 14px;
+                }
+                @media print { 
+                    body { margin: 0; } 
+                }
+            </style>
+        </head>
+        <body>
+            <div class="header">
+                <h1>Registro Médico</h1>
+                <h2>${patientName}</h2>
+                <p>Data de impressão: ${new Date().toLocaleDateString('pt-BR')}</p>
+            </div>
+            
+            <div class="record-info">
+                <p><strong>Data:</strong> ${currentRecordData.date}</p>
+                <p><strong>Hora:</strong> ${currentRecordData.time}</p>
+                <p><strong>Médico:</strong> ${currentRecordData.doctor}</p>
+            </div>
+            
+            <div class="record-content">
+                ${currentRecordData.content}
+            </div>
+        </body>
+        </html>
+    `);
+    
+    printWindow.document.close();
+    printWindow.print();
+}
+
+function showNotification(message, type = 'info') {
+    const alertDiv = document.createElement('div');
+    alertDiv.className = `alert alert-${type} alert-dismissible fade show position-fixed`;
+    alertDiv.style.cssText = 'top: 20px; right: 20px; z-index: 9999; min-width: 300px;';
+    alertDiv.innerHTML = `
+        ${message}
+        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+    `;
+    
+    document.body.appendChild(alertDiv);
+    
+    // Auto-remove after 5 seconds
+    setTimeout(() => {
+        if (alertDiv.parentNode) {
+            alertDiv.remove();
+        }
+    }, 5000);
+}
+
+// Calendar functionality
+let currentDate = new Date();
+let currentView = 'week';
+
+function switchCalendarView(view) {
+    currentView = view;
+    
+    // Hide all calendar views
+    document.querySelectorAll('.calendar-view').forEach(view => {
+        view.style.display = 'none';
+    });
+    
+    // Show selected view
+    document.getElementById(view + '-view').style.display = 'block';
+    
+    // Update button states
+    document.querySelectorAll('[id$="-view-btn"]').forEach(btn => {
+        btn.classList.remove('btn-primary');
+        btn.classList.add('btn-outline-primary');
+    });
+    
+    document.getElementById(view + '-view-btn').classList.remove('btn-outline-primary');
+    document.getElementById(view + '-view-btn').classList.add('btn-primary');
+    
+    // Update display based on view
+    updateCalendarDisplay();
+}
+
+function navigateWeek(direction) {
+    currentDate.setDate(currentDate.getDate() + (direction * 7));
+    updateCalendarDisplay();
+}
+
+function goToToday() {
+    currentDate = new Date();
+    updateCalendarDisplay();
+}
+
+function updateCalendarDisplay() {
+    const weekDisplay = document.getElementById('current-week-display');
+    if (weekDisplay) {
+        const startOfWeek = getStartOfWeek(currentDate);
+        const endOfWeek = getEndOfWeek(currentDate);
+        
+        const startStr = startOfWeek.toLocaleDateString('pt-BR', { day: 'numeric', month: 'short' });
+        const endStr = endOfWeek.toLocaleDateString('pt-BR', { day: 'numeric', month: 'short', year: 'numeric' });
+        
+        weekDisplay.textContent = `${startStr} - ${endStr}`;
+    }
+    
+    // Update day dates in week view
+    updateWeekViewDates();
+}
+
+function getStartOfWeek(date) {
+    const d = new Date(date);
+    const day = d.getDay();
+    const diff = d.getDate() - day;
+    return new Date(d.setDate(diff));
+}
+
+function getEndOfWeek(date) {
+    const start = getStartOfWeek(date);
+    const end = new Date(start);
+    end.setDate(start.getDate() + 6);
+    return end;
+}
+
+function updateWeekViewDates() {
+    const startOfWeek = getStartOfWeek(currentDate);
+    const dayDates = document.querySelectorAll('.day-date');
+    const dayColumns = document.querySelectorAll('.day-column');
+    
+    for (let i = 0; i < 7; i++) {
+        const date = new Date(startOfWeek);
+        date.setDate(startOfWeek.getDate() + i);
+        dayDates[i].textContent = date.getDate();
+        
+        // Highlight today
+        const today = new Date();
+        if (date.toDateString() === today.toDateString()) {
+            dayDates[i].classList.add('today');
+            dayColumns[i].classList.add('today');
+        } else {
+            dayDates[i].classList.remove('today');
+            dayColumns[i].classList.remove('today');
+        }
+    }
+}
+
+// Synchronize scrolling between time column and calendar grid
+function initializeCalendarScrolling() {
+    const timeSlots = document.querySelector('.time-slots');
+    const calendarGrid = document.querySelector('.calendar-grid');
+    
+    if (timeSlots && calendarGrid) {
+        // Sync time column scroll with calendar grid
+        timeSlots.addEventListener('scroll', function() {
+            calendarGrid.scrollTop = timeSlots.scrollTop;
+        });
+        
+        // Sync calendar grid scroll with time column
+        calendarGrid.addEventListener('scroll', function() {
+            timeSlots.scrollTop = calendarGrid.scrollTop;
+        });
+        
+        // Auto-scroll to current hour
+        scrollToCurrentHour();
+    }
+}
+
+// Auto-scroll to current hour
+function scrollToCurrentHour() {
+    const timeSlots = document.querySelector('.time-slots');
+    const calendarGrid = document.querySelector('.calendar-grid');
+    
+    if (timeSlots && calendarGrid) {
+        const now = new Date();
+        const currentHour = now.getHours();
+        const currentMinute = now.getMinutes();
+        
+        // Calculate scroll position (each hour is 60px, each 30-min slot is 30px)
+        const scrollPosition = (currentHour * 60) + (currentMinute * 1) - 200; // Offset to center current time
+        
+        // Smooth scroll to current time
+        timeSlots.scrollTo({
+            top: Math.max(0, scrollPosition),
+            behavior: 'smooth'
+        });
+        
+        calendarGrid.scrollTo({
+            top: Math.max(0, scrollPosition),
+            behavior: 'smooth'
+        });
+    }
+}
+
+// Calculate event position based on time
+function calculateEventPosition(timeString) {
+    // Parse time string (e.g., "09:00", "14:30")
+    const [hours, minutes] = timeString.split(':').map(Number);
+    
+    // Calculate position from 00:00 (start of calendar)
+    const totalMinutes = hours * 60 + minutes;
+    
+    // Each 30-minute slot is 30px high, so 1px per minute
+    return totalMinutes;
+}
+
+// Calculate event height based on duration
+function calculateEventHeight(durationMinutes = 30) {
+    return durationMinutes; // 1px per minute
+}
+
+// Fix event positions to match time slots
+function fixEventPositions() {
+    const events = document.querySelectorAll('.calendar-event');
+    
+    events.forEach(event => {
+        const timeString = event.getAttribute('data-time');
+        const duration = parseInt(event.getAttribute('data-duration')) || 30;
+        const color = event.getAttribute('data-color') || '#4285f4';
+        
+        if (timeString) {
+            const topPosition = calculateEventPosition(timeString);
+            const height = calculateEventHeight(duration);
+            
+            event.style.top = topPosition + 'px';
+            event.style.height = height + 'px';
+            event.style.backgroundColor = color;
+        }
+    });
+}
+
+// Add current time indicator
+function addCurrentTimeIndicator() {
+    const dayColumns = document.querySelectorAll('.day-column');
+    const now = new Date();
+    const currentHour = now.getHours();
+    const currentMinute = now.getMinutes();
+    
+    // Calculate position for current time
+    const currentTimePosition = (currentHour * 60) + currentMinute;
+    
+    dayColumns.forEach(column => {
+        // Remove existing current time line
+        const existingLine = column.querySelector('.current-time-line');
+        if (existingLine) {
+            existingLine.remove();
+        }
+        
+        // Only show current time line for today
+        if (column.classList.contains('today')) {
+            const timeGrid = column.querySelector('.time-grid');
+            if (timeGrid) {
+                const currentTimeLine = document.createElement('div');
+                currentTimeLine.className = 'current-time-line';
+                currentTimeLine.style.top = currentTimePosition + 'px';
+                timeGrid.appendChild(currentTimeLine);
+            }
+        }
+    });
+}
+
+// Set default active tab to 'agenda'
+document.addEventListener('DOMContentLoaded', function() {
+    // Set the first button (Agenda) as active by default
+    const firstButton = document.querySelector('.btn-group .btn');
+    if (firstButton) {
+        firstButton.classList.remove('btn-outline-primary');
+        firstButton.classList.add('btn-primary');
+    }
+    
+    // Initialize patient selection header
+    updatePatientSelectionHeader('', 'none');
+    
+    // Initialize calendar
+    updateCalendarDisplay();
+    
+    // Initialize calendar scrolling synchronization
+    initializeCalendarScrolling();
+    
+    // Fix event positions
+    fixEventPositions();
+    
+    // Add current time indicator
+    addCurrentTimeIndicator();
+    
+    // Attach prontuario event listeners
+    attachProntuarioEventListeners();
+    
+    // Show initial message
+    showNotification('Selecione um paciente na agenda para acessar os outros módulos.', 'info');
+    
+    // Load patients and doctors for appointment modal
+    loadPatientsAndDoctors();
+});
+
+// Appointment Modal Functions
+function showNewAppointmentModal() {
+    const modal = new bootstrap.Modal(document.getElementById('newAppointmentModal'));
+    
+    // Set default date to today
+    const today = new Date().toISOString().split('T')[0];
+    document.getElementById('appointment-date').value = today;
+    
+    // Set default time to next hour
+    const nextHour = new Date();
+    nextHour.setHours(nextHour.getHours() + 1, 0, 0, 0);
+    document.getElementById('appointment-time').value = nextHour.toTimeString().slice(0, 5);
+    
+    modal.show();
+}
+
+function showNewPatientModal() {
+    // Close appointment modal first
+    const appointmentModal = bootstrap.Modal.getInstance(document.getElementById('newAppointmentModal'));
+    if (appointmentModal) {
+        appointmentModal.hide();
+    }
+    
+    // Show patient modal
+    const modal = new bootstrap.Modal(document.getElementById('newPatientModal'));
+    modal.show();
+}
+
+function loadPatientsAndDoctors() {
+    // Load patients
+    fetch('/dashboard/api/patients/')
+        .then(response => response.json())
+        .then(data => {
+            const patientSelect = document.getElementById('appointment-patient');
+            patientSelect.innerHTML = '<option value="">Selecione um paciente...</option>';
+            
+            if (data.success && data.patients) {
+                data.patients.forEach(patient => {
+                    const option = document.createElement('option');
+                    option.value = patient.id;
+                    option.textContent = `${patient.first_name} ${patient.last_name}`;
+                    patientSelect.appendChild(option);
+                });
+            }
+        })
+        .catch(error => {
+            console.error('Error loading patients:', error);
+        });
+    
+    // Load doctors
+    fetch('/dashboard/api/doctors/')
+        .then(response => response.json())
+        .then(data => {
+            const doctorSelect = document.getElementById('appointment-doctor');
+            doctorSelect.innerHTML = '<option value="">Selecione um médico...</option>';
+            
+            if (data.success && data.doctors) {
+                data.doctors.forEach(doctor => {
+                    const option = document.createElement('option');
+                    option.value = doctor.id;
+                    option.textContent = doctor.full_name;
+                    doctorSelect.appendChild(option);
+                });
+            }
+        })
+        .catch(error => {
+            console.error('Error loading doctors:', error);
+        });
+}
+
+// Handle new appointment form submission
+document.addEventListener('DOMContentLoaded', function() {
+    const appointmentForm = document.getElementById('newAppointmentForm');
+    if (appointmentForm) {
+        appointmentForm.addEventListener('submit', function(e) {
+            e.preventDefault();
+            submitNewAppointment();
+        });
+    }
+    
+    const patientForm = document.getElementById('newPatientForm');
+    if (patientForm) {
+        patientForm.addEventListener('submit', function(e) {
+            e.preventDefault();
+            submitNewPatient();
+        });
+    }
+});
+
+function submitNewAppointment() {
+    const form = document.getElementById('newAppointmentForm');
+    const formData = new FormData(form);
+    
+    // Show loading state
+    const submitBtn = form.querySelector('button[type="submit"]');
+    const originalText = submitBtn.innerHTML;
+    submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i>Agendando...';
+    submitBtn.disabled = true;
+    
+    fetch('/dashboard/api/appointments/', {
+        method: 'POST',
+        body: formData,
+        headers: {
+            'X-CSRFToken': getCookie('csrftoken')
+        }
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            // Close modal
+            const modal = bootstrap.Modal.getInstance(document.getElementById('newAppointmentModal'));
+            modal.hide();
+            
+            // Reset form
+            form.reset();
+            
+            // Show success message
+            showNotification('Consulta agendada com sucesso!', 'success');
+            
+            // Reload the page to show the new appointment
+            setTimeout(() => {
+                window.location.reload();
+            }, 1500);
+        } else {
+            showNotification('Erro ao agendar consulta: ' + (data.error || 'Erro desconhecido'), 'error');
+        }
+    })
+    .catch(error => {
+        console.error('Error creating appointment:', error);
+        showNotification('Erro ao agendar consulta. Tente novamente.', 'error');
+    })
+    .finally(() => {
+        // Restore button state
+        submitBtn.innerHTML = originalText;
+        submitBtn.disabled = false;
+    });
+}
+
+function submitNewPatient() {
+    const form = document.getElementById('newPatientForm');
+    const formData = new FormData(form);
+    
+    // Show loading state
+    const submitBtn = form.querySelector('button[type="submit"]');
+    const originalText = submitBtn.innerHTML;
+    submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i>Salvando...';
+    submitBtn.disabled = true;
+    
+    fetch('/dashboard/api/patients/create/', {
+        method: 'POST',
+        body: formData,
+        headers: {
+            'X-CSRFToken': getCookie('csrftoken')
+        }
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            // Close modal
+            const modal = bootstrap.Modal.getInstance(document.getElementById('newPatientModal'));
+            modal.hide();
+            
+            // Reset form
+            form.reset();
+            
+            // Show success message
+            showNotification('Paciente criado com sucesso!', 'success');
+            
+            // Reload patients list
+            loadPatientsAndDoctors();
+            
+            // Reopen appointment modal with new patient selected
+            setTimeout(() => {
+                showNewAppointmentModal();
+                document.getElementById('appointment-patient').value = data.patient_id;
+            }, 500);
+        } else {
+            showNotification('Erro ao criar paciente: ' + (data.error || 'Erro desconhecido'), 'error');
+        }
+    })
+    .catch(error => {
+        console.error('Error creating patient:', error);
+        showNotification('Erro ao criar paciente. Tente novamente.', 'error');
+    })
+    .finally(() => {
+        // Restore button state
+        submitBtn.innerHTML = originalText;
+        submitBtn.disabled = false;
+    });
+}
+</script>
+{% endblock %}
