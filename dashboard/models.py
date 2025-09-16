@@ -238,24 +238,24 @@ class Appointment(models.Model):
     """
     # Status choices
     STATUS_CHOICES = [
-        ('scheduled', 'Scheduled'),
-        ('confirmed', 'Confirmed'),
-        ('in_progress', 'In Progress'),
-        ('completed', 'Completed'),
-        ('cancelled', 'Cancelled'),
-        ('no_show', 'No Show'),
-        ('rescheduled', 'Rescheduled'),
+        ('scheduled', 'Agendada'),
+        ('confirmed', 'Confirmada'),
+        ('in_progress', 'Em Andamento'),
+        ('completed', 'Concluída'),
+        ('cancelled', 'Cancelada'),
+        ('no_show', 'Não Compareceu'),
+        ('rescheduled', 'Reagendada'),
     ]
     
     # Appointment type choices
     TYPE_CHOICES = [
-        ('consultation', 'Consultation'),
-        ('follow_up', 'Follow-up'),
+        ('consultation', 'Consulta'),
+        ('follow_up', 'Retorno'),
         ('checkup', 'Check-up'),
-        ('emergency', 'Emergency'),
-        ('procedure', 'Procedure'),
-        ('therapy', 'Therapy'),
-        ('other', 'Other'),
+        ('emergency', 'Emergência'),
+        ('procedure', 'Procedimento'),
+        ('therapy', 'Terapia'),
+        ('other', 'Outro'),
     ]
     
     # Foreign Keys

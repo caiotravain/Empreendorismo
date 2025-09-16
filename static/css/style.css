@@ -335,6 +335,7 @@ body {
     overflow-y: auto;
     scrollbar-width: none;
     -ms-overflow-style: none;
+    padding-top: 40px; /* Push time slots down to align with appointment grid */
 }
 
 .time-slots::-webkit-scrollbar {
@@ -371,7 +372,7 @@ body {
     text-align: center;
     font-size: 12px;
     font-weight: 500;
-    color: #5f6368;
+    color: #e0e0e0;
     border-right: 1px solid #e0e0e0;
 }
 
@@ -426,7 +427,7 @@ body {
     flex: 1;
     border-right: 1px solid #e0e0e0;
     position: relative;
-    min-height: 600px; /* Ensure minimum height for time slots */
+    min-height: calc(30px * 48); /* 48 time slots (6 AM to 5:30 AM next day) * 30px each = 1440px - same as time-grid */
 }
 
 .day-column:last-child {
@@ -470,7 +471,7 @@ body {
     position: relative;
     background-color: #fff;
     height: 100%; /* Fill the entire day-column height */
-    min-height: 600px; /* Ensure minimum height for time slots */
+    min-height: calc(30px * 48); /* 48 time slots (6 AM to 5:30 AM next day) * 30px each = 1440px - same as day-column */
     overflow: visible;
 }
 

@@ -5,7 +5,7 @@ from django.http import JsonResponse
 from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_POST
 from django.views.decorators.http import require_http_methods
-from datetime import date, timedelta
+from datetime import date, timedelta, datetime
 from .models import Appointment, Patient, Doctor, MedicalRecord
 
 @login_required
@@ -329,9 +329,17 @@ def api_doctors(request):
 def api_appointments(request):
     """API endpoint to create a new appointment"""
     try:
+        # Get current user's doctor profile
+        try:
+            current_doctor = Doctor.objects.get(user=request.user)
+        except Doctor.DoesNotExist:
+            return JsonResponse({
+                'success': False,
+                'error': 'Usuário não é um médico válido'
+            })
+        
         # Get form data
         patient_id = request.POST.get('patient')
-        doctor_id = request.POST.get('doctor')
         appointment_date = request.POST.get('appointment_date')
         appointment_time = request.POST.get('appointment_time')
         duration_minutes = request.POST.get('duration_minutes', 30)
@@ -342,25 +350,24 @@ def api_appointments(request):
         location = request.POST.get('location', '')
         
         # Validate required fields
-        if not all([patient_id, doctor_id, appointment_date, appointment_time]):
+        if not all([patient_id, appointment_date, appointment_time]):
             return JsonResponse({
                 'success': False,
-                'error': 'Paciente, médico, data e horário são obrigatórios'
+                'error': 'Paciente, data e horário são obrigatórios'
             })
         
-        # Get patient and doctor objects
+        # Get patient object
         try:
             patient = Patient.objects.get(id=patient_id)
-            doctor = Doctor.objects.get(id=doctor_id)
-        except (Patient.DoesNotExist, Doctor.DoesNotExist):
+        except Patient.DoesNotExist:
             return JsonResponse({
                 'success': False,
-                'error': 'Paciente ou médico não encontrado'
+                'error': 'Paciente não encontrado'
             })
         
         # Check for appointment conflicts
         existing_appointment = Appointment.objects.filter(
-            doctor=doctor,
+            doctor=current_doctor,
             appointment_date=appointment_date,
             appointment_time=appointment_time
         ).exists()
@@ -374,7 +381,7 @@ def api_appointments(request):
         # Create the appointment
         appointment = Appointment.objects.create(
             patient=patient,
-            doctor=doctor,
+            doctor=current_doctor,
             appointment_date=appointment_date,
             appointment_time=appointment_time,
             duration_minutes=int(duration_minutes),
@@ -388,7 +395,7 @@ def api_appointments(request):
         return JsonResponse({
             'success': True,
             'appointment_id': appointment.id,
-            'message': f'Consulta agendada para {patient.full_name} com {doctor.full_name} em {appointment_date} às {appointment_time}'
+            'message': f'Consulta agendada para {patient.full_name} com {current_doctor.full_name} em {appointment_date} às {appointment_time}'
         })
         
     except Exception as e:
@@ -396,6 +403,78 @@ def api_appointments(request):
             'success': False,
             'error': f'Erro ao criar consulta: {str(e)}'
         })
+
+@login_required
+@require_http_methods(["GET"])
+def api_week_appointments(request):
+    """API endpoint to get appointments for a specific week"""
+    try:
+        # Get current user's doctor profile
+        try:
+            current_doctor = Doctor.objects.get(user=request.user)
+        except Doctor.DoesNotExist:
+            return JsonResponse({
+                'success': False,
+                'error': 'Usuário não é um médico válido'
+            })
+        
+        # Get week parameter
+        week_start = request.GET.get('week_start')
+        if not week_start:
+            return JsonResponse({
+                'success': False,
+                'error': 'Data de início da semana é obrigatória'
+            })
+        
+        # Parse the date
+        try:
+            start_date = datetime.strptime(week_start, '%Y-%m-%d').date()
+        except ValueError:
+            return JsonResponse({
+                'success': False,
+                'error': 'Formato de data inválido'
+            })
+        
+        # Calculate end of week
+        end_date = start_date + timedelta(days=6)
+        
+        # Get appointments for the week
+        appointments = Appointment.objects.filter(
+            doctor=current_doctor,
+            appointment_date__range=[start_date, end_date]
+        ).order_by('appointment_date', 'appointment_time')
+        
+        # Format appointments for frontend
+        appointments_data = []
+        for appointment in appointments:
+            appointments_data.append({
+                'id': appointment.id,
+                'patient_name': appointment.patient.full_name,
+                'patient_id': appointment.patient.id,
+                'doctor_name': appointment.doctor.full_name,
+                'appointment_date': appointment.appointment_date.strftime('%Y-%m-%d'),
+                'appointment_time': appointment.appointment_time.strftime('%H:%M'),
+                'duration_minutes': appointment.duration_minutes,
+                'appointment_type': appointment.get_appointment_type_display(),
+                'status': appointment.status,
+                'reason': appointment.reason,
+                'notes': appointment.notes,
+                'location': appointment.location
+            })
+        
+        return JsonResponse({
+            'success': True,
+            'appointments': appointments_data,
+            'week_start': start_date.strftime('%Y-%m-%d'),
+            'week_end': end_date.strftime('%Y-%m-%d')
+        })
+        
+    except Exception as e:
+        return JsonResponse({
+            'success': False,
+            'error': f'Erro ao carregar consultas: {str(e)}'
+        })
+
 
 @login_required
 @require_POST
@@ -450,4 +529,130 @@ def api_create_patient(request):
         return JsonResponse({
             'success': False,
             'error': f'Erro ao criar paciente: {str(e)}'
+        })
+
+@login_required
+@require_POST
+def api_cancel_appointment(request):
+    """API endpoint to cancel an appointment"""
+    try:
+        # Get current user's doctor profile
+        try:
+            current_doctor = Doctor.objects.get(user=request.user)
+        except Doctor.DoesNotExist:
+            return JsonResponse({
+                'success': False,
+                'error': 'Usuário não é um médico válido'
+            })
+        
+        # Get appointment ID and cancellation reason
+        appointment_id = request.POST.get('appointment_id')
+        cancellation_reason = request.POST.get('cancellation_reason', '').strip()
+        
+        if not appointment_id:
+            return JsonResponse({
+                'success': False,
+                'error': 'ID da consulta é obrigatório'
+            })
+        
+        # Get the appointment
+        try:
+            appointment = Appointment.objects.get(
+                id=appointment_id,
+                doctor=current_doctor
+            )
+        except Appointment.DoesNotExist:
+            return JsonResponse({
+                'success': False,
+                'error': 'Consulta não encontrada'
+            })
+        
+        # Check if appointment can be cancelled
+        if appointment.status == 'cancelled':
+            return JsonResponse({
+                'success': False,
+                'error': 'Esta consulta já foi cancelada'
+            })
+        
+        if appointment.status == 'completed':
+            return JsonResponse({
+                'success': False,
+                'error': 'Não é possível cancelar uma consulta já concluída'
+            })
+        
+        # Cancel the appointment
+        appointment.cancel(cancellation_reason)
+        
+        return JsonResponse({
+            'success': True,
+            'message': f'Consulta de {appointment.patient.full_name} cancelada com sucesso'
+        })
+        
+    except Exception as e:
+        return JsonResponse({
+            'success': False,
+            'error': f'Erro ao cancelar consulta: {str(e)}'
+        })
+
+@login_required
+@require_POST
+def api_confirm_attendance(request):
+    """API endpoint to confirm patient attendance"""
+    try:
+        # Get current user's doctor profile
+        try:
+            current_doctor = Doctor.objects.get(user=request.user)
+        except Doctor.DoesNotExist:
+            return JsonResponse({
+                'success': False,
+                'error': 'Usuário não é um médico válido'
+            })
+        
+        # Get appointment ID
+        appointment_id = request.POST.get('appointment_id')
+        
+        if not appointment_id:
+            return JsonResponse({
+                'success': False,
+                'error': 'ID da consulta é obrigatório'
+            })
+        
+        # Get the appointment
+        try:
+            appointment = Appointment.objects.get(
+                id=appointment_id,
+                doctor=current_doctor
+            )
+        except Appointment.DoesNotExist:
+            return JsonResponse({
+                'success': False,
+                'error': 'Consulta não encontrada'
+            })
+        
+        # Check if appointment can be confirmed
+        if appointment.status == 'completed':
+            return JsonResponse({
+                'success': False,
+                'error': 'Esta consulta já foi concluída'
+            })
+        
+        if appointment.status == 'cancelled':
+            return JsonResponse({
+                'success': False,
+                'error': 'Não é possível confirmar presença de uma consulta cancelada'
+            })
+        
+        # Update appointment status to confirmed
+        appointment.status = 'confirmed'
+        appointment.save()
+        
+        return JsonResponse({
+            'success': True,
+            'message': f'Presença de {appointment.patient.full_name} confirmada com sucesso'
+        })
+        
+    except Exception as e:
+        return JsonResponse({
+            'success': False,
+            'error': f'Erro ao confirmar presença: {str(e)}'
         })

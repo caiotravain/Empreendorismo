@@ -18,4 +18,7 @@ urlpatterns = [
     path('api/doctors/', views.api_doctors, name='api_doctors'),
     path('api/appointments/', views.api_appointments, name='api_appointments'),
     path('api/patients/create/', views.api_create_patient, name='api_create_patient'),
+    path('api/week-appointments/', views.api_week_appointments, name='api_week_appointments'),
+    path('api/appointments/cancel/', views.api_cancel_appointment, name='api_cancel_appointment'),
+    path('api/appointments/confirm-attendance/', views.api_confirm_attendance, name='api_confirm_attendance'),
 ]

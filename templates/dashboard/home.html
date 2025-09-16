@@ -176,18 +176,6 @@
                             <div class="calendar-time-column">
                                 <div class="time-header"></div>
                                 <div class="time-slots">
-                                    <div class="time-slot">00:00</div>
-                                    <div class="time-slot">00:30</div>
-                                    <div class="time-slot">01:00</div>
-                                    <div class="time-slot">01:30</div>
-                                    <div class="time-slot">02:00</div>
-                                    <div class="time-slot">02:30</div>
-                                    <div class="time-slot">03:00</div>
-                                    <div class="time-slot">03:30</div>
-                                    <div class="time-slot">04:00</div>
-                                    <div class="time-slot">04:30</div>
-                                    <div class="time-slot">05:00</div>
-                                    <div class="time-slot">05:30</div>
                                     <div class="time-slot">06:00</div>
                                     <div class="time-slot">06:30</div>
                                     <div class="time-slot">07:00</div>
@@ -224,6 +212,18 @@
                                     <div class="time-slot">22:30</div>
                                     <div class="time-slot">23:00</div>
                                     <div class="time-slot">23:30</div>
+                                    <div class="time-slot">00:00</div>
+                                    <div class="time-slot">00:30</div>
+                                    <div class="time-slot">01:00</div>
+                                    <div class="time-slot">01:30</div>
+                                    <div class="time-slot">02:00</div>
+                                    <div class="time-slot">02:30</div>
+                                    <div class="time-slot">03:00</div>
+                                    <div class="time-slot">03:30</div>
+                                    <div class="time-slot">04:00</div>
+                                    <div class="time-slot">04:30</div>
+                                    <div class="time-slot">05:00</div>
+                                    <div class="time-slot">05:30</div>
                                 </div>
                             </div>
                             
@@ -258,8 +258,21 @@
                                                     <div class="calendar-event" 
                                                          data-time="{{ appointment.appointment_time|time:'H:i' }}" 
                                                          data-duration="{{ appointment.duration_minutes }}" 
-                                                         data-color="{% if appointment.status == 'completed' %}#34a853{% elif appointment.status == 'cancelled' %}#ea4335{% elif appointment.status == 'in_progress' %}#fbbc04{% else %}#4285f4{% endif %}" 
-                                                         onclick="selectPatient('{{ appointment.patient.full_name }}', '{{ appointment.patient.id }}')">
+                                                         data-appointment-id="{{ appointment.id }}"
+                                                         data-patient-name="{{ appointment.patient.full_name }}"
+                                                         data-doctor-name="{{ appointment.doctor.full_name }}"
+                                                         data-appointment-date="{{ appointment.appointment_date|date:'Y-m-d' }}"
+                                                         data-appointment-type="{{ appointment.get_appointment_type_display }}"
+                                                         data-status="{{ appointment.status }}"
+                                                         data-location="{{ appointment.location|default:'Consultório' }}"
+                                                         data-reason="{{ appointment.reason|default:'Consulta médica' }}"
+                                                         data-notes="{{ appointment.notes|default:'Nenhuma observação' }}"
+                                                         onclick="showStaticAppointmentDetails({{ appointment.id }})">
+                                                        {% if appointment.status == 'cancelled' %}
+                                                        <div class="event-cancel-icon">
+                                                            <i class="fas fa-times"></i>
+                                                        </div>
+                                                        {% endif %}
                                                         <div class="event-title">{{ appointment.patient.full_name }}</div>
                                                         <div class="event-time">{{ appointment.appointment_time|time:"H:i" }}</div>
                                                         <div class="event-type">{{ appointment.get_appointment_type_display }}</div>
@@ -277,8 +290,21 @@
                                                     <div class="calendar-event" 
                                                          data-time="{{ appointment.appointment_time|time:'H:i' }}" 
                                                          data-duration="{{ appointment.duration_minutes }}" 
-                                                         data-color="{% if appointment.status == 'completed' %}#34a853{% elif appointment.status == 'cancelled' %}#ea4335{% elif appointment.status == 'in_progress' %}#fbbc04{% else %}#4285f4{% endif %}" 
-                                                         onclick="selectPatient('{{ appointment.patient.full_name }}', '{{ appointment.patient.id }}')">
+                                                         data-appointment-id="{{ appointment.id }}"
+                                                         data-patient-name="{{ appointment.patient.full_name }}"
+                                                         data-doctor-name="{{ appointment.doctor.full_name }}"
+                                                         data-appointment-date="{{ appointment.appointment_date|date:'Y-m-d' }}"
+                                                         data-appointment-type="{{ appointment.get_appointment_type_display }}"
+                                                         data-status="{{ appointment.status }}"
+                                                         data-location="{{ appointment.location|default:'Consultório' }}"
+                                                         data-reason="{{ appointment.reason|default:'Consulta médica' }}"
+                                                         data-notes="{{ appointment.notes|default:'Nenhuma observação' }}"
+                                                         onclick="showStaticAppointmentDetails({{ appointment.id }})">
+                                                        {% if appointment.status == 'cancelled' %}
+                                                        <div class="event-cancel-icon">
+                                                            <i class="fas fa-times"></i>
+                                                        </div>
+                                                        {% endif %}
                                                         <div class="event-title">{{ appointment.patient.full_name }}</div>
                                                         <div class="event-time">{{ appointment.appointment_time|time:"H:i" }}</div>
                                                         <div class="event-type">{{ appointment.get_appointment_type_display }}</div>
@@ -296,8 +322,21 @@
                                                     <div class="calendar-event" 
                                                          data-time="{{ appointment.appointment_time|time:'H:i' }}" 
                                                          data-duration="{{ appointment.duration_minutes }}" 
-                                                         data-color="{% if appointment.status == 'completed' %}#34a853{% elif appointment.status == 'cancelled' %}#ea4335{% elif appointment.status == 'in_progress' %}#fbbc04{% else %}#4285f4{% endif %}" 
-                                                         onclick="selectPatient('{{ appointment.patient.full_name }}', '{{ appointment.patient.id }}')">
+                                                         data-appointment-id="{{ appointment.id }}"
+                                                         data-patient-name="{{ appointment.patient.full_name }}"
+                                                         data-doctor-name="{{ appointment.doctor.full_name }}"
+                                                         data-appointment-date="{{ appointment.appointment_date|date:'Y-m-d' }}"
+                                                         data-appointment-type="{{ appointment.get_appointment_type_display }}"
+                                                         data-status="{{ appointment.status }}"
+                                                         data-location="{{ appointment.location|default:'Consultório' }}"
+                                                         data-reason="{{ appointment.reason|default:'Consulta médica' }}"
+                                                         data-notes="{{ appointment.notes|default:'Nenhuma observação' }}"
+                                                         onclick="showStaticAppointmentDetails({{ appointment.id }})">
+                                                        {% if appointment.status == 'cancelled' %}
+                                                        <div class="event-cancel-icon">
+                                                            <i class="fas fa-times"></i>
+                                                        </div>
+                                                        {% endif %}
                                                         <div class="event-title">{{ appointment.patient.full_name }}</div>
                                                         <div class="event-time">{{ appointment.appointment_time|time:"H:i" }}</div>
                                                         <div class="event-type">{{ appointment.get_appointment_type_display }}</div>
@@ -315,8 +354,21 @@
                                                     <div class="calendar-event" 
                                                          data-time="{{ appointment.appointment_time|time:'H:i' }}" 
                                                          data-duration="{{ appointment.duration_minutes }}" 
-                                                         data-color="{% if appointment.status == 'completed' %}#34a853{% elif appointment.status == 'cancelled' %}#ea4335{% elif appointment.status == 'in_progress' %}#fbbc04{% else %}#4285f4{% endif %}" 
-                                                         onclick="selectPatient('{{ appointment.patient.full_name }}', '{{ appointment.patient.id }}')">
+                                                         data-appointment-id="{{ appointment.id }}"
+                                                         data-patient-name="{{ appointment.patient.full_name }}"
+                                                         data-doctor-name="{{ appointment.doctor.full_name }}"
+                                                         data-appointment-date="{{ appointment.appointment_date|date:'Y-m-d' }}"
+                                                         data-appointment-type="{{ appointment.get_appointment_type_display }}"
+                                                         data-status="{{ appointment.status }}"
+                                                         data-location="{{ appointment.location|default:'Consultório' }}"
+                                                         data-reason="{{ appointment.reason|default:'Consulta médica' }}"
+                                                         data-notes="{{ appointment.notes|default:'Nenhuma observação' }}"
+                                                         onclick="showStaticAppointmentDetails({{ appointment.id }})">
+                                                        {% if appointment.status == 'cancelled' %}
+                                                        <div class="event-cancel-icon">
+                                                            <i class="fas fa-times"></i>
+                                                        </div>
+                                                        {% endif %}
                                                         <div class="event-title">{{ appointment.patient.full_name }}</div>
                                                         <div class="event-time">{{ appointment.appointment_time|time:"H:i" }}</div>
                                                         <div class="event-type">{{ appointment.get_appointment_type_display }}</div>
@@ -334,8 +386,21 @@
                                                     <div class="calendar-event" 
                                                          data-time="{{ appointment.appointment_time|time:'H:i' }}" 
                                                          data-duration="{{ appointment.duration_minutes }}" 
-                                                         data-color="{% if appointment.status == 'completed' %}#34a853{% elif appointment.status == 'cancelled' %}#ea4335{% elif appointment.status == 'in_progress' %}#fbbc04{% else %}#4285f4{% endif %}" 
-                                                         onclick="selectPatient('{{ appointment.patient.full_name }}', '{{ appointment.patient.id }}')">
+                                                         data-appointment-id="{{ appointment.id }}"
+                                                         data-patient-name="{{ appointment.patient.full_name }}"
+                                                         data-doctor-name="{{ appointment.doctor.full_name }}"
+                                                         data-appointment-date="{{ appointment.appointment_date|date:'Y-m-d' }}"
+                                                         data-appointment-type="{{ appointment.get_appointment_type_display }}"
+                                                         data-status="{{ appointment.status }}"
+                                                         data-location="{{ appointment.location|default:'Consultório' }}"
+                                                         data-reason="{{ appointment.reason|default:'Consulta médica' }}"
+                                                         data-notes="{{ appointment.notes|default:'Nenhuma observação' }}"
+                                                         onclick="showStaticAppointmentDetails({{ appointment.id }})">
+                                                        {% if appointment.status == 'cancelled' %}
+                                                        <div class="event-cancel-icon">
+                                                            <i class="fas fa-times"></i>
+                                                        </div>
+                                                        {% endif %}
                                                         <div class="event-title">{{ appointment.patient.full_name }}</div>
                                                         <div class="event-time">{{ appointment.appointment_time|time:"H:i" }}</div>
                                                         <div class="event-type">{{ appointment.get_appointment_type_display }}</div>
@@ -353,8 +418,21 @@
                                                     <div class="calendar-event" 
                                                          data-time="{{ appointment.appointment_time|time:'H:i' }}" 
                                                          data-duration="{{ appointment.duration_minutes }}" 
-                                                         data-color="{% if appointment.status == 'completed' %}#34a853{% elif appointment.status == 'cancelled' %}#ea4335{% elif appointment.status == 'in_progress' %}#fbbc04{% else %}#4285f4{% endif %}" 
-                                                         onclick="selectPatient('{{ appointment.patient.full_name }}', '{{ appointment.patient.id }}')">
+                                                         data-appointment-id="{{ appointment.id }}"
+                                                         data-patient-name="{{ appointment.patient.full_name }}"
+                                                         data-doctor-name="{{ appointment.doctor.full_name }}"
+                                                         data-appointment-date="{{ appointment.appointment_date|date:'Y-m-d' }}"
+                                                         data-appointment-type="{{ appointment.get_appointment_type_display }}"
+                                                         data-status="{{ appointment.status }}"
+                                                         data-location="{{ appointment.location|default:'Consultório' }}"
+                                                         data-reason="{{ appointment.reason|default:'Consulta médica' }}"
+                                                         data-notes="{{ appointment.notes|default:'Nenhuma observação' }}"
+                                                         onclick="showStaticAppointmentDetails({{ appointment.id }})">
+                                                        {% if appointment.status == 'cancelled' %}
+                                                        <div class="event-cancel-icon">
+                                                            <i class="fas fa-times"></i>
+                                                        </div>
+                                                        {% endif %}
                                                         <div class="event-title">{{ appointment.patient.full_name }}</div>
                                                         <div class="event-time">{{ appointment.appointment_time|time:"H:i" }}</div>
                                                         <div class="event-type">{{ appointment.get_appointment_type_display }}</div>
@@ -372,8 +450,21 @@
                                                     <div class="calendar-event" 
                                                          data-time="{{ appointment.appointment_time|time:'H:i' }}" 
                                                          data-duration="{{ appointment.duration_minutes }}" 
-                                                         data-color="{% if appointment.status == 'completed' %}#34a853{% elif appointment.status == 'cancelled' %}#ea4335{% elif appointment.status == 'in_progress' %}#fbbc04{% else %}#4285f4{% endif %}" 
-                                                         onclick="selectPatient('{{ appointment.patient.full_name }}', '{{ appointment.patient.id }}')">
+                                                         data-appointment-id="{{ appointment.id }}"
+                                                         data-patient-name="{{ appointment.patient.full_name }}"
+                                                         data-doctor-name="{{ appointment.doctor.full_name }}"
+                                                         data-appointment-date="{{ appointment.appointment_date|date:'Y-m-d' }}"
+                                                         data-appointment-type="{{ appointment.get_appointment_type_display }}"
+                                                         data-status="{{ appointment.status }}"
+                                                         data-location="{{ appointment.location|default:'Consultório' }}"
+                                                         data-reason="{{ appointment.reason|default:'Consulta médica' }}"
+                                                         data-notes="{{ appointment.notes|default:'Nenhuma observação' }}"
+                                                         onclick="showStaticAppointmentDetails({{ appointment.id }})">
+                                                        {% if appointment.status == 'cancelled' %}
+                                                        <div class="event-cancel-icon">
+                                                            <i class="fas fa-times"></i>
+                                                        </div>
+                                                        {% endif %}
                                                         <div class="event-title">{{ appointment.patient.full_name }}</div>
                                                         <div class="event-time">{{ appointment.appointment_time|time:"H:i" }}</div>
                                                         <div class="event-type">{{ appointment.get_appointment_type_display }}</div>
@@ -522,7 +613,7 @@
                                     <!-- Show records from newest to oldest as summaries -->
                                     {% for record in medical_records %}
                                         <div class="record-entry mb-3 p-3 bg-white rounded border-start border-primary border-3 cursor-pointer" 
-                                             onclick="showRecordPopup({{ record.id }}, '{{ record.datetime|date:"d/m/Y" }}', '{{ record.datetime|time:"H:i" }}', '{{ record.doctor.full_name|escapejs }}', '{{ record.content|escapejs }}')">
+                                             onclick="showRecordPopup({{ record.id }}, '{{ record.datetime|date:'d/m/Y' }}', '{{ record.datetime|time:'H:i' }}', '{{ record.doctor.full_name|escapejs }}', '{{ record.content|escapejs }}')">
                                             <div class="d-flex justify-content-between align-items-start mb-2">
                                                 <div>
                                                     <h6 class="text-primary mb-1">
@@ -1065,15 +1156,18 @@
                             </div>
                         </div>
 
-                        <!-- Doctor Selection -->
+                        <!-- Doctor Selection (Hidden - automatically set to current doctor) -->
                         <div class="col-md-6 mb-3">
                             <label for="appointment-doctor" class="form-label">
-                                <i class="fas fa-user-md me-1"></i>Médico <span class="text-danger">*</span>
+                                <i class="fas fa-user-md me-1"></i>Médico
                             </label>
-                            <select class="form-select" id="appointment-doctor" name="doctor" required>
-                                <option value="">Selecione um médico...</option>
-                                <!-- Doctors will be loaded dynamically -->
-                            </select>
+                            <input type="text" class="form-control" id="appointment-doctor-display" readonly 
+                                   value="{% if current_doctor %}{{ current_doctor.full_name }}{% else %}Nenhum médico logado{% endif %}">
+                            <input type="hidden" id="appointment-doctor" name="doctor" 
+                                   value="{% if current_doctor %}{{ current_doctor.id }}{% endif %}">
+                            <div class="form-text">
+                                <i class="fas fa-info-circle me-1"></i>Consulta será agendada para você
+                            </div>
                         </div>
                     </div>
 
@@ -1135,6 +1229,11 @@
                             <select class="form-select" id="appointment-status" name="status">
                                 <option value="scheduled">Agendada</option>
                                 <option value="confirmed">Confirmada</option>
+                                <option value="in_progress">Em Andamento</option>
+                                <option value="completed">Concluída</option>
+                                <option value="cancelled">Cancelada</option>
+                                <option value="no_show">Não Compareceu</option>
+                                <option value="rescheduled">Reagendada</option>
                             </select>
                         </div>
                     </div>
@@ -1251,6 +1350,154 @@
                     </button>
                 </div>
             </form>
+        </div>
+    </div>
+</div>
+
+<!-- Appointment Details Modal -->
+<div class="modal fade" id="appointmentDetailsModal" tabindex="-1" aria-labelledby="appointmentDetailsModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="appointmentDetailsModalLabel">
+                    <i class="fas fa-calendar-check me-2"></i>Detalhes da Consulta
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body p-3">
+                {% csrf_token %}
+                <!-- Header Section with Status Badge -->
+                <div class="row mb-3">
+                    <div class="col-12">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <h6 class="mb-0 text-muted">Detalhes da Consulta</h6>
+                            <span class="badge" id="modal-status-badge" style="font-size: 0.8rem;">-</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Patient and Doctor Information -->
+                <div class="card mb-3">
+                    <div class="card-header bg-light py-2">
+                        <h6 class="mb-0" style="font-size: 0.9rem;"><i class="fas fa-users me-2"></i>Participantes</h6>
+                    </div>
+                    <div class="card-body py-2">
+                        <div class="row">
+                            <div class="col-6 mb-2">
+                                <div class="d-flex align-items-center">
+                                    <div class="me-2">
+                                        <i class="fas fa-user-circle text-primary" style="font-size: 1.2rem;"></i>
+                                    </div>
+                                    <div>
+                                        <small class="text-muted d-block" style="font-size: 0.75rem;">Paciente</small>
+                                        <strong id="modal-patient-name" style="font-size: 0.9rem;">-</strong>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-6 mb-2">
+                                <div class="d-flex align-items-center">
+                                    <div class="me-2">
+                                        <i class="fas fa-user-md text-success" style="font-size: 1.2rem;"></i>
+                                    </div>
+                                    <div>
+                                        <small class="text-muted d-block" style="font-size: 0.75rem;">Médico</small>
+                                        <strong id="modal-doctor-name" style="font-size: 0.9rem;">-</strong>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Appointment Details -->
+                <div class="card mb-3">
+                    <div class="card-header bg-light py-2">
+                        <h6 class="mb-0" style="font-size: 0.9rem;"><i class="fas fa-calendar-alt me-2"></i>Informações da Consulta</h6>
+                    </div>
+                    <div class="card-body py-2">
+                        <div class="row">
+                            <div class="col-6 col-md-3 mb-2">
+                                <div class="text-center">
+                                    <i class="fas fa-calendar text-primary mb-1" style="font-size: 1rem;"></i>
+                                    <small class="text-muted d-block" style="font-size: 0.7rem;">Data</small>
+                                    <strong id="modal-appointment-date" style="font-size: 0.8rem;">-</strong>
+                                </div>
+                            </div>
+                            <div class="col-6 col-md-3 mb-2">
+                                <div class="text-center">
+                                    <i class="fas fa-clock text-info mb-1" style="font-size: 1rem;"></i>
+                                    <small class="text-muted d-block" style="font-size: 0.7rem;">Horário</small>
+                                    <strong id="modal-appointment-time" style="font-size: 0.8rem;">-</strong>
+                                </div>
+                            </div>
+                            <div class="col-6 col-md-3 mb-2">
+                                <div class="text-center">
+                                    <i class="fas fa-hourglass-half text-warning mb-1" style="font-size: 1rem;"></i>
+                                    <small class="text-muted d-block" style="font-size: 0.7rem;">Duração</small>
+                                    <strong id="modal-appointment-duration" style="font-size: 0.8rem;">-</strong>
+                                </div>
+                            </div>
+                            <div class="col-6 col-md-3 mb-2">
+                                <div class="text-center">
+                                    <i class="fas fa-stethoscope text-success mb-1" style="font-size: 1rem;"></i>
+                                    <small class="text-muted d-block" style="font-size: 0.7rem;">Tipo</small>
+                                    <strong id="modal-appointment-type" style="font-size: 0.8rem;">-</strong>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Location and Reason -->
+                <div class="card mb-3">
+                    <div class="card-header bg-light py-2">
+                        <h6 class="mb-0" style="font-size: 0.9rem;"><i class="fas fa-info-circle me-2"></i>Detalhes Adicionais</h6>
+                    </div>
+                    <div class="card-body py-2">
+                        <div class="row">
+                            <div class="col-6 mb-2">
+                                <div class="d-flex align-items-start">
+                                    <i class="fas fa-map-marker-alt text-danger me-2 mt-1" style="font-size: 0.9rem;"></i>
+                                    <div>
+                                        <small class="text-muted d-block" style="font-size: 0.7rem;">Local</small>
+                                        <span id="modal-appointment-location" style="font-size: 0.8rem;">-</span>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-6 mb-2">
+                                <div class="d-flex align-items-start">
+                                    <i class="fas fa-exclamation-triangle text-warning me-2 mt-1" style="font-size: 0.9rem;"></i>
+                                    <div>
+                                        <small class="text-muted d-block" style="font-size: 0.7rem;">Motivo</small>
+                                        <span id="modal-appointment-reason" style="font-size: 0.8rem;">-</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Notes Section -->
+                <div class="card">
+                    <div class="card-header bg-light py-2">
+                        <h6 class="mb-0" style="font-size: 0.9rem;"><i class="fas fa-sticky-note me-2"></i>Observações</h6>
+                    </div>
+                    <div class="card-body py-2">
+                        <div class="bg-light p-2 rounded">
+                            <p class="mb-0" id="modal-appointment-notes" style="font-size: 0.8rem;">-</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+
+                <button type="button" class="btn btn-success" id="confirm-attendance-btn">
+                    <i class="fas fa-check-circle me-1"></i>Confirmar Presença
+                </button>
+                <button type="button" class="btn btn-danger btn-cancel-appointment" id="cancel-appointment-btn">
+                    <i class="fas fa-times-circle me-1"></i>Cancelar Consulta
+                </button>
+            </div>
         </div>
     </div>
 </div>
@@ -1603,7 +1850,6 @@
 .time-slots {
     height: calc(100% - 40px);
     overflow-y: auto;
-    scrollbar-width: thin;
     scrollbar-color: #c1c1c1 #f1f1f1;
 }
 
@@ -1703,7 +1949,7 @@
     flex: 1;
     display: flex;
     overflow-y: auto;
-    scrollbar-width: thin;
+    /* scrollbar-width: thin; */
     scrollbar-color: #c1c1c1 #f1f1f1;
 }
 
@@ -1822,6 +2068,28 @@
     background-color: #dc3545;
     border-radius: 50%;
     box-shadow: 0 0 4px rgba(220, 53, 69, 0.5);
+}
+.btn-cancel-appointment {
+    position: absolute;
+    left: 0;
+    margin-left: 10px;
+}
+
+.event-cancel-icon {
+    position: absolute;
+    top: 2px;
+    right: 2px;
+    background-color: #dc3545;
+    color: white;
+    border-radius: 50%;
+    width: 16px;
+    height: 16px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 8px;
+    z-index: 10;
+    box-shadow: 0 1px 2px rgba(0,0,0,0.2);
 }
 </style>
 {% endblock %}
@@ -2368,6 +2636,9 @@ function updateCalendarDisplay() {
     
     // Update day dates in week view
     updateWeekViewDates();
+    
+    // Load appointments for the new week
+    loadWeekAppointments();
 }
 
 function getStartOfWeek(date) {
@@ -2437,8 +2708,15 @@ function scrollToCurrentHour() {
         const currentHour = now.getHours();
         const currentMinute = now.getMinutes();
         
-        // Calculate scroll position (each hour is 60px, each 30-min slot is 30px)
-        const scrollPosition = (currentHour * 60) + (currentMinute * 1) - 200; // Offset to center current time
+        // Calculate scroll position (adjusted for 6 AM start)
+        let scrollPosition = (currentHour * 60) + (currentMinute * 1);
+        
+        // Adjust for 6 AM start time
+        if (scrollPosition < 360) { // Before 6 AM (360 minutes = 6 hours)
+            scrollPosition += 24 * 60; // Add 24 hours to position after midnight
+        }
+        scrollPosition -= 360; // Subtract 6 hours (360 minutes) to start from 6 AM
+        scrollPosition -= 200; // Offset to center current time
         
         // Smooth scroll to current time
         timeSlots.scrollTo({
@@ -2458,8 +2736,14 @@ function calculateEventPosition(timeString) {
     // Parse time string (e.g., "09:00", "14:30")
     const [hours, minutes] = timeString.split(':').map(Number);
     
-    // Calculate position from 00:00 (start of calendar)
-    const totalMinutes = hours * 60 + minutes;
+    // Calculate position from 06:00 (start of calendar)
+    let totalMinutes = hours * 60 + minutes;
+    
+    // Adjust for 6 AM start time
+    if (totalMinutes < 360) { // Before 6 AM (360 minutes = 6 hours)
+        totalMinutes += 24 * 60; // Add 24 hours to position after midnight
+    }
+    totalMinutes -= 360; // Subtract 6 hours (360 minutes) to start from 6 AM
     
     // Each 30-minute slot is 30px high, so 1px per minute
     return totalMinutes;
@@ -2477,17 +2761,344 @@ function fixEventPositions() {
     events.forEach(event => {
         const timeString = event.getAttribute('data-time');
         const duration = parseInt(event.getAttribute('data-duration')) || 30;
-        const color = event.getAttribute('data-color') || '#4285f4';
-        
         if (timeString) {
             const topPosition = calculateEventPosition(timeString);
             const height = calculateEventHeight(duration);
             
             event.style.top = topPosition + 'px';
             event.style.height = height + 'px';
-            event.style.backgroundColor = color;
         }
     });
+}
+
+// Load appointments for the current week
+function loadWeekAppointments() {
+    const startOfWeek = getStartOfWeek(currentDate);
+    const weekStartStr = startOfWeek.toISOString().split('T')[0]; // Format as YYYY-MM-DD
+    
+    fetch(`/dashboard/api/week-appointments/?week_start=${weekStartStr}`)
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                // Clear existing appointments
+                clearWeekAppointments();
+                
+                // Add new appointments
+                data.appointments.forEach(appointment => {
+                    addAppointmentToCalendar(appointment);
+                });
+                
+                // Fix event positions after adding appointments
+                fixEventPositions();
+            } else {
+                console.error('Error loading week appointments:', data.error);
+            }
+        })
+        .catch(error => {
+            console.error('Error loading week appointments:', error);
+        });
+}
+
+// Clear all appointments from the calendar
+function clearWeekAppointments() {
+    const dayColumns = document.querySelectorAll('.day-column');
+    dayColumns.forEach(column => {
+        const timeGrid = column.querySelector('.time-grid');
+        if (timeGrid) {
+            // Remove all calendar events except current time line
+            const events = timeGrid.querySelectorAll('.calendar-event');
+            events.forEach(event => event.remove());
+        }
+    });
+}
+
+// Add a single appointment to the calendar
+function addAppointmentToCalendar(appointment) {
+    const appointmentDate = new Date(appointment.appointment_date);
+    const dayOfWeek = appointmentDate.getDay(); // 0 = Sunday, 1 = Monday, etc.
+    
+    // Get the corresponding day column (0-indexed, but our columns start with Sunday)
+    const dayColumns = document.querySelectorAll('.day-column');
+    if (dayColumns[dayOfWeek]) {
+        const timeGrid = dayColumns[dayOfWeek].querySelector('.time-grid');
+        if (timeGrid) {
+            const eventDiv = document.createElement('div');
+            eventDiv.className = 'calendar-event';
+            eventDiv.setAttribute('data-time', appointment.appointment_time);
+            eventDiv.setAttribute('data-duration', appointment.duration_minutes);
+            eventDiv.onclick = () => showAppointmentDetails(appointment);
+            
+            const cancelIcon = appointment.status === 'cancelled' ? 
+                '<div class="event-cancel-icon"><i class="fas fa-times"></i></div>' : '';
+            
+            eventDiv.innerHTML = `
+                ${cancelIcon}
+                <div class="event-title">${appointment.patient_name}</div>
+                <div class="event-time">${appointment.appointment_time}</div>
+                <div class="event-type">${appointment.appointment_type}</div>
+            `;
+            
+            timeGrid.appendChild(eventDiv);
+        }
+    }
+}
+
+// Show appointment details popup
+function showAppointmentDetails(appointment) {
+    // Populate the modal with appointment data
+    document.getElementById('modal-patient-name').textContent = appointment.patient_name || '-';
+    document.getElementById('modal-doctor-name').textContent = appointment.doctor_name || '-';
+    document.getElementById('modal-appointment-date').textContent = formatDate(appointment.appointment_date) || '-';
+    document.getElementById('modal-appointment-time').textContent = appointment.appointment_time || '-';
+    document.getElementById('modal-appointment-duration').textContent = (appointment.duration_minutes || 30) + ' minutos';
+    document.getElementById('modal-appointment-type').textContent = appointment.appointment_type || '-';
+    document.getElementById('modal-appointment-location').textContent = appointment.location || 'Não especificado';
+    document.getElementById('modal-appointment-reason').textContent = appointment.reason || 'Não especificado';
+    document.getElementById('modal-appointment-notes').textContent = appointment.notes || 'Nenhuma observação';
+    
+    // Update status badge with appropriate styling
+    const statusBadge = document.getElementById('modal-status-badge');
+    const statusText = getStatusDisplay(appointment.status) || '-';
+    statusBadge.textContent = statusText;
+    
+    // Apply status-specific styling
+    statusBadge.className = 'badge';
+    switch(appointment.status) {
+        case 'scheduled':
+            statusBadge.classList.add('bg-secondary');
+            break;
+        case 'confirmed':
+            statusBadge.classList.add('bg-primary');
+            break;
+        case 'in_progress':
+            statusBadge.classList.add('bg-warning');
+            break;
+        case 'completed':
+            statusBadge.classList.add('bg-success');
+            break;
+        case 'cancelled':
+            statusBadge.classList.add('bg-danger');
+            break;
+        case 'no_show':
+            statusBadge.classList.add('bg-dark');
+            break;
+        case 'rescheduled':
+            statusBadge.classList.add('bg-info');
+            break;
+        default:
+            statusBadge.classList.add('bg-secondary');
+    }
+    
+    // Store appointment ID for edit/cancel actions
+    document.getElementById('appointmentDetailsModal').setAttribute('data-appointment-id', appointment.id);
+    
+    // Show/hide buttons based on appointment status
+    const confirmBtn = document.getElementById('confirm-attendance-btn');
+    const cancelBtn = document.getElementById('cancel-appointment-btn');
+    
+    // Hide both buttons first
+    confirmBtn.style.display = 'none';
+    cancelBtn.style.display = 'none';
+    
+    // Show appropriate button based on status
+    if (appointment.status === 'cancelled') {
+        // If cancelled, show only confirm attendance button
+        confirmBtn.style.display = 'inline-block';
+        confirmBtn.innerHTML = '<i class="fas fa-check-circle me-1"></i>Confirmar Presença';
+    } else if (appointment.status === 'confirmed') {
+        // If confirmed, show only cancel button
+        cancelBtn.style.display = 'inline-block';
+        cancelBtn.innerHTML = '<i class="fas fa-times-circle me-1"></i>Cancelar Consulta';
+    } else if (appointment.status === 'scheduled') {
+        // If scheduled, show both buttons
+        confirmBtn.style.display = 'inline-block';
+        cancelBtn.style.display = 'inline-block';
+        confirmBtn.innerHTML = '<i class="fas fa-check-circle me-1"></i>Confirmar Presença';
+        cancelBtn.innerHTML = '<i class="fas fa-times-circle me-1"></i>Cancelar Consulta';
+    } else if (appointment.status === 'completed') {
+        // If completed, show no action buttons
+        // Both buttons remain hidden
+    } else {
+        // For other statuses, show both buttons
+        confirmBtn.style.display = 'inline-block';
+        cancelBtn.style.display = 'inline-block';
+        confirmBtn.innerHTML = '<i class="fas fa-check-circle me-1"></i>Confirmar Presença';
+        cancelBtn.innerHTML = '<i class="fas fa-times-circle me-1"></i>Cancelar Consulta';
+    }
+    
+    // Show the modal
+    const modal = new bootstrap.Modal(document.getElementById('appointmentDetailsModal'));
+    modal.show();
+}
+
+// Format date for display
+function formatDate(dateString) {
+    if (!dateString) return '-';
+    const date = new Date(dateString);
+    return date.toLocaleDateString('pt-BR', {
+        day: '2-digit',
+        month: '2-digit',
+        year: 'numeric'
+    });
+}
+
+// Get status display text
+function getStatusDisplay(status) {
+    const statusMap = {
+        'scheduled': 'Agendada',
+        'confirmed': 'Confirmada',
+        'in_progress': 'Em Andamento',
+        'completed': 'Concluída',
+        'cancelled': 'Cancelada',
+        'no_show': 'Não Compareceu',
+        'rescheduled': 'Reagendada'
+    };
+    return statusMap[status] || status;
+}
+
+// Show appointment details for static appointments (from template)
+function showStaticAppointmentDetails(appointmentId) {
+    const appointmentElement = document.querySelector(`[data-appointment-id="${appointmentId}"]`);
+    if (!appointmentElement) {
+        console.error('Appointment element not found for ID:', appointmentId);
+        return;
+    }
+    
+    // Extract data from the element's data attributes
+    const appointment = {
+        id: appointmentId,
+        patient_name: appointmentElement.getAttribute('data-patient-name') || '-',
+        doctor_name: appointmentElement.getAttribute('data-doctor-name') || '-',
+        appointment_date: appointmentElement.getAttribute('data-appointment-date') || '-',
+        appointment_time: appointmentElement.getAttribute('data-time') || '-',
+        duration_minutes: parseInt(appointmentElement.getAttribute('data-duration')) || 30,
+        appointment_type: appointmentElement.getAttribute('data-appointment-type') || '-',
+        status: appointmentElement.getAttribute('data-status') || 'scheduled',
+        location: appointmentElement.getAttribute('data-location') || 'Consultório',
+        reason: appointmentElement.getAttribute('data-reason') || 'Consulta médica',
+        notes: appointmentElement.getAttribute('data-notes') || 'Nenhuma observação'
+    };
+    
+    showAppointmentDetails(appointment);
+}
+
+// Confirm attendance function
+function confirmAttendance() {
+    const modal = document.getElementById('appointmentDetailsModal');
+    const appointmentId = modal.getAttribute('data-appointment-id');
+    
+    if (!appointmentId) {
+        alert('Erro: ID da consulta não encontrado.');
+        return;
+    }
+    
+    if (confirm('Tem certeza que deseja confirmar a presença do paciente nesta consulta?')) {
+        // Make AJAX call to confirm attendance
+        const formData = new FormData();
+        formData.append('appointment_id', appointmentId);
+        formData.append('csrfmiddlewaretoken', document.querySelector('[name=csrfmiddlewaretoken]').value);
+        
+        fetch('/dashboard/api/appointments/confirm-attendance/', {
+            method: 'POST',
+            body: formData,
+            headers: {
+                'X-Requested-With': 'XMLHttpRequest',
+            }
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                alert(data.message);
+                // Update the appointment status in the modal
+                const statusBadge = document.getElementById('modal-status-badge');
+                statusBadge.textContent = 'Confirmada';
+                statusBadge.className = 'badge bg-primary';
+                
+                // Update button visibility - now show only cancel button
+                const confirmBtn = document.getElementById('confirm-attendance-btn');
+                const cancelBtn = document.getElementById('cancel-appointment-btn');
+                confirmBtn.style.display = 'none';
+                cancelBtn.style.display = 'inline-block';
+                
+                // Close the modal
+                const bootstrapModal = bootstrap.Modal.getInstance(modal);
+                bootstrapModal.hide();
+                // Refresh the page to show updated status
+                location.reload();
+            } else {
+                alert('Erro: ' + data.error);
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            alert('Erro ao confirmar presença. Tente novamente.');
+        });
+    }
+}
+
+// Cancel appointment function
+function cancelAppointment() {
+    const modal = document.getElementById('appointmentDetailsModal');
+    const appointmentId = modal.getAttribute('data-appointment-id');
+    
+    if (!appointmentId) {
+        alert('Erro: ID da consulta não encontrado.');
+        return;
+    }
+    
+    const reason = prompt('Digite o motivo do cancelamento:');
+    if (reason === null) {
+        return; // User cancelled
+    }
+    
+    if (reason.trim() === '') {
+        alert('Por favor, informe o motivo do cancelamento.');
+        return;
+    }
+    
+    if (confirm('Tem certeza que deseja cancelar esta consulta?')) {
+        // Make AJAX call to cancel appointment
+        const formData = new FormData();
+        formData.append('appointment_id', appointmentId);
+        formData.append('cancellation_reason', reason);
+        formData.append('csrfmiddlewaretoken', document.querySelector('[name=csrfmiddlewaretoken]').value);
+        
+        fetch('/dashboard/api/appointments/cancel/', {
+            method: 'POST',
+            body: formData,
+            headers: {
+                'X-Requested-With': 'XMLHttpRequest',
+            }
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                alert(data.message);
+                // Update the appointment status in the modal
+                const statusBadge = document.getElementById('modal-status-badge');
+                statusBadge.textContent = 'Cancelada';
+                statusBadge.className = 'badge bg-danger';
+                
+                // Update button visibility - now show only confirm button
+                const confirmBtn = document.getElementById('confirm-attendance-btn');
+                const cancelBtn = document.getElementById('cancel-appointment-btn');
+                confirmBtn.style.display = 'inline-block';
+                cancelBtn.style.display = 'none';
+                
+                // Close the modal
+                const bootstrapModal = bootstrap.Modal.getInstance(modal);
+                bootstrapModal.hide();
+                // Refresh the page to show updated status
+                location.reload();
+            } else {
+                alert('Erro: ' + data.error);
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            alert('Erro ao cancelar consulta. Tente novamente.');
+        });
+    }
 }
 
 // Add current time indicator
@@ -2497,8 +3108,14 @@ function addCurrentTimeIndicator() {
     const currentHour = now.getHours();
     const currentMinute = now.getMinutes();
     
-    // Calculate position for current time
-    const currentTimePosition = (currentHour * 60) + currentMinute;
+    // Calculate position for current time (adjusted for 6 AM start)
+    let currentTimePosition = (currentHour * 60) + currentMinute;
+    
+    // Adjust for 6 AM start time
+    if (currentTimePosition < 360) { // Before 6 AM (360 minutes = 6 hours)
+        currentTimePosition += 24 * 60; // Add 24 hours to position after midnight
+    }
+    currentTimePosition -= 360; // Subtract 6 hours (360 minutes) to start from 6 AM
     
     dayColumns.forEach(column => {
         // Remove existing current time line
@@ -2603,25 +3220,7 @@ function loadPatientsAndDoctors() {
             console.error('Error loading patients:', error);
         });
     
-    // Load doctors
-    fetch('/dashboard/api/doctors/')
-        .then(response => response.json())
-        .then(data => {
-            const doctorSelect = document.getElementById('appointment-doctor');
-            doctorSelect.innerHTML = '<option value="">Selecione um médico...</option>';
-            
-            if (data.success && data.doctors) {
-                data.doctors.forEach(doctor => {
-                    const option = document.createElement('option');
-                    option.value = doctor.id;
-                    option.textContent = doctor.full_name;
-                    doctorSelect.appendChild(option);
-                });
-            }
-        })
-        .catch(error => {
-            console.error('Error loading doctors:', error);
-        });
+    // Doctor is automatically set to current user, no need to load doctors
 }
 
 // Handle new appointment form submission
@@ -2639,6 +3238,22 @@ document.addEventListener('DOMContentLoaded', function() {
         patientForm.addEventListener('submit', function(e) {
             e.preventDefault();
             submitNewPatient();
+        });
+    }
+    
+    // Handle confirm attendance button
+    const confirmAttendanceBtn = document.getElementById('confirm-attendance-btn');
+    if (confirmAttendanceBtn) {
+        confirmAttendanceBtn.addEventListener('click', function() {
+            confirmAttendance();
+        });
+    }
+    
+    // Handle cancel appointment button
+    const cancelAppointmentBtn = document.getElementById('cancel-appointment-btn');
+    if (cancelAppointmentBtn) {
+        cancelAppointmentBtn.addEventListener('click', function() {
+            cancelAppointment();
         });
     }
 });
