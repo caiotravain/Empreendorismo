@@ -21,4 +21,5 @@ urlpatterns = [
     path('api/week-appointments/', views.api_week_appointments, name='api_week_appointments'),
     path('api/appointments/cancel/', views.api_cancel_appointment, name='api_cancel_appointment'),
     path('api/appointments/confirm-attendance/', views.api_confirm_attendance, name='api_confirm_attendance'),
+    path('api/next-appointment/', views.api_next_appointment, name='api_next_appointment'),
 ]

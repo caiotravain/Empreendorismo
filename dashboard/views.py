@@ -11,7 +11,7 @@ from .models import Appointment, Patient, Doctor, MedicalRecord
 @login_required
 def home(request):
     """Main medical dashboard view with agenda tab"""
-    today = date.today()
+    today = timezone.now().date()
     
     # Get current user's doctor profile
     try:
@@ -57,14 +57,41 @@ def home(request):
             status__in=['scheduled', 'confirmed']
         ).count()
         
-        # Get next appointment
-        next_appointment = Appointment.objects.filter(
-            doctor=current_doctor,
-            appointment_date__gte=today,
-            status__in=['scheduled', 'confirmed']
-        ).order_by('appointment_date', 'appointment_time').first()
+        # Get next appointment (from today onwards, including future appointments today)
+        now = timezone.now()
+        current_time = now.time()
         
-        next_appointment_time = next_appointment.appointment_time.strftime('%H:%M') if next_appointment else 'N/A'
+        # First, try to find appointments today that haven't happened yet
+        today_future_appointments = Appointment.objects.filter(
+            doctor=current_doctor,
+            appointment_date=today,
+            appointment_time__gt=current_time,
+            status__in=['scheduled', 'confirmed']
+        ).exclude(
+            status='cancelled'
+        ).order_by('appointment_time').first()
+        
+        if today_future_appointments:
+            # Next appointment is today
+            next_appointment_time = f"Hoje às {today_future_appointments.appointment_time.strftime('%H:%M')}"
+        else:
+            # Look for appointments from tomorrow onwards
+            tomorrow = today + timedelta(days=1)
+            next_appointment = Appointment.objects.filter(
+                doctor=current_doctor,
+                appointment_date__gte=tomorrow,
+                status__in=['scheduled', 'confirmed']
+            ).exclude(
+                status='cancelled'
+            ).order_by('appointment_date', 'appointment_time').first()
+            
+            if next_appointment:
+                if next_appointment.appointment_date == tomorrow:
+                    next_appointment_time = f"Amanhã às {next_appointment.appointment_time.strftime('%H:%M')}"
+                else:
+                    next_appointment_time = f"{next_appointment.appointment_date.strftime('%d/%m')} às {next_appointment.appointment_time.strftime('%H:%M')}"
+            else:
+                next_appointment_time = 'N/A'
     else:
         total_today = 0
         completed_today = 0
@@ -655,4 +682,73 @@ def api_confirm_attendance(request):
         return JsonResponse({
             'success': False,
             'error': f'Erro ao confirmar presença: {str(e)}'
+        })
+
+@login_required
+@require_http_methods(["GET"])
+def api_next_appointment(request):
+    """API endpoint to get the next appointment details"""
+    try:
+        # Get current user's doctor profile
+        try:
+            current_doctor = Doctor.objects.get(user=request.user)
+        except Doctor.DoesNotExist:
+            return JsonResponse({
+                'success': False,
+                'error': 'Usuário não é um médico válido'
+            })
+        
+        # Get next appointment using the same logic as in home view
+        today = timezone.now().date()
+        now = timezone.now()
+        current_time = now.time()
+        
+        # First, try to find appointments today that haven't happened yet
+        today_future_appointments = Appointment.objects.filter(
+            doctor=current_doctor,
+            appointment_date=today,
+            appointment_time__gt=current_time,
+            status__in=['scheduled', 'confirmed']
+        ).exclude(
+            status='cancelled'
+        ).order_by('appointment_time').first()
+        
+        if today_future_appointments:
+            next_appointment = today_future_appointments
+        else:
+            # Look for appointments from tomorrow onwards
+            tomorrow = today + timedelta(days=1)
+            next_appointment = Appointment.objects.filter(
+                doctor=current_doctor,
+                appointment_date__gte=tomorrow,
+                status__in=['scheduled', 'confirmed']
+            ).exclude(
+                status='cancelled'
+            ).order_by('appointment_date', 'appointment_time').first()
+        
+        if next_appointment:
+            return JsonResponse({
+                'success': True,
+                'appointment': {
+                    'id': next_appointment.id,
+                    'patient_name': next_appointment.patient.full_name,
+                    'appointment_date': next_appointment.appointment_date.strftime('%d/%m/%Y'),
+                    'appointment_time': next_appointment.appointment_time.strftime('%H:%M'),
+                    'appointment_type': next_appointment.get_appointment_type_display(),
+                    'status': next_appointment.status,
+                    'location': next_appointment.location or 'Consultório',
+                    'reason': next_appointment.reason or 'Consulta médica',
+                    'notes': next_appointment.notes or 'Nenhuma observação'
+                }
+            })
+        else:
+            return JsonResponse({
+                'success': False,
+                'error': 'Nenhuma consulta próxima encontrada'
+            })
+        
+    except Exception as e:
+        return JsonResponse({
+            'success': False,
+            'error': f'Erro ao buscar próxima consulta: {str(e)}'
         })

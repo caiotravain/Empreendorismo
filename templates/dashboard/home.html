@@ -19,6 +19,9 @@
                     </div>
                     <div class="d-flex align-items-center">
                         <span class="badge bg-secondary me-2" id="patient-status-badge">Aguardando seleção</span>
+                        <button class="btn btn-primary btn-sm me-2" onclick="showPatientSelectionModal()" id="select-patient-btn">
+                            <i class="fas fa-search me-1"></i>Selecionar Paciente
+                        </button>
                         <button class="btn btn-outline-primary btn-sm" onclick="clearPatientSelection()" id="clear-patient-btn" style="display: none;">
                             <i class="fas fa-times me-1"></i>Limpar Seleção
                         </button>
@@ -39,6 +42,9 @@
                 <button type="button" class="btn btn-primary" onclick="switchTab('agenda')">
                     <i class="fas fa-calendar-alt me-1"></i>Agenda
                 </button>
+                <button type="button" class="btn btn-outline-primary" id="indicadores-btn" onclick="switchTab('indicadores')">
+                    <i class="fas fa-chart-line me-1"></i>Indicadores
+                </button>
                 <button type="button" class="btn btn-outline-primary disabled" id="prontuarios-btn" onclick="switchTab('prontuarios')" disabled>
                     <i class="fas fa-file-medical me-1"></i>Prontuários
                 </button>
@@ -50,9 +56,6 @@
                 </button>
                 <button type="button" class="btn btn-outline-primary disabled" id="prescricao-btn" onclick="switchTab('prescricao')" disabled>
                     <i class="fas fa-prescription-bottle-alt me-1"></i>Prescrição Online
-                </button>
-                <button type="button" class="btn btn-outline-primary disabled" id="indicadores-btn" onclick="switchTab('indicadores')" disabled>
-                    <i class="fas fa-chart-line me-1"></i>Indicadores
                 </button>
             </div>
         </div>
@@ -555,7 +558,7 @@
         </div>
 
         <div class="col-12 mb-3">
-            <div class="stats-card stats-card-warning">
+            <div class="stats-card stats-card-warning" onclick="showNextAppointmentDetails()" style="cursor: pointer;">
                 <div class="stats-card-body">
                     <div class="stats-content">
                         <div class="stats-info">
@@ -960,72 +963,272 @@
 <!-- Indicadores Tab -->
 <div id="indicadores-tab" class="tab-content" style="display: none;">
     <div class="row">
-        <div class="col-xl-3 col-md-6 mb-4">
-            <div class="card border-left-primary shadow h-100 py-2">
-                <div class="card-body">
-                    <div class="row no-gutters align-items-center">
-                        <div class="col mr-2">
-                            <div class="text-xs font-weight-bold text-primary text-uppercase mb-1">
-                                Pacientes Ativos
+        <!-- Monthly Agenda Chart -->
+        <div class="col-lg-6 mb-4">
+            <div class="card shadow-sm border-0 h-100">
+                <div class="card-header bg-white border-0 py-3">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <h5 class="mb-0 font-weight-bold text-dark">Agenda Mensal (%)</h5>
+                        <div class="d-flex align-items-center gap-3">
+                            <div class="btn-group" role="group">
+                                <button type="button" class="btn btn-outline-secondary btn-sm active" onclick="switchChartView('monthly')" id="monthly-chart-btn">Mensal</button>
+                                <button type="button" class="btn btn-outline-secondary btn-sm" onclick="switchChartView('weekly')" id="weekly-chart-btn">Semanal</button>
                             </div>
-                            <div class="h5 mb-0 font-weight-bold text-gray-800">156</div>
+                            <button class="btn btn-outline-secondary btn-sm">
+                                <i class="fas fa-chart-line me-1"></i>Performance
+                                <i class="fas fa-chevron-down ms-1"></i>
+                            </button>
                         </div>
-                        <div class="col-auto">
-                            <i class="fas fa-users fa-2x text-gray-300"></i>
+                    </div>
+                </div>
+                <div class="card-body">
+                    <div class="chart-container">
+                        <div id="monthly-chart" class="monthly-chart">
+                            <div class="chart-bars">
+                                <!-- February -->
+                                <div class="chart-bar">
+                                    <div class="bar-label">fev-25</div>
+                                    <div class="bar-container">
+                                        <div class="bar-segment cancelamento" style="height: 7%;" title="Cancelamento: 7%">
+                                            <span class="segment-percentage">7%</span>
+                                        </div>
+                                        <div class="bar-segment no-show" style="height: 2%;" title="No-show: 2%">
+                                            <span class="segment-percentage small-percentage">2%</span>
+                                        </div>
+                                        <div class="bar-segment vago" style="height: 11%;" title="Vago: 11%">
+                                            <span class="segment-percentage">11%</span>
+                                        </div>
+                                        <div class="bar-segment ocupacao" style="height: 80%;" title="Ocupação: 80%">
+                                            <span class="segment-percentage">80%</span>
+                                        </div>
+                                    </div>
+                                </div>
+                                <!-- March -->
+                                <div class="chart-bar">
+                                    <div class="bar-label">mar-25</div>
+                                    <div class="bar-container">
+                                        <div class="bar-segment cancelamento" style="height: 5%;" title="Cancelamento: 5%">
+                                            <span class="segment-percentage small-percentage">5%</span>
+                                        </div>
+                                        <div class="bar-segment no-show" style="height: 4%;" title="No-show: 4%">
+                                            <span class="segment-percentage small-percentage">4%</span>
+                                        </div>
+                                        <div class="bar-segment vago" style="height: 14%;" title="Vago: 14%">
+                                            <span class="segment-percentage">14%</span>
+                                        </div>
+                                        <div class="bar-segment ocupacao" style="height: 77%;" title="Ocupação: 77%">
+                                            <span class="segment-percentage">77%</span>
+                                        </div>
+                                    </div>
+                                </div>
+                                <!-- April -->
+                                <div class="chart-bar">
+                                    <div class="bar-label">abr-25</div>
+                                    <div class="bar-container">
+                                        <div class="bar-segment cancelamento" style="height: 8%;" title="Cancelamento: 8%">
+                                            <span class="segment-percentage">8%</span>
+                                        </div>
+                                        <div class="bar-segment no-show" style="height: 6%;" title="No-show: 6%">
+                                            <span class="segment-percentage">6%</span>
+                                        </div>
+                                        <div class="bar-segment vago" style="height: 11%;" title="Vago: 11%">
+                                            <span class="segment-percentage">11%</span>
+                                        </div>
+                                        <div class="bar-segment ocupacao" style="height: 75%;" title="Ocupação: 75%">
+                                            <span class="segment-percentage">75%</span>
+                                        </div>
+                                    </div>
+                                </div>
+                                <!-- May -->
+                                <div class="chart-bar">
+                                    <div class="bar-label">mai-25</div>
+                                    <div class="bar-container">
+                                        <div class="bar-segment cancelamento" style="height: 5%;" title="Cancelamento: 5%">
+                                            <span class="segment-percentage small-percentage">5%</span>
+                                        </div>
+                                        <div class="bar-segment no-show" style="height: 6%;" title="No-show: 6%">
+                                            <span class="segment-percentage">6%</span>
+                                        </div>
+                                        <div class="bar-segment vago" style="height: 24%;" title="Vago: 24%">
+                                            <span class="segment-percentage">24%</span>
+                                        </div>
+                                        <div class="bar-segment ocupacao" style="height: 65%;" title="Ocupação: 65%">
+                                            <span class="segment-percentage">65%</span>
+                                        </div>
+                                    </div>
+                                </div>
+                                <!-- June -->
+                                <div class="chart-bar">
+                                    <div class="bar-label">jun-25</div>
+                                    <div class="bar-container">
+                                        <div class="bar-segment cancelamento" style="height: 3%;" title="Cancelamento: 3%">
+                                            <span class="segment-percentage small-percentage">3%</span>
+                                        </div>
+                                        <div class="bar-segment no-show" style="height: 8%;" title="No-show: 8%">
+                                            <span class="segment-percentage">8%</span>
+                                        </div>
+                                        <div class="bar-segment vago" style="height: 19%;" title="Vago: 19%">
+                                            <span class="segment-percentage">19%</span>
+                                        </div>
+                                        <div class="bar-segment ocupacao" style="height: 70%;" title="Ocupação: 70%">
+                                            <span class="segment-percentage">70%</span>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <!-- Chart Legend -->
+                    <div class="chart-legend mt-3">
+                        <div class="d-flex justify-content-center gap-4">
+                            <div class="legend-item">
+                                <div class="legend-color ocupacao"></div>
+                                <span class="legend-label">Ocupação</span>
+                            </div>
+                            <div class="legend-item">
+                                <div class="legend-color vago"></div>
+                                <span class="legend-label">Vago</span>
+                            </div>
+                            <div class="legend-item">
+                                <div class="legend-color no-show"></div>
+                                <span class="legend-label">No-show</span>
+                            </div>
+                            <div class="legend-item">
+                                <div class="legend-color cancelamento"></div>
+                                <span class="legend-label">Cancelamento</span>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Weekly Chart (Hidden by default) -->
+                    <div id="weekly-chart" class="chart-container" style="display: none;">
+                        <div class="weekly-chart">
+                            <div class="chart-bars">
+                                <!-- Week 1 -->
+                                <div class="chart-bar">
+                                    <div class="bar-label">Sem 1</div>
+                                    <div class="bar-container">
+                                        <div class="bar-segment cancelamento" style="height: 8%;" title="Cancelamento: 8%">
+                                            <span class="segment-percentage">8%</span>
+                                        </div>
+                                        <div class="bar-segment no-show" style="height: 3%;" title="No-show: 3%">
+                                            <span class="segment-percentage small-percentage">3%</span>
+                                        </div>
+                                        <div class="bar-segment vago" style="height: 12%;" title="Vago: 12%">
+                                            <span class="segment-percentage">12%</span>
+                                        </div>
+                                        <div class="bar-segment ocupacao" style="height: 77%;" title="Ocupação: 77%">
+                                            <span class="segment-percentage">77%</span>
+                                        </div>
+                                    </div>
+                                </div>
+                                <!-- Week 2 -->
+                                <div class="chart-bar">
+                                    <div class="bar-label">Sem 2</div>
+                                    <div class="bar-container">
+                                        <div class="bar-segment cancelamento" style="height: 6%;" title="Cancelamento: 6%">
+                                            <span class="segment-percentage">6%</span>
+                                        </div>
+                                        <div class="bar-segment no-show" style="height: 4%;" title="No-show: 4%">
+                                            <span class="segment-percentage small-percentage">4%</span>
+                                        </div>
+                                        <div class="bar-segment vago" style="height: 15%;" title="Vago: 15%">
+                                            <span class="segment-percentage">15%</span>
+                                        </div>
+                                        <div class="bar-segment ocupacao" style="height: 75%;" title="Ocupação: 75%">
+                                            <span class="segment-percentage">75%</span>
+                                        </div>
+                                    </div>
+                                </div>
+                                <!-- Week 3 -->
+                                <div class="chart-bar">
+                                    <div class="bar-label">Sem 3</div>
+                                    <div class="bar-container">
+                                        <div class="bar-segment cancelamento" style="height: 5%;" title="Cancelamento: 5%">
+                                            <span class="segment-percentage small-percentage">5%</span>
+                                        </div>
+                                        <div class="bar-segment no-show" style="height: 2%;" title="No-show: 2%">
+                                            <span class="segment-percentage small-percentage">2%</span>
+                                        </div>
+                                        <div class="bar-segment vago" style="height: 18%;" title="Vago: 18%">
+                                            <span class="segment-percentage">18%</span>
+                                        </div>
+                                        <div class="bar-segment ocupacao" style="height: 75%;" title="Ocupação: 75%">
+                                            <span class="segment-percentage">75%</span>
+                                        </div>
+                                    </div>
+                                </div>
+                                <!-- Week 4 -->
+                                <div class="chart-bar">
+                                    <div class="bar-label">Sem 4</div>
+                                    <div class="bar-container">
+                                        <div class="bar-segment cancelamento" style="height: 7%;" title="Cancelamento: 7%">
+                                            <span class="segment-percentage">7%</span>
+                                        </div>
+                                        <div class="bar-segment no-show" style="height: 3%;" title="No-show: 3%">
+                                            <span class="segment-percentage small-percentage">3%</span>
+                                        </div>
+                                        <div class="bar-segment vago" style="height: 20%;" title="Vago: 20%">
+                                            <span class="segment-percentage">20%</span>
+                                        </div>
+                                        <div class="bar-segment ocupacao" style="height: 70%;" title="Ocupação: 70%">
+                                            <span class="segment-percentage">70%</span>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
                         </div>
                     </div>
                 </div>
             </div>
         </div>
-
-        <div class="col-xl-3 col-md-6 mb-4">
-            <div class="card border-left-success shadow h-100 py-2">
-                <div class="card-body">
-                    <div class="row no-gutters align-items-center">
-                        <div class="col mr-2">
-                            <div class="text-xs font-weight-bold text-success text-uppercase mb-1">
-                                Consultas/Mês
-                            </div>
-                            <div class="h5 mb-0 font-weight-bold text-gray-800">89</div>
-                        </div>
-                        <div class="col-auto">
-                            <i class="fas fa-calendar-check fa-2x text-gray-300"></i>
-                        </div>
+        
+        <!-- Main Indicators Section -->
+        <div class="col-lg-6 mb-4">
+            <div class="card shadow-sm border-0 h-100">
+                <div class="card-header bg-white border-0 py-3">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <h5 class="mb-0 font-weight-bold text-dark">Principais indicadores</h5>
+                        <button class="btn btn-outline-secondary btn-sm">
+                            <i class="fas fa-download me-1"></i>Exportar
+                        </button>
                     </div>
                 </div>
-            </div>
-        </div>
-
-        <div class="col-xl-3 col-md-6 mb-4">
-            <div class="card border-left-info shadow h-100 py-2">
                 <div class="card-body">
-                    <div class="row no-gutters align-items-center">
-                        <div class="col mr-2">
-                            <div class="text-xs font-weight-bold text-info text-uppercase mb-1">
-                                Exames Solicitados
+                    <div class="row">
+                        <!-- Top Row - 3 indicators -->
+                        <div class="col-4 mb-3">
+                            <div class="indicator-card">
+                                <div class="indicator-number">18</div>
+                                <div class="indicator-label">Total de Pacientes</div>
                             </div>
-                            <div class="h5 mb-0 font-weight-bold text-gray-800">23</div>
                         </div>
-                        <div class="col-auto">
-                            <i class="fas fa-vial fa-2x text-gray-300"></i>
+                        <div class="col-4 mb-3">
+                            <div class="indicator-card">
+                                <div class="indicator-number">R$ 11,300</div>
+                                <div class="indicator-label">Receita</div>
+                            </div>
+                        </div>
+                        <div class="col-4 mb-3">
+                            <div class="indicator-card">
+                                <div class="indicator-number">R$ 627.78</div>
+                                <div class="indicator-label">Ticket Médio</div>
+                            </div>
                         </div>
                     </div>
-                </div>
-            </div>
-        </div>
-
-        <div class="col-xl-3 col-md-6 mb-4">
-            <div class="card border-left-warning shadow h-100 py-2">
-                <div class="card-body">
-                    <div class="row no-gutters align-items-center">
-                        <div class="col mr-2">
-                            <div class="text-xs font-weight-bold text-warning text-uppercase mb-1">
-                                Prescrições Ativas
+                    <div class="row">
+                        <!-- Bottom Row - 2 indicators -->
+                        <div class="col-6 mb-3">
+                            <div class="indicator-card">
+                                <div class="indicator-number">R$ 4,200</div>
+                                <div class="indicator-label">Receita Particular</div>
                             </div>
-                            <div class="h5 mb-0 font-weight-bold text-gray-800">67</div>
                         </div>
-                        <div class="col-auto">
-                            <i class="fas fa-prescription-bottle-alt fa-2x text-gray-300"></i>
+                        <div class="col-6 mb-3">
+                            <div class="indicator-card">
+                                <div class="indicator-number">R$ 7,100</div>
+                                <div class="indicator-label">Receita Convênio</div>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -1033,46 +1236,52 @@
         </div>
     </div>
 
+    <!-- Trends Section -->
     <div class="row">
-        <div class="col-lg-8 mb-4">
-            <div class="card shadow mb-4">
-                <div class="card-header py-3">
-                    <h6 class="m-0 font-weight-bold text-primary">Gráficos de Performance</h6>
-                </div>
-                <div class="card-body">
-                    <div class="row">
-                        <div class="col-md-6">
-                            <h6>Consultas por Mês</h6>
-                            <p class="text-muted">Gráfico de consultas realizadas nos últimos 6 meses</p>
-                        </div>
-                        <div class="col-md-6">
-                            <h6>Tipos de Consulta</h6>
-                            <p class="text-muted">Distribuição dos tipos de consulta realizadas</p>
-                        </div>
+        <div class="col-md-4 mb-4">
+            <div class="trend-card">
+                <div class="trend-header">
+                    <div class="trend-icon ocupacao-icon">
+                        <i class="fas fa-clock"></i>
+                    </div>
+                    <div class="trend-value">
+                        <span class="trend-number">65</span>
+                        <span class="trend-change positive">+5p.p.</span>
                     </div>
                 </div>
+                <div class="trend-label">Ocupação (%)</div>
             </div>
         </div>
-
-        <div class="col-lg-4 mb-4">
-            <div class="card shadow mb-4">
-                <div class="card-header py-3">
-                    <h6 class="m-0 font-weight-bold text-primary">Alertas e Lembretes</h6>
-                </div>
-                <div class="card-body">
-                    <div class="alert alert-warning" role="alert">
-                        <i class="fas fa-exclamation-triangle me-2"></i>
-                        3 pacientes com retorno pendente
+        <div class="col-md-4 mb-4">
+            <div class="trend-card">
+                <div class="trend-header">
+                    <div class="trend-icon cancelamento-icon">
+                        <i class="fas fa-times-circle"></i>
                     </div>
-                    <div class="alert alert-info" role="alert">
-                        <i class="fas fa-info-circle me-2"></i>
-                        5 exames aguardando resultado
-                    </div>
-                    <div class="alert alert-success" role="alert">
-                        <i class="fas fa-check-circle me-2"></i>
-                        Todas as prescrições em dia
+                    <div class="trend-value">
+                        <span class="trend-number">5%</span>
+                        <span class="trend-change positive">+3p.p.</span>
                     </div>
                 </div>
+                <div class="trend-label">Cancelamentos (%)</div>
+            </div>
+        </div>
+        <div class="col-md-4 mb-4">
+            <div class="trend-card">
+                <div class="trend-header">
+                    <div class="trend-tabs">
+                        <button class="trend-tab active">Mês anterior</button>
+                        <button class="trend-tab">Mês homólogo</button>
+                    </div>
+                    <div class="trend-icon no-show-icon">
+                        <i class="fas fa-frown"></i>
+                    </div>
+                    <div class="trend-value">
+                        <span class="trend-number">6%</span>
+                        <span class="trend-change negative">-3p.p.</span>
+                    </div>
+                </div>
+                <div class="trend-label">No-show (%)</div>
             </div>
         </div>
     </div>
@@ -1145,10 +1354,13 @@
                             <label for="appointment-patient" class="form-label">
                                 <i class="fas fa-user me-1"></i>Paciente <span class="text-danger">*</span>
                             </label>
-                            <select class="form-select" id="appointment-patient" name="patient" required>
-                                <option value="">Selecione um paciente...</option>
-                                <!-- Patients will be loaded dynamically -->
-                            </select>
+                            <div class="position-relative">
+                                <input type="text" class="form-control" id="patient-search" placeholder="Digite para buscar paciente..." autocomplete="off">
+                                <input type="hidden" id="appointment-patient" name="patient" required>
+                                <div class="dropdown-menu w-100" id="patient-dropdown" style="max-height: 200px; overflow-y: auto; display: none;">
+                                    <!-- Patient options will be loaded here -->
+                                </div>
+                            </div>
                             <div class="form-text">
                                 <a href="#" onclick="showNewPatientModal()" class="text-decoration-none">
                                     <i class="fas fa-plus me-1"></i>Adicionar novo paciente
@@ -1496,6 +1708,69 @@
                 </button>
                 <button type="button" class="btn btn-danger btn-cancel-appointment" id="cancel-appointment-btn">
                     <i class="fas fa-times-circle me-1"></i>Cancelar Consulta
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Patient Selection Popup Modal -->
+<div class="modal fade" id="patientSelectionModal" tabindex="-1" aria-labelledby="patientSelectionModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header bg-primary text-white">
+                <h5 class="modal-title" id="patientSelectionModalLabel">
+                    <i class="fas fa-user-search me-2"></i>Selecionar Paciente
+                </h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <!-- Search Input -->
+                <div class="mb-4">
+                    <div class="input-group">
+                        <span class="input-group-text">
+                            <i class="fas fa-search"></i>
+                        </span>
+                        <input type="text" class="form-control form-control-lg" id="patient-popup-search" 
+                               placeholder="Digite o nome do paciente para buscar..." autocomplete="off">
+                    </div>
+                    <div class="form-text">
+                        <i class="fas fa-info-circle me-1"></i>
+                        Digite pelo menos 2 caracteres para iniciar a busca
+                    </div>
+                </div>
+
+                <!-- Loading Spinner -->
+                <div id="patient-search-loading" class="text-center py-4" style="display: none;">
+                    <div class="spinner-border text-primary" role="status">
+                        <span class="visually-hidden">Carregando...</span>
+                    </div>
+                    <p class="mt-2 text-muted">Buscando pacientes...</p>
+                </div>
+
+                <!-- Patient List -->
+                <div id="patient-list-container">
+                    <div class="row" id="patient-list">
+                        <!-- Patient cards will be loaded here -->
+                    </div>
+                </div>
+
+                <!-- No Results Message -->
+                <div id="no-patients-found" class="text-center py-4" style="display: none;">
+                    <i class="fas fa-user-slash fa-3x text-muted mb-3"></i>
+                    <h5 class="text-muted">Nenhum paciente encontrado</h5>
+                    <p class="text-muted">Tente ajustar os termos de busca ou adicionar um novo paciente.</p>
+                    <button type="button" class="btn btn-outline-primary" onclick="showNewPatientModal()">
+                        <i class="fas fa-plus me-1"></i>Adicionar Novo Paciente
+                    </button>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                    <i class="fas fa-times me-1"></i>Cancelar
+                </button>
+                <button type="button" class="btn btn-outline-primary" onclick="showNewPatientModal()">
+                    <i class="fas fa-plus me-1"></i>Novo Paciente
                 </button>
             </div>
         </div>
@@ -2091,6 +2366,604 @@
     z-index: 10;
     box-shadow: 0 1px 2px rgba(0,0,0,0.2);
 }
+
+/* Patient dropdown styling */
+#patient-dropdown {
+    position: absolute;
+    top: 100%;
+    left: 0;
+    right: 0;
+    z-index: 1000;
+    background: white;
+    border: 1px solid #ced4da;
+    border-radius: 0.375rem;
+    box-shadow: 0 0.5rem 1rem rgba(0, 0, 0, 0.15);
+}
+
+#patient-dropdown .dropdown-item {
+    padding: 0.5rem 1rem;
+    border-bottom: 1px solid #f8f9fa;
+    transition: background-color 0.15s ease-in-out;
+}
+
+#patient-dropdown .dropdown-item:hover {
+    background-color: #f8f9fa;
+}
+
+#patient-dropdown .dropdown-item:last-child {
+    border-bottom: none;
+}
+
+/* Patient Selection Popup Modal Styles - Compact & Clean */
+#patientSelectionModal .modal-dialog {
+    max-width: 500px;
+    margin: 2rem auto;
+}
+
+#patientSelectionModal .modal-content {
+    border: none;
+    border-radius: 16px;
+    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.15);
+    overflow: hidden;
+}
+
+#patientSelectionModal .modal-header {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    border-bottom: none;
+    padding: 1.5rem 2rem;
+    position: relative;
+}
+
+#patientSelectionModal .modal-header::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><defs><pattern id="dots" width="20" height="20" patternUnits="userSpaceOnUse"><circle cx="10" cy="10" r="1" fill="white" opacity="0.1"/></pattern></defs><rect width="100" height="100" fill="url(%23dots)"/></svg>');
+    pointer-events: none;
+}
+
+#patientSelectionModal .modal-title {
+    font-weight: 600;
+    font-size: 1.25rem;
+    color: white;
+    position: relative;
+    z-index: 1;
+    margin: 0;
+}
+
+#patientSelectionModal .modal-title i {
+    margin-right: 0.5rem;
+    opacity: 0.9;
+}
+
+#patientSelectionModal .btn-close {
+    background: rgba(255, 255, 255, 0.2);
+    border-radius: 50%;
+    width: 32px;
+    height: 32px;
+    opacity: 1;
+    transition: all 0.2s ease;
+    position: relative;
+    z-index: 1;
+}
+
+#patientSelectionModal .btn-close:hover {
+    background: rgba(255, 255, 255, 0.3);
+    transform: scale(1.1);
+}
+
+#patientSelectionModal .modal-body {
+    padding: 1.5rem 2rem 2rem;
+    background: #fafbfc;
+}
+
+#patientSelectionModal .form-control-lg {
+    border-radius: 12px;
+    border: 2px solid #e1e5e9;
+    transition: all 0.3s ease;
+    font-size: 1rem;
+    padding: 0.875rem 1rem;
+    background: white;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+}
+
+#patientSelectionModal .form-control-lg:focus {
+    border-color: #667eea;
+    box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1), 0 4px 12px rgba(0, 0, 0, 0.08);
+    outline: none;
+}
+
+#patientSelectionModal .input-group-text {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    border: 2px solid #667eea;
+    border-right: none;
+    color: white;
+    border-radius: 12px 0 0 12px;
+    padding: 0.875rem 1rem;
+}
+
+#patientSelectionModal .form-text {
+    color: #6c757d;
+    font-size: 0.875rem;
+    margin-top: 0.5rem;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.patient-card {
+    background: white;
+    border: 1px solid #e1e5e9;
+    border-radius: 10px;
+    padding: 1rem 1.25rem;
+    margin-bottom: 0.5rem;
+    transition: all 0.2s ease;
+    cursor: pointer;
+    position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+}
+
+.patient-card:hover {
+    border-color: #667eea;
+    box-shadow: 0 4px 12px rgba(102, 126, 234, 0.15);
+    transform: translateY(-1px);
+}
+
+.patient-card.selected {
+    border-color: #667eea;
+    background: linear-gradient(135deg, #f8f9ff 0%, #ffffff 100%);
+    box-shadow: 0 4px 12px rgba(102, 126, 234, 0.2);
+}
+
+.patient-card.selected::before {
+    content: '';
+    position: absolute;
+    left: 0;
+    top: 0;
+    bottom: 0;
+    width: 3px;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    border-radius: 10px 0 0 10px;
+}
+
+.patient-info {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    flex: 1;
+}
+
+.patient-avatar {
+    width: 36px;
+    height: 36px;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: white;
+    font-size: 0.875rem;
+    font-weight: 600;
+    flex-shrink: 0;
+    box-shadow: 0 2px 8px rgba(102, 126, 234, 0.2);
+}
+
+.patient-name {
+    font-size: 1rem;
+    font-weight: 500;
+    color: #2c3e50;
+    margin: 0;
+    line-height: 1.4;
+}
+
+.patient-actions {
+    display: flex;
+    align-items: center;
+}
+
+.btn-select-patient {
+    background: #667eea;
+    border: none;
+    color: white;
+    padding: 0.5rem 1rem;
+    border-radius: 6px;
+    font-weight: 500;
+    font-size: 0.875rem;
+    transition: all 0.2s ease;
+    min-width: 70px;
+}
+
+.btn-select-patient:hover {
+    background: #5a6fd8;
+    color: white;
+    transform: translateY(-1px);
+}
+
+.btn-select-patient:active {
+    transform: translateY(0);
+}
+
+.patient-card.selected .btn-select-patient {
+    background: #28a745;
+}
+
+.patient-card.selected .btn-select-patient:hover {
+    background: #218838;
+}
+
+/* Loading and empty states */
+#patient-search-loading {
+    min-height: 150px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    color: #6c757d;
+}
+
+#patient-search-loading .spinner-border {
+    width: 2rem;
+    height: 2rem;
+    border-width: 2px;
+    color: #667eea;
+}
+
+#no-patients-found {
+    min-height: 150px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    color: #6c757d;
+    text-align: center;
+}
+
+#no-patients-found i {
+    font-size: 2rem;
+    margin-bottom: 1rem;
+    opacity: 0.5;
+}
+
+#no-patients-found h5 {
+    color: #495057;
+    margin-bottom: 0.5rem;
+}
+
+#no-patients-found p {
+    margin-bottom: 1rem;
+    font-size: 0.9rem;
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+    .patient-info {
+        flex-direction: column;
+        text-align: center;
+        gap: 0.75rem;
+    }
+    
+    .patient-meta {
+        justify-content: center;
+        flex-wrap: wrap;
+    }
+    
+    .patient-actions {
+        width: 100%;
+        justify-content: center;
+    }
+}
+
+/* Indicators Tab Styles */
+.monthly-chart {
+    padding: 1.5rem 0;
+}
+
+.chart-bars {
+    display: flex;
+    justify-content: center;
+    align-items: end;
+    height: 180px;
+    gap: 2rem;
+    padding: 0 2rem;
+}
+
+.chart-bar {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    width: 60px;
+}
+
+.bar-label {
+    font-size: 0.75rem;
+    font-weight: 500;
+    color: #6c757d;
+    margin-bottom: 0.75rem;
+    text-align: center;
+}
+
+.bar-container {
+    width: 40px;
+    height: 160px;
+    display: flex;
+    flex-direction: column;
+    justify-content: end;
+    position: relative;
+    border-radius: 6px 6px 0 0;
+    overflow: visible;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+.bar-segment {
+    width: 100%;
+    transition: all 0.3s ease;
+    cursor: pointer;
+    border-radius: 0;
+    position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.bar-segment:hover {
+    opacity: 0.8;
+    transform: scaleY(1.05);
+}
+
+.segment-percentage {
+    font-size: 0.7rem;
+    font-weight: 600;
+    color: white;
+    text-shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
+    position: absolute;
+    z-index: 10;
+    pointer-events: none;
+}
+
+/* Show all percentages inside bars - always visible */
+.segment-percentage {
+    position: absolute !important;
+    top: 50% !important;
+    left: 50% !important;
+    transform: translate(-50%, -50%) !important;
+    font-size: 0.6rem !important;
+    font-weight: 700 !important;
+    color: white !important;
+    text-shadow: 0 1px 2px rgba(0, 0, 0, 0.8) !important;
+    white-space: nowrap !important;
+    z-index: 10 !important;
+    display: block !important;
+    opacity: 1 !important;
+    visibility: visible !important;
+    pointer-events: none !important;
+}
+
+/* Small percentage labels (< 5%) - position to the side with black text */
+.segment-percentage.small-percentage {
+    position: absolute !important;
+    top: 50% !important;
+    right: -35px !important;
+    left: auto !important;
+    transform: translateY(-50%) !important;
+    font-size: 0.6rem !important;
+    font-weight: 700 !important;
+    color: black !important;
+    text-shadow: none !important;
+    white-space: nowrap !important;
+    z-index: 10 !important;
+    display: block !important;
+    opacity: 1 !important;
+    visibility: visible !important;
+    pointer-events: none !important;
+    background: rgba(255, 255, 255, 0.95) !important;
+    padding: 2px 6px !important;
+    border-radius: 3px !important;
+    border: 1px solid rgba(0, 0, 0, 0.2) !important;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1) !important;
+}
+
+
+.bar-segment.ocupacao {
+    background: #ff6b35;
+}
+
+.bar-segment.vago {
+    background: #4ecdc4;
+}
+
+.bar-segment.no-show {
+    background: #ff9a9e;
+}
+
+.bar-segment.cancelamento {
+    background: #a8edea;
+}
+
+.indicator-card {
+    background: #f8f9fa;
+    border-radius: 12px;
+    padding: 1.5rem;
+    text-align: center;
+    transition: all 0.3s ease;
+    border: 1px solid #e9ecef;
+}
+
+.indicator-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+    background: #ffffff;
+}
+
+.indicator-number {
+    font-size: 2rem;
+    font-weight: 700;
+    color: #2c3e50;
+    margin-bottom: 0.5rem;
+    line-height: 1;
+}
+
+.indicator-label {
+    font-size: 0.875rem;
+    color: #6c757d;
+    font-weight: 500;
+    line-height: 1.3;
+}
+
+.trend-card {
+    background: #ffffff;
+    border-radius: 12px;
+    padding: 1.5rem;
+    border: 1px solid #e9ecef;
+    transition: all 0.3s ease;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+}
+
+.trend-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 25px rgba(0, 0, 0, 0.1);
+}
+
+.trend-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 1rem;
+}
+
+.trend-icon {
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.25rem;
+    color: white;
+}
+
+.trend-icon.ocupacao-icon {
+    background: linear-gradient(135deg, #ff6b35 0%, #f7931e 100%);
+}
+
+.trend-icon.cancelamento-icon {
+    background: linear-gradient(135deg, #ff9a9e 0%, #fecfef 100%);
+}
+
+.trend-icon.no-show-icon {
+    background: linear-gradient(135deg, #a8edea 0%, #fed6e3 100%);
+}
+
+.trend-value {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+}
+
+.trend-number {
+    font-size: 1.5rem;
+    font-weight: 700;
+    color: #2c3e50;
+    line-height: 1;
+}
+
+.trend-change {
+    font-size: 0.75rem;
+    font-weight: 600;
+    padding: 0.25rem 0.5rem;
+    border-radius: 12px;
+    margin-top: 0.25rem;
+}
+
+.trend-change.positive {
+    background: #d4edda;
+    color: #155724;
+}
+
+.trend-change.negative {
+    background: #f8d7da;
+    color: #721c24;
+}
+
+.trend-label {
+    font-size: 0.875rem;
+    color: #6c757d;
+    font-weight: 500;
+    text-align: center;
+}
+
+.trend-tabs {
+    display: flex;
+    gap: 0.25rem;
+    margin-bottom: 0.5rem;
+}
+
+.trend-tab {
+    background: none;
+    border: none;
+    padding: 0.25rem 0.5rem;
+    font-size: 0.75rem;
+    color: #6c757d;
+    border-radius: 4px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.trend-tab.active {
+    background: #e9ecef;
+    color: #495057;
+    font-weight: 500;
+}
+
+.trend-tab:hover {
+    background: #f8f9fa;
+    color: #495057;
+}
+
+/* Chart Legend Styles */
+.chart-legend {
+    border-top: 1px solid #e9ecef;
+    padding-top: 1rem;
+}
+
+.legend-item {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.legend-color {
+    width: 12px;
+    height: 12px;
+    border-radius: 2px;
+}
+
+.legend-color.ocupacao {
+    background: #ff6b35;
+}
+
+.legend-color.vago {
+    background: #4ecdc4;
+}
+
+.legend-color.no-show {
+    background: #ff9a9e;
+}
+
+.legend-color.cancelamento {
+    background: #a8edea;
+}
+
+.legend-label {
+    font-size: 0.875rem;
+    color: #6c757d;
+    font-weight: 500;
+}
 </style>
 {% endblock %}
 
@@ -2100,7 +2973,8 @@ let selectedPatient = null;
 
 function switchTab(tabName) {
     // Check if trying to access other tabs without selecting a patient
-    if (tabName !== 'agenda' && !selectedPatient) {
+    // Allow access to 'agenda' and 'indicadores' without patient selection
+    if (tabName !== 'agenda' && tabName !== 'indicadores' && !selectedPatient) {
         alert('Por favor, selecione um paciente na agenda primeiro.');
         return;
     }
@@ -2129,6 +3003,34 @@ function switchTab(tabName) {
     // Highlight active button
     event.target.classList.remove('btn-outline-primary');
     event.target.classList.add('btn-primary');
+}
+
+function switchChartView(view) {
+    const monthlyChart = document.getElementById('monthly-chart');
+    const weeklyChart = document.getElementById('weekly-chart');
+    const chartTitle = document.querySelector('.card-header h5');
+    const monthlyBtn = document.getElementById('monthly-chart-btn');
+    const weeklyBtn = document.getElementById('weekly-chart-btn');
+    
+    if (view === 'weekly') {
+        // Show weekly chart, hide monthly
+        monthlyChart.style.display = 'none';
+        weeklyChart.style.display = 'block';
+        chartTitle.textContent = 'Agenda Semanal (%)';
+        
+        // Update button states
+        monthlyBtn.classList.remove('active');
+        weeklyBtn.classList.add('active');
+    } else {
+        // Show monthly chart, hide weekly
+        monthlyChart.style.display = 'block';
+        weeklyChart.style.display = 'none';
+        chartTitle.textContent = 'Agenda Mensal (%)';
+        
+        // Update button states
+        weeklyBtn.classList.remove('active');
+        monthlyBtn.classList.add('active');
+    }
 }
 
 function selectPatient(patientName, patientId) {
@@ -2190,12 +3092,15 @@ function clearPatientSelection() {
     // Update the persistent patient selection header
     updatePatientSelectionHeader('', 'none');
     
-    // Disable all other tabs except agenda
+    // Disable all other tabs except agenda and indicators
     const allButtons = document.querySelectorAll('.btn-group .btn');
     allButtons.forEach((btn, index) => {
         if (index > 0) { // Skip the first button (Agenda)
-            btn.classList.add('disabled');
-            btn.disabled = true;
+            // Keep indicators button enabled (index 1)
+            if (index !== 1) {
+                btn.classList.add('disabled');
+                btn.disabled = true;
+            }
         }
     });
     
@@ -3204,23 +4109,76 @@ function loadPatientsAndDoctors() {
     fetch('/dashboard/api/patients/')
         .then(response => response.json())
         .then(data => {
-            const patientSelect = document.getElementById('appointment-patient');
-            patientSelect.innerHTML = '<option value="">Selecione um paciente...</option>';
-            
-            if (data.success && data.patients) {
-                data.patients.forEach(patient => {
-                    const option = document.createElement('option');
-                    option.value = patient.id;
-                    option.textContent = `${patient.first_name} ${patient.last_name}`;
-                    patientSelect.appendChild(option);
-                });
-            }
+            window.allPatients = data.success ? data.patients : [];
+            setupPatientSearch();
         })
         .catch(error => {
             console.error('Error loading patients:', error);
+            window.allPatients = [];
         });
     
     // Doctor is automatically set to current user, no need to load doctors
+}
+
+function setupPatientSearch() {
+    const searchInput = document.getElementById('patient-search');
+    const dropdown = document.getElementById('patient-dropdown');
+    const hiddenInput = document.getElementById('appointment-patient');
+    
+    if (!searchInput || !dropdown || !hiddenInput) return;
+    
+    // Show all patients initially
+    showPatients(window.allPatients);
+    
+    // Handle search input
+    searchInput.addEventListener('input', function() {
+        const searchTerm = this.value.toLowerCase();
+        const filteredPatients = window.allPatients.filter(patient => 
+            `${patient.first_name} ${patient.last_name}`.toLowerCase().includes(searchTerm)
+        );
+        showPatients(filteredPatients);
+    });
+    
+    // Handle click outside to close dropdown
+    document.addEventListener('click', function(e) {
+        if (!searchInput.contains(e.target) && !dropdown.contains(e.target)) {
+            dropdown.style.display = 'none';
+        }
+    });
+    
+    // Handle focus to show dropdown
+    searchInput.addEventListener('focus', function() {
+        dropdown.style.display = 'block';
+    });
+}
+
+function showPatients(patients) {
+    const dropdown = document.getElementById('patient-dropdown');
+    const hiddenInput = document.getElementById('appointment-patient');
+    const searchInput = document.getElementById('patient-search');
+    
+    dropdown.innerHTML = '';
+    
+    if (patients.length === 0) {
+        dropdown.innerHTML = '<div class="dropdown-item text-muted">Nenhum paciente encontrado</div>';
+    } else {
+        patients.forEach(patient => {
+            const item = document.createElement('div');
+            item.className = 'dropdown-item';
+            item.style.cursor = 'pointer';
+            item.textContent = `${patient.first_name} ${patient.last_name}`;
+            
+            item.addEventListener('click', function() {
+                hiddenInput.value = patient.id;
+                searchInput.value = `${patient.first_name} ${patient.last_name}`;
+                dropdown.style.display = 'none';
+            });
+            
+            dropdown.appendChild(item);
+        });
+    }
+    
+    dropdown.style.display = 'block';
 }
 
 // Handle new appointment form submission
@@ -3343,7 +4301,12 @@ function submitNewPatient() {
             // Reopen appointment modal with new patient selected
             setTimeout(() => {
                 showNewAppointmentModal();
-                document.getElementById('appointment-patient').value = data.patient_id;
+                // Find the new patient and set it in the search
+                const newPatient = window.allPatients.find(p => p.id == data.patient_id);
+                if (newPatient) {
+                    document.getElementById('appointment-patient').value = data.patient_id;
+                    document.getElementById('patient-search').value = `${newPatient.first_name} ${newPatient.last_name}`;
+                }
             }, 500);
         } else {
             showNotification('Erro ao criar paciente: ' + (data.error || 'Erro desconhecido'), 'error');
@@ -3358,6 +4321,204 @@ function submitNewPatient() {
         submitBtn.innerHTML = originalText;
         submitBtn.disabled = false;
     });
+}
+
+// Patient Selection Popup Functions
+function showPatientSelectionModal() {
+    const modal = new bootstrap.Modal(document.getElementById('patientSelectionModal'));
+    modal.show();
+    
+    // Load all patients when modal opens
+    loadAllPatientsForPopup();
+    
+    // Setup search functionality
+    setupPatientPopupSearch();
+}
+
+function loadAllPatientsForPopup() {
+    const loadingDiv = document.getElementById('patient-search-loading');
+    const patientList = document.getElementById('patient-list');
+    const noResultsDiv = document.getElementById('no-patients-found');
+    
+    // Show loading state
+    loadingDiv.style.display = 'flex';
+    patientList.innerHTML = '';
+    noResultsDiv.style.display = 'none';
+    
+    // Load patients from API
+    fetch('/dashboard/api/patients/')
+        .then(response => response.json())
+        .then(data => {
+            loadingDiv.style.display = 'none';
+            
+            if (data.success && data.patients.length > 0) {
+                displayPatientsInPopup(data.patients);
+            } else {
+                noResultsDiv.style.display = 'flex';
+            }
+        })
+        .catch(error => {
+            console.error('Error loading patients:', error);
+            loadingDiv.style.display = 'none';
+            noResultsDiv.style.display = 'flex';
+        });
+}
+
+function displayPatientsInPopup(patients) {
+    const patientList = document.getElementById('patient-list');
+    const noResultsDiv = document.getElementById('no-patients-found');
+    
+    patientList.innerHTML = '';
+    
+    if (patients.length === 0) {
+        noResultsDiv.style.display = 'flex';
+        return;
+    }
+    
+    noResultsDiv.style.display = 'none';
+    
+    patients.forEach(patient => {
+        const patientCard = createPatientCard(patient);
+        patientList.appendChild(patientCard);
+    });
+}
+
+function createPatientCard(patient) {
+    const col = document.createElement('div');
+    col.className = 'col-12';
+    
+    // Get initials for avatar
+    const initials = `${patient.first_name.charAt(0)}${patient.last_name.charAt(0)}`.toUpperCase();
+    
+    // Escape special characters in patient name for HTML
+    const escapedName = patient.full_name.replace(/'/g, "\\'").replace(/"/g, '\\"');
+    
+    col.innerHTML = `
+        <div class="patient-card" onclick="selectPatientFromPopup('${patient.id}', '${escapedName}')">
+            <div class="patient-info">
+                <div class="patient-avatar">
+                    ${initials}
+                </div>
+                <div class="patient-name">${patient.full_name}</div>
+            </div>
+            <div class="patient-actions">
+                <button class="btn btn-select-patient" onclick="event.stopPropagation(); selectPatientFromPopup('${patient.id}', '${escapedName}')">
+                    Selecionar
+                </button>
+            </div>
+        </div>
+    `;
+    
+    return col;
+}
+
+function selectPatientFromPopup(patientId, patientName) {
+    // Close the modal
+    const modal = bootstrap.Modal.getInstance(document.getElementById('patientSelectionModal'));
+    modal.hide();
+    
+    // Use the existing selectPatient function
+    selectPatient(patientName, patientId);
+}
+
+function setupPatientPopupSearch() {
+    const searchInput = document.getElementById('patient-popup-search');
+    if (!searchInput) return;
+    
+    let searchTimeout;
+    
+    searchInput.addEventListener('input', function() {
+        const searchTerm = this.value.trim();
+        
+        // Clear previous timeout
+        clearTimeout(searchTimeout);
+        
+        // Show loading if search term is long enough
+        if (searchTerm.length >= 2) {
+            const loadingDiv = document.getElementById('patient-search-loading');
+            const patientList = document.getElementById('patient-list');
+            const noResultsDiv = document.getElementById('no-patients-found');
+            
+            loadingDiv.style.display = 'flex';
+            patientList.innerHTML = '';
+            noResultsDiv.style.display = 'none';
+            
+            // Debounce search
+            searchTimeout = setTimeout(() => {
+                searchPatientsInPopup(searchTerm);
+            }, 300);
+        } else if (searchTerm.length === 0) {
+            // Show all patients if search is empty
+            loadAllPatientsForPopup();
+        }
+    });
+}
+
+function searchPatientsInPopup(searchTerm) {
+    const loadingDiv = document.getElementById('patient-search-loading');
+    const patientList = document.getElementById('patient-list');
+    const noResultsDiv = document.getElementById('no-patients-found');
+    
+    // Load all patients and filter them
+    fetch('/dashboard/api/patients/')
+        .then(response => response.json())
+        .then(data => {
+            loadingDiv.style.display = 'none';
+            
+            if (data.success && data.patients.length > 0) {
+                // Filter patients based on search term
+                const filteredPatients = data.patients.filter(patient => {
+                    const fullName = `${patient.first_name} ${patient.last_name}`.toLowerCase();
+                    const email = (patient.email || '').toLowerCase();
+                    const phone = (patient.phone || '').toLowerCase();
+                    const searchLower = searchTerm.toLowerCase();
+                    
+                    return fullName.includes(searchLower) || 
+                           email.includes(searchLower) || 
+                           phone.includes(searchLower);
+                });
+                
+                displayPatientsInPopup(filteredPatients);
+            } else {
+                noResultsDiv.style.display = 'flex';
+            }
+        })
+        .catch(error => {
+            console.error('Error searching patients:', error);
+            loadingDiv.style.display = 'none';
+            noResultsDiv.style.display = 'flex';
+        });
+}
+
+// Next Appointment Details Function
+function showNextAppointmentDetails() {
+    const nextAppointmentText = document.getElementById('proxima-consulta').textContent;
+    
+    if (nextAppointmentText === 'N/A' || nextAppointmentText === '--:--') {
+        showNotification('Nenhuma consulta próxima agendada.', 'info');
+        return;
+    }
+    
+    // Get the next appointment from the server
+    fetch('/dashboard/api/next-appointment/')
+        .then(response => response.json())
+        .then(data => {
+            if (data.success && data.appointment) {
+                // Show the appointment details in a modal or notification
+                const appointment = data.appointment;
+                const message = `Próxima consulta: ${appointment.patient_name} em ${appointment.appointment_date} às ${appointment.appointment_time}`;
+                showNotification(message, 'info');
+                
+                // Optionally, you could show a detailed modal here
+                // showAppointmentDetailsModal(appointment);
+            } else {
+                showNotification('Não foi possível carregar os detalhes da próxima consulta.', 'error');
+            }
+        })
+        .catch(error => {
+            console.error('Error fetching next appointment:', error);
+            showNotification('Erro ao carregar próxima consulta.', 'error');
+        });
 }
 </script>
 {% endblock %}
