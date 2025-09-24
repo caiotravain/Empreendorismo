@@ -1,0 +1,79 @@
+<!-- Appointment Details Modal -->
+<div class="modal fade" id="appointmentDetailsModal" tabindex="-1" aria-labelledby="appointmentDetailsModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="appointmentDetailsModalLabel">
+                    <i class="fas fa-calendar-check me-2"></i>Detalhes da Consulta
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <div class="row">
+                    <div class="col-md-6 mb-3">
+                        <label class="form-label fw-bold">Paciente:</label>
+                        <p id="modal-patient-name" class="mb-0">-</p>
+                    </div>
+                    <div class="col-md-6 mb-3">
+                        <label class="form-label fw-bold">Médico:</label>
+                        <p id="modal-doctor-name" class="mb-0">-</p>
+                    </div>
+                </div>
+                
+                <div class="row">
+                    <div class="col-md-6 mb-3">
+                        <label class="form-label fw-bold">Data:</label>
+                        <p id="modal-appointment-date" class="mb-0">-</p>
+                    </div>
+                    <div class="col-md-6 mb-3">
+                        <label class="form-label fw-bold">Horário:</label>
+                        <p id="modal-appointment-time" class="mb-0">-</p>
+                    </div>
+                </div>
+                
+                <div class="row">
+                    <div class="col-md-6 mb-3">
+                        <label class="form-label fw-bold">Duração:</label>
+                        <p id="modal-appointment-duration" class="mb-0">-</p>
+                    </div>
+                    <div class="col-md-6 mb-3">
+                        <label class="form-label fw-bold">Tipo:</label>
+                        <p id="modal-appointment-type" class="mb-0">-</p>
+                    </div>
+                </div>
+                
+                <div class="row">
+                    <div class="col-md-6 mb-3">
+                        <label class="form-label fw-bold">Status:</label>
+                        <p class="mb-0"><span id="modal-status-badge" class="badge">-</span></p>
+                    </div>
+                    <div class="col-md-6 mb-3">
+                        <label class="form-label fw-bold">Local:</label>
+                        <p id="modal-appointment-location" class="mb-0">-</p>
+                    </div>
+                </div>
+                
+                <div class="mb-3">
+                    <label class="form-label fw-bold">Motivo:</label>
+                    <p id="modal-appointment-reason" class="mb-0">-</p>
+                </div>
+                
+                <div class="mb-3">
+                    <label class="form-label fw-bold">Observações:</label>
+                    <p id="modal-appointment-notes" class="mb-0">-</p>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                    <i class="fas fa-times me-1"></i>Fechar
+                </button>
+                <button type="button" class="btn btn-success" id="confirm-attendance-btn" style="display: none;">
+                    <i class="fas fa-check-circle me-1"></i>Confirmar Presença
+                </button>
+                <button type="button" class="btn btn-danger" id="cancel-appointment-btn" style="display: none;">
+                    <i class="fas fa-times-circle me-1"></i>Cancelar Consulta
+                </button>
+            </div>
+        </div>
+    </div>
+</div>

@@ -127,6 +127,10 @@ LOGIN_REDIRECT_URL = '/dashboard/'
 LOGOUT_REDIRECT_URL = '/accounts/login/'
 LOGIN_URL = '/accounts/login/'
 
+# CSRF settings
+CSRF_COOKIE_HTTPONLY = False  # Allow JavaScript to access CSRF cookie
+CSRF_USE_SESSIONS = False  # Use cookies instead of sessions for CSRF
+
 # Default primary key field type
 # https://docs.djangoproject.com/en/5.2/ref/settings/#default-auto-field
 

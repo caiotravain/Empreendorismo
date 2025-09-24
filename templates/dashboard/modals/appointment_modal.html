@@ -1,0 +1,168 @@
+<!-- New Appointment Modal -->
+<div class="modal fade" id="newAppointmentModal" tabindex="-1" aria-labelledby="newAppointmentModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="newAppointmentModalLabel">
+                    <i class="fas fa-calendar-plus me-2"></i>Nova Consulta
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <form id="newAppointmentForm">
+                <div class="modal-body">
+                    <div class="row">
+                        <!-- Patient Selection -->
+                        <div class="col-md-6 mb-3">
+                            <label for="appointment-patient" class="form-label">
+                                <i class="fas fa-user me-1"></i>Paciente <span class="text-danger">*</span>
+                            </label>
+                            <div class="position-relative">
+                                <input type="text" class="form-control" id="patient-search" placeholder="Digite para buscar paciente..." autocomplete="off">
+                                <input type="hidden" id="appointment-patient" name="patient" required>
+                                <div class="dropdown-menu w-100" id="patient-dropdown" style="max-height: 200px; overflow-y: auto; display: none;">
+                                    <!-- Patient options will be loaded here -->
+                                </div>
+                            </div>
+                            <div class="form-text">
+                                <a href="#" onclick="showNewPatientModal()" class="text-decoration-none">
+                                    <i class="fas fa-plus me-1"></i>Adicionar novo paciente
+                                </a>
+                            </div>
+                        </div>
+
+                        <!-- Doctor Selection (Hidden - automatically set to current doctor) -->
+                        <div class="col-md-6 mb-3">
+                            <label for="appointment-doctor" class="form-label">
+                                <i class="fas fa-user-md me-1"></i>Médico
+                            </label>
+                            <input type="text" class="form-control" id="appointment-doctor-display" readonly 
+                                   value="{% if current_doctor %}{{ current_doctor.full_name }}{% else %}Nenhum médico logado{% endif %}">
+                            <input type="hidden" id="appointment-doctor" name="doctor" 
+                                   value="{% if current_doctor %}{{ current_doctor.id }}{% endif %}">
+                            <div class="form-text">
+                                <i class="fas fa-info-circle me-1"></i>Consulta será agendada para você
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="row">
+                        <!-- Appointment Date -->
+                        <div class="col-md-6 mb-3">
+                            <label for="appointment-date" class="form-label">
+                                <i class="fas fa-calendar me-1"></i>Data da Consulta <span class="text-danger">*</span>
+                            </label>
+                            <input type="date" class="form-control" id="appointment-date" name="appointment_date" required>
+                        </div>
+
+                        <!-- Appointment Time -->
+                        <div class="col-md-6 mb-3">
+                            <label for="appointment-time" class="form-label">
+                                <i class="fas fa-clock me-1"></i>Horário <span class="text-danger">*</span>
+                            </label>
+                            <input type="time" class="form-control" id="appointment-time" name="appointment_time" required>
+                        </div>
+                    </div>
+
+                    <div class="row">
+                        <!-- Duration -->
+                        <div class="col-md-4 mb-3">
+                            <label for="appointment-duration" class="form-label">
+                                <i class="fas fa-hourglass-half me-1"></i>Duração (min)
+                            </label>
+                            <select class="form-select" id="appointment-duration" name="duration_minutes">
+                                <option value="15">15 minutos</option>
+                                <option value="30" selected>30 minutos</option>
+                                <option value="45">45 minutos</option>
+                                <option value="60">1 hora</option>
+                                <option value="90">1h 30min</option>
+                                <option value="120">2 horas</option>
+                            </select>
+                        </div>
+
+                        <!-- Appointment Type -->
+                        <div class="col-md-4 mb-3">
+                            <label for="appointment-type" class="form-label">
+                                <i class="fas fa-stethoscope me-1"></i>Tipo de Consulta
+                            </label>
+                            <select class="form-select" id="appointment-type" name="appointment_type">
+                                <option value="consultation">Consulta</option>
+                                <option value="follow_up">Retorno</option>
+                                <option value="checkup">Check-up</option>
+                                <option value="emergency">Emergência</option>
+                                <option value="procedure">Procedimento</option>
+                                <option value="therapy">Terapia</option>
+                                <option value="other">Outro</option>
+                            </select>
+                        </div>
+
+                        <!-- Status -->
+                        <div class="col-md-4 mb-3">
+                            <label for="appointment-status" class="form-label">
+                                <i class="fas fa-info-circle me-1"></i>Status
+                            </label>
+                            <select class="form-select" id="appointment-status" name="status">
+                                <option value="scheduled">Agendada</option>
+                                <option value="confirmed">Confirmada</option>
+                                <option value="in_progress">Em Andamento</option>
+                                <option value="completed">Concluída</option>
+                                <option value="cancelled">Cancelada</option>
+                                <option value="no_show">Não Compareceu</option>
+                                <option value="rescheduled">Reagendada</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <!-- Location -->
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label for="appointment-location" class="form-label">
+                                <i class="fas fa-map-marker-alt me-1"></i>Local
+                            </label>
+                            <input type="text" class="form-control" id="appointment-location" name="location" 
+                                   placeholder="Ex: Sala 1, Consultório A">
+                        </div>
+
+                        <!-- Reminder -->
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">
+                                <i class="fas fa-bell me-1"></i>Lembrete
+                            </label>
+                            <div class="form-check">
+                                <input class="form-check-input" type="checkbox" id="appointment-reminder" name="send_reminder">
+                                <label class="form-check-label" for="appointment-reminder">
+                                    Enviar lembrete para o paciente
+                                </label>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Reason -->
+                    <div class="mb-3">
+                        <label for="appointment-reason" class="form-label">
+                            <i class="fas fa-comment me-1"></i>Motivo da Consulta
+                        </label>
+                        <textarea class="form-control" id="appointment-reason" name="reason" rows="3" 
+                                  placeholder="Descreva o motivo da consulta..."></textarea>
+                    </div>
+
+                    <!-- Notes -->
+                    <div class="mb-3">
+                        <label for="appointment-notes" class="form-label">
+                            <i class="fas fa-sticky-note me-1"></i>Observações
+                        </label>
+                        <textarea class="form-control" id="appointment-notes" name="notes" rows="2" 
+                                  placeholder="Observações adicionais..."></textarea>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                        <i class="fas fa-times me-1"></i>Cancelar
+                    </button>
+                    <button type="submit" class="btn btn-primary">
+                        <i class="fas fa-calendar-plus me-1"></i>Agendar Consulta
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>

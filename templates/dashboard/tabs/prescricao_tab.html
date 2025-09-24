@@ -1,0 +1,153 @@
+<!-- Prescrição Online Tab -->
+<div id="prescricao-tab" class="tab-content" style="display: none;">
+    <div class="row">
+        <div class="col-12">
+            <!-- Patient Info Header -->
+            <div class="alert alert-light border-info mb-4" role="alert">
+                <div class="d-flex align-items-center">
+                    <i class="fas fa-info-circle text-info me-2"></i>
+                    <span>Você está acessando o perfil de: <strong id="patient-info-prescricao">Nenhum paciente selecionado</strong></span>
+                </div>
+            </div>
+
+            <!-- Prescription Form -->
+            <div class="card shadow-sm border">
+                <div class="card-body p-4">
+                    <form id="prescription-form">
+                        <!-- Date and Template Row -->
+                        <div class="row mb-4">
+                            <div class="col-md-6">
+                                <label for="prescription-date" class="form-label fw-bold">Data</label>
+                                <div class="input-group">
+                                    <input type="date" class="form-control" id="prescription-date" name="prescription_date" required>
+                                    <span class="input-group-text">
+                                        <i class="fas fa-calendar-alt"></i>
+                                    </span>
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <label for="prescription-template" class="form-label fw-bold">Modelo da prescrição</label>
+                                <select class="form-select" id="prescription-template" name="template">
+                                    <option value="">Selecione</option>
+                                    <option value="standard">Prescrição Padrão</option>
+                                    <option value="antibiotic">Antibiótico</option>
+                                    <option value="chronic">Medicação Crônica</option>
+                                </select>
+                            </div>
+                        </div>
+
+                        <!-- Medication Items -->
+                        <div id="medication-items">
+                            <!-- Medication Item 1 -->
+                            <div class="medication-item mb-4 p-3 border rounded bg-light">
+                                <div class="row">
+                                    <div class="col-md-6">
+                                        <label class="form-label fw-bold">Medicamento</label>
+                                        <input type="text" class="form-control" name="medication_name[]" placeholder="Nome do medicamento">
+                                    </div>
+                                    <div class="col-md-3">
+                                        <label class="form-label fw-bold">Quantidade</label>
+                                        <input type="text" class="form-control" name="quantity[]" placeholder="Ex: 30 comprimidos">
+                                    </div>
+                                    <div class="col-md-3 d-flex align-items-end">
+                                        <button type="button" class="btn btn-outline-danger btn-sm remove-medication" style="display: none;">
+                                            <i class="fas fa-trash"></i>
+                                        </button>
+                                    </div>
+                                </div>
+                                <div class="row mt-2">
+                                    <div class="col-12">
+                                        <label class="form-label fw-bold">Posologia</label>
+                                        <textarea class="form-control" name="dosage[]" rows="2" placeholder="Ex: 1 comprimido de 8/8 horas"></textarea>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Medication Item 2 -->
+                            <div class="medication-item mb-4 p-3 border rounded bg-light">
+                                <div class="row">
+                                    <div class="col-md-6">
+                                        <label class="form-label fw-bold">Medicamento</label>
+                                        <input type="text" class="form-control" name="medication_name[]" placeholder="Nome do medicamento">
+                                    </div>
+                                    <div class="col-md-3">
+                                        <label class="form-label fw-bold">Quantidade</label>
+                                        <input type="text" class="form-control" name="quantity[]" placeholder="Ex: 30 comprimidos">
+                                    </div>
+                                    <div class="col-md-3 d-flex align-items-end">
+                                        <button type="button" class="btn btn-outline-danger btn-sm remove-medication" style="display: none;">
+                                            <i class="fas fa-trash"></i>
+                                        </button>
+                                    </div>
+                                </div>
+                                <div class="row mt-2">
+                                    <div class="col-12">
+                                        <label class="form-label fw-bold">Posologia</label>
+                                        <textarea class="form-control" name="dosage[]" rows="2" placeholder="Ex: 1 comprimido de 8/8 horas"></textarea>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Add Medication Button -->
+                        <div class="text-center mb-4">
+                            <button type="button" class="btn btn-outline-primary" id="add-medication">
+                                <i class="fas fa-plus me-2"></i>Adicionar Medicamento
+                            </button>
+                        </div>
+
+                        <!-- Additional Notes -->
+                        <div class="mb-4">
+                            <label for="prescription-notes" class="form-label fw-bold">Observações</label>
+                            <textarea class="form-control" id="prescription-notes" name="notes" rows="3" placeholder="Observações adicionais sobre a prescrição"></textarea>
+                        </div>
+                    </form>
+                </div>
+            </div>
+
+            <!-- Action Buttons -->
+            <div class="row mt-4">
+                <div class="col-12">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <!-- Left Group - Communication Actions -->
+                        <div class="d-flex gap-2">
+                            <button type="button" class="btn btn-outline-secondary" id="send-email-btn" disabled>
+                                <i class="fas fa-envelope me-2"></i>Enviar por email
+                            </button>
+                            <button type="button" class="btn btn-outline-secondary" id="send-whatsapp-btn" disabled>
+                                <i class="fas fa-phone me-2"></i>Enviar por whatsapp
+                            </button>
+                            <button type="button" class="btn btn-outline-secondary" id="print-prescription-btn" disabled>
+                                <i class="fas fa-print me-2"></i>Imprimir
+                            </button>
+                        </div>
+
+                        <!-- Right Group - Save Button -->
+                        <div>
+                            <button type="button" class="btn btn-success btn-lg px-4" id="save-prescription-btn" disabled>
+                                <i class="fas fa-save me-2"></i>SALVAR
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Existing Prescriptions -->
+            <div class="card shadow-sm mt-4">
+                <div class="card-header py-3">
+                    <h6 class="m-0 font-weight-bold text-primary">
+                        <i class="fas fa-history me-2"></i>Prescrições Anteriores
+                    </h6>
+                </div>
+                <div class="card-body">
+                    <div id="prescriptions-list">
+                        <div class="text-center text-muted py-4">
+                            <i class="fas fa-prescription-bottle-alt fa-3x mb-3"></i>
+                            <p>Nenhuma prescrição encontrada para este paciente.</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>

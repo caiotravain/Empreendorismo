@@ -1,0 +1,84 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Dashboard Médico - SaaS Platform{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{% static 'css/dashboard.css' %}">
+{% endblock %}
+
+{% block content %}
+<!-- Patient Selection Header - Always Visible -->
+<div class="row mb-3">
+    <div class="col-12">
+        <div class="card border-0 shadow-sm" id="patient-selection-header">
+            <div class="card-body py-3">
+                <div class="d-flex justify-content-between align-items-center">
+                    <div class="d-flex align-items-center">
+                        <i class="fas fa-user-circle fa-2x text-primary me-3"></i>
+                        <div>
+                            <h5 class="mb-0" id="selected-patient-name">Nenhum paciente selecionado</h5>
+                            <small class="text-muted" id="selected-patient-info">Selecione um paciente na agenda para acessar os módulos</small>
+                        </div>
+                    </div>
+                    <div class="d-flex align-items-center">
+                        <span class="badge bg-secondary me-2" id="patient-status-badge">Aguardando seleção</span>
+                        <button class="btn btn-primary btn-sm me-2" onclick="showPatientSelectionModal()" id="select-patient-btn">
+                            <i class="fas fa-search me-1"></i>Selecionar Paciente
+                        </button>
+                        <button class="btn btn-outline-primary btn-sm" onclick="clearPatientSelection()" id="clear-patient-btn" style="display: none;">
+                            <i class="fas fa-times me-1"></i>Limpar Seleção
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row">
+    <div class="col-12">
+        <div class="d-flex justify-content-between align-items-center mb-4">
+            <h1 class="h3 mb-0">
+                <i class="fas fa-user-md me-2"></i>Dashboard Médico
+            </h1>
+            <div class="btn-group" role="group">
+                <button type="button" class="btn btn-primary" onclick="switchTab('agenda')">
+                    <i class="fas fa-calendar-alt me-1"></i>Agenda
+                </button>
+                <button type="button" class="btn btn-outline-primary" id="indicadores-btn" onclick="switchTab('indicadores')">
+                    <i class="fas fa-chart-line me-1"></i>Indicadores
+                </button>
+                <button type="button" class="btn btn-outline-primary disabled" id="prontuarios-btn" onclick="switchTab('prontuarios')" disabled>
+                    <i class="fas fa-file-medical me-1"></i>Prontuários
+                </button>
+                <button type="button" class="btn btn-outline-primary disabled" id="exames-btn" onclick="switchTab('exames')" disabled>
+                    <i class="fas fa-vial me-1"></i>Histórico de Exames
+                </button>
+                <button type="button" class="btn btn-outline-primary disabled" id="prescricao-btn" onclick="switchTab('prescricao')" disabled>
+                    <i class="fas fa-prescription-bottle-alt me-1"></i>Prescrição Online
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Tab Content Container -->
+<div id="tab-content-container">
+    {% block tab_content %}
+    <!-- Tab content will be included here -->
+    {% endblock %}
+</div>
+
+<!-- Include all modals -->
+{% include 'dashboard/modals/appointment_modal.html' %}
+{% include 'dashboard/modals/patient_modal.html' %}
+{% include 'dashboard/modals/patient_selection_modal.html' %}
+{% include 'dashboard/modals/appointment_details_modal.html' %}
+{% include 'dashboard/modals/record_popup_modal.html' %}
+
+{% endblock %}
+
+{% block extra_js %}
+<script src="{% static 'js/extra.js' %}"></script>
+{% endblock %}

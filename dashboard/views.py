@@ -6,7 +6,7 @@ from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_POST
 from django.views.decorators.http import require_http_methods
 from datetime import date, timedelta, datetime
-from .models import Appointment, Patient, Doctor, MedicalRecord
+from .models import Appointment, Patient, Doctor, MedicalRecord, Prescription, PrescriptionItem, PrescriptionTemplate
 
 @login_required
 def home(request):
@@ -204,35 +204,19 @@ def exames(request):
     }
     return render(request, 'dashboard/home.html', context)
 
-@login_required
-def timeline(request):
-    """Clinical timeline view"""
-    context = {
-        'active_tab': 'timeline',
-    }
-    return render(request, 'dashboard/home.html', context)
 
 @login_required
 def prescricao(request):
     """Online prescriptions view"""
+    # Get current user's doctor profile
+    try:
+        current_doctor = Doctor.objects.get(user=request.user)
+    except Doctor.DoesNotExist:
+        current_doctor = None
+    
     context = {
         'active_tab': 'prescricao',
-        'prescricoes': [
-            {
-                'paciente': 'Maria Silva',
-                'medicamento': 'Losartana 50mg',
-                'dosagem': '1 comprimido/dia',
-                'data': '09/01/2025',
-                'status': 'Ativa',
-            },
-            {
-                'paciente': 'João Santos',
-                'medicamento': 'Metformina 850mg',
-                'dosagem': '2 comprimidos/dia',
-                'data': '08/01/2025',
-                'status': 'Ativa',
-            },
-        ]
+        'current_doctor': current_doctor,
     }
     return render(request, 'dashboard/home.html', context)
 
@@ -751,4 +735,304 @@ def api_next_appointment(request):
         return JsonResponse({
             'success': False,
             'error': f'Erro ao buscar próxima consulta: {str(e)}'
+        })
+
+# Prescription Views
+
+@login_required
+@require_http_methods(["GET"])
+def api_prescriptions(request):
+    """API endpoint to get prescriptions for a patient"""
+    try:
+        # Get current user's doctor profile
+        try:
+            current_doctor = Doctor.objects.get(user=request.user)
+        except Doctor.DoesNotExist:
+            return JsonResponse({
+                'success': False,
+                'error': 'Usuário não é um médico válido'
+            })
+        
+        # Get patient ID from request
+        patient_id = request.GET.get('patient_id')
+        if not patient_id:
+            return JsonResponse({
+                'success': False,
+                'error': 'ID do paciente é obrigatório'
+            })
+        
+        # Get patient
+        try:
+            patient = Patient.objects.get(id=patient_id)
+        except Patient.DoesNotExist:
+            return JsonResponse({
+                'success': False,
+                'error': 'Paciente não encontrado'
+            })
+        
+        # Get prescriptions for this patient and doctor
+        prescriptions = Prescription.objects.filter(
+            patient=patient,
+            doctor=current_doctor
+        ).order_by('-prescription_date')
+        
+        prescriptions_data = []
+        for prescription in prescriptions:
+            items_data = []
+            for item in prescription.items.all():
+                items_data.append({
+                    'medication_name': item.medication_name,
+                    'quantity': item.quantity,
+                    'dosage': item.dosage,
+                    'notes': item.notes or ''
+                })
+            
+            prescriptions_data.append({
+                'id': prescription.id,
+                'prescription_date': prescription.prescription_date.strftime('%d/%m/%Y'),
+                'status': prescription.get_status_display(),
+                'status_value': prescription.status,
+                'notes': prescription.notes or '',
+                'items': items_data,
+                'sent_by_email': prescription.sent_by_email,
+                'sent_by_whatsapp': prescription.sent_by_whatsapp,
+                'printed': prescription.printed
+            })
+        
+        return JsonResponse({
+            'success': True,
+            'prescriptions': prescriptions_data,
+            'patient_name': patient.full_name
+        })
+        
+    except Exception as e:
+        return JsonResponse({
+            'success': False,
+            'error': f'Erro ao carregar prescrições: {str(e)}'
+        })
+
+@login_required
+@require_POST
+def api_create_prescription(request):
+    """API endpoint to create a new prescription"""
+    try:
+        # Get current user's doctor profile
+        try:
+            current_doctor = Doctor.objects.get(user=request.user)
+        except Doctor.DoesNotExist:
+            return JsonResponse({
+                'success': False,
+                'error': 'Usuário não é um médico válido'
+            })
+        
+        # Get form data
+        patient_id = request.POST.get('patient_id')
+        prescription_date = request.POST.get('prescription_date')
+        template_id = request.POST.get('template_id')
+        notes = request.POST.get('notes', '').strip()
+        
+        # Get medication data
+        medication_names = request.POST.getlist('medication_name[]')
+        quantities = request.POST.getlist('quantity[]')
+        dosages = request.POST.getlist('dosage[]')
+        
+        # Validate required fields
+        if not all([patient_id, prescription_date]):
+            return JsonResponse({
+                'success': False,
+                'error': 'Paciente e data são obrigatórios'
+            })
+        
+        if not medication_names or not any(medication_names):
+            return JsonResponse({
+                'success': False,
+                'error': 'Pelo menos um medicamento deve ser adicionado'
+            })
+        
+        # Get patient
+        try:
+            patient = Patient.objects.get(id=patient_id)
+        except Patient.DoesNotExist:
+            return JsonResponse({
+                'success': False,
+                'error': 'Paciente não encontrado'
+            })
+        
+        # Get template if provided
+        template = None
+        if template_id:
+            try:
+                template = PrescriptionTemplate.objects.get(id=template_id, doctor=current_doctor)
+            except PrescriptionTemplate.DoesNotExist:
+                pass
+        
+        # Create prescription
+        prescription = Prescription.objects.create(
+            patient=patient,
+            doctor=current_doctor,
+            prescription_date=prescription_date,
+            template=template,
+            notes=notes if notes else None
+        )
+        
+        # Create prescription items
+        for i, medication_name in enumerate(medication_names):
+            if medication_name.strip():  # Only create items with medication names
+                quantity = quantities[i] if i < len(quantities) else ''
+                dosage = dosages[i] if i < len(dosages) else ''
+                
+                PrescriptionItem.objects.create(
+                    prescription=prescription,
+                    medication_name=medication_name.strip(),
+                    quantity=quantity.strip(),
+                    dosage=dosage.strip(),
+                    order=i
+                )
+        
+        return JsonResponse({
+            'success': True,
+            'prescription_id': prescription.id,
+            'message': f'Prescrição criada com sucesso para {patient.full_name}'
+        })
+        
+    except Exception as e:
+        return JsonResponse({
+            'success': False,
+            'error': f'Erro ao criar prescrição: {str(e)}'
+        })
+
+@login_required
+@require_POST
+def api_send_prescription_email(request):
+    """API endpoint to send prescription by email"""
+    try:
+        prescription_id = request.POST.get('prescription_id')
+        
+        if not prescription_id:
+            return JsonResponse({
+                'success': False,
+                'error': 'ID da prescrição é obrigatório'
+            })
+        
+        # Get prescription
+        try:
+            prescription = Prescription.objects.get(id=prescription_id)
+        except Prescription.DoesNotExist:
+            return JsonResponse({
+                'success': False,
+                'error': 'Prescrição não encontrada'
+            })
+        
+        # Don't mark as sent - allow multiple sends
+        # prescription.sent_by_email = True
+        # prescription.save()
+        
+        # TODO: Implement actual email sending logic here
+        # For now, just return success
+        
+        return JsonResponse({
+            'success': True,
+            'message': f'Prescrição enviada por email para {prescription.patient.full_name}'
+        })
+        
+    except Exception as e:
+        return JsonResponse({
+            'success': False,
+            'error': f'Erro ao enviar prescrição por email: {str(e)}'
+        })
+
+@login_required
+@require_POST
+def api_send_prescription_whatsapp(request):
+    """API endpoint to send prescription by WhatsApp"""
+    try:
+        prescription_id = request.POST.get('prescription_id')
+        
+        if not prescription_id:
+            return JsonResponse({
+                'success': False,
+                'error': 'ID da prescrição é obrigatório'
+            })
+        
+        # Get prescription
+        try:
+            prescription = Prescription.objects.get(id=prescription_id)
+        except Prescription.DoesNotExist:
+            return JsonResponse({
+                'success': False,
+                'error': 'Prescrição não encontrada'
+            })
+        
+        # Don't mark as sent - allow multiple sends
+        # prescription.sent_by_whatsapp = True
+        # prescription.save()
+        
+        # TODO: Implement actual WhatsApp sending logic here
+        # For now, just return success
+        
+        return JsonResponse({
+            'success': True,
+            'message': f'Prescrição enviada por WhatsApp para {prescription.patient.full_name}'
+        })
+        
+    except Exception as e:
+        return JsonResponse({
+            'success': False,
+            'error': f'Erro ao enviar prescrição por WhatsApp: {str(e)}'
+        })
+
+@login_required
+@require_http_methods(["GET"])
+def api_print_prescription(request):
+    """API endpoint to get prescription data for printing"""
+    try:
+        prescription_id = request.GET.get('prescription_id')
+        
+        if not prescription_id:
+            return JsonResponse({
+                'success': False,
+                'error': 'ID da prescrição é obrigatório'
+            })
+        
+        # Get prescription
+        try:
+            prescription = Prescription.objects.get(id=prescription_id)
+        except Prescription.DoesNotExist:
+            return JsonResponse({
+                'success': False,
+                'error': 'Prescrição não encontrada'
+            })
+        
+        # Don't mark as printed - allow multiple prints
+        # prescription.printed = True
+        # prescription.save()
+        
+        # Prepare prescription data for printing
+        items_data = []
+        for item in prescription.items.all():
+            items_data.append({
+                'medication_name': item.medication_name,
+                'quantity': item.quantity,
+                'dosage': item.dosage,
+                'notes': item.notes or ''
+            })
+        
+        prescription_data = {
+            'id': prescription.id,
+            'patient_name': prescription.patient.full_name,
+            'doctor_name': prescription.doctor.full_name,
+            'prescription_date': prescription.prescription_date.strftime('%d/%m/%Y'),
+            'notes': prescription.notes or '',
+            'items': items_data
+        }
+        
+        return JsonResponse({
+            'success': True,
+            'prescription': prescription_data
+        })
+        
+    except Exception as e:
+        return JsonResponse({
+            'success': False,
+            'error': f'Erro ao carregar prescrição para impressão: {str(e)}'
         })

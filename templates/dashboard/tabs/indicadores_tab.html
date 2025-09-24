@@ -1,0 +1,224 @@
+<!-- Indicadores Tab -->
+<div id="indicadores-tab" class="tab-content" style="display: none;">
+    <div class="row">
+        <!-- Monthly Agenda Chart -->
+        <div class="col-lg-6 mb-4">
+            <div class="card shadow-sm border-0 h-100">
+                <div class="card-header py-3 d-flex justify-content-between align-items-center">
+                    <h6 class="m-0 font-weight-bold text-primary">
+                        <i class="fas fa-chart-bar me-2"></i>Agenda Mensal (%)
+                    </h6>
+                    <div class="trend-tabs">
+                        <button class="trend-tab active" onclick="switchChartView('monthly')" id="monthly-chart-btn">Mensal</button>
+                        <button class="trend-tab" onclick="switchChartView('weekly')" id="weekly-chart-btn">Semanal</button>
+                    </div>
+                </div>
+                <div class="card-body">
+                    <!-- Monthly Chart (Default) -->
+                    <div id="monthly-chart" class="monthly-chart">
+                        <div class="chart-bars">
+                            <!-- February -->
+                            <div class="chart-bar">
+                                <div class="bar-label">fev-25</div>
+                                <div class="bar-container">
+                                    <div class="bar-segment ocupacao" style="height: 45%;">
+                                        <span class="segment-percentage">45%</span>
+                                    </div>
+                                    <div class="bar-segment vago" style="height: 35%;">
+                                        <span class="segment-percentage">35%</span>
+                                    </div>
+                                    <div class="bar-segment no-show" style="height: 15%;">
+                                        <span class="segment-percentage">15%</span>
+                                    </div>
+                                    <div class="bar-segment cancelamento" style="height: 5%;">
+                                        <span class="segment-percentage small-percentage">5%</span>
+                                    </div>
+                                </div>
+                            </div>
+                            <!-- March -->
+                            <div class="chart-bar">
+                                <div class="bar-label">mar-25</div>
+                                <div class="bar-container">
+                                    <div class="bar-segment ocupacao" style="height: 50%;">
+                                        <span class="segment-percentage">50%</span>
+                                    </div>
+                                    <div class="bar-segment vago" style="height: 30%;">
+                                        <span class="segment-percentage">30%</span>
+                                    </div>
+                                    <div class="bar-segment no-show" style="height: 12%;">
+                                        <span class="segment-percentage">12%</span>
+                                    </div>
+                                    <div class="bar-segment cancelamento" style="height: 8%;">
+                                        <span class="segment-percentage">8%</span>
+                                    </div>
+                                </div>
+                            </div>
+                            <!-- April -->
+                            <div class="chart-bar">
+                                <div class="bar-label">abr-25</div>
+                                <div class="bar-container">
+                                    <div class="bar-segment ocupacao" style="height: 55%;">
+                                        <span class="segment-percentage">55%</span>
+                                    </div>
+                                    <div class="bar-segment vago" style="height: 25%;">
+                                        <span class="segment-percentage">25%</span>
+                                    </div>
+                                    <div class="bar-segment no-show" style="height: 10%;">
+                                        <span class="segment-percentage">10%</span>
+                                    </div>
+                                    <div class="bar-segment cancelamento" style="height: 10%;">
+                                        <span class="segment-percentage">10%</span>
+                                    </div>
+                                </div>
+                            </div>
+                            <!-- May -->
+                            <div class="chart-bar">
+                                <div class="bar-label">mai-25</div>
+                                <div class="bar-container">
+                                    <div class="bar-segment ocupacao" style="height: 60%;">
+                                        <span class="segment-percentage">60%</span>
+                                    </div>
+                                    <div class="bar-segment vago" style="height: 20%;">
+                                        <span class="segment-percentage">20%</span>
+                                    </div>
+                                    <div class="bar-segment no-show" style="height: 12%;">
+                                        <span class="segment-percentage">12%</span>
+                                    </div>
+                                    <div class="bar-segment cancelamento" style="height: 8%;">
+                                        <span class="segment-percentage">8%</span>
+                                    </div>
+                                </div>
+                            </div>
+                            <!-- June -->
+                            <div class="chart-bar">
+                                <div class="bar-label">jun-25</div>
+                                <div class="bar-container">
+                                    <div class="bar-segment ocupacao" style="height: 65%;">
+                                        <span class="segment-percentage">65%</span>
+                                    </div>
+                                    <div class="bar-segment vago" style="height: 15%;">
+                                        <span class="segment-percentage">15%</span>
+                                    </div>
+                                    <div class="bar-segment no-show" style="height: 10%;">
+                                        <span class="segment-percentage">10%</span>
+                                    </div>
+                                    <div class="bar-segment cancelamento" style="height: 10%;">
+                                        <span class="segment-percentage">10%</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <!-- Chart Legend -->
+                    <div class="chart-legend mt-3">
+                        <div class="d-flex justify-content-center gap-4">
+                            <div class="legend-item">
+                                <div class="legend-color ocupacao"></div>
+                                <span class="legend-label">Ocupação</span>
+                            </div>
+                            <div class="legend-item">
+                                <div class="legend-color vago"></div>
+                                <span class="legend-label">Vago</span>
+                            </div>
+                            <div class="legend-item">
+                                <div class="legend-color no-show"></div>
+                                <span class="legend-label">No Show</span>
+                            </div>
+                            <div class="legend-item">
+                                <div class="legend-color cancelamento"></div>
+                                <span class="legend-label">Cancelamento</span>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Weekly Chart (Hidden by default) -->
+                    <div id="weekly-chart" class="chart-container" style="display: none;">
+                        <div class="weekly-chart">
+                            <div class="chart-bars">
+                                <!-- Week 1 -->
+                                <div class="chart-bar">
+                                    <div class="bar-label">Sem 1</div>
+                                    <div class="bar-container">
+                                        <div class="bar-segment ocupacao" style="height: 40%;">
+                                            <span class="segment-percentage">40%</span>
+                                        </div>
+                                        <div class="bar-segment vago" style="height: 40%;">
+                                            <span class="segment-percentage">40%</span>
+                                        </div>
+                                        <div class="bar-segment no-show" style="height: 15%;">
+                                            <span class="segment-percentage">15%</span>
+                                        </div>
+                                        <div class="bar-segment cancelamento" style="height: 5%;">
+                                            <span class="segment-percentage small-percentage">5%</span>
+                                        </div>
+                                    </div>
+                                </div>
+                                <!-- Week 2 -->
+                                <div class="chart-bar">
+                                    <div class="bar-label">Sem 2</div>
+                                    <div class="bar-container">
+                                        <div class="bar-segment ocupacao" style="height: 45%;">
+                                            <span class="segment-percentage">45%</span>
+                                        </div>
+                                        <div class="bar-segment vago" style="height: 35%;">
+                                            <span class="segment-percentage">35%</span>
+                                        </div>
+                                        <div class="bar-segment no-show" style="height: 12%;">
+                                            <span class="segment-percentage">12%</span>
+                                        </div>
+                                        <div class="bar-segment cancelamento" style="height: 8%;">
+                                            <span class="segment-percentage">8%</span>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Key Indicators -->
+        <div class="col-lg-6 mb-4">
+            <div class="row">
+                <div class="col-12 mb-4">
+                    <div class="card shadow-sm border-0 h-100">
+                        <div class="card-header py-3">
+                            <h6 class="m-0 font-weight-bold text-primary">
+                                <i class="fas fa-chart-line me-2"></i>Indicadores Principais
+                            </h6>
+                        </div>
+                        <div class="card-body">
+                            <div class="row">
+                                <div class="col-6 mb-3">
+                                    <div class="indicator-card">
+                                        <div class="indicator-number">{{ indicadores.pacientes_ativos }}</div>
+                                        <div class="indicator-label">Pacientes Ativos</div>
+                                    </div>
+                                </div>
+                                <div class="col-6 mb-3">
+                                    <div class="indicator-card">
+                                        <div class="indicator-number">{{ indicadores.consultas_mes }}</div>
+                                        <div class="indicator-label">Consultas/Mês</div>
+                                    </div>
+                                </div>
+                                <div class="col-6 mb-3">
+                                    <div class="indicator-card">
+                                        <div class="indicator-number">{{ indicadores.exames_solicitados }}</div>
+                                        <div class="indicator-label">Exames Solicitados</div>
+                                    </div>
+                                </div>
+                                <div class="col-6 mb-3">
+                                    <div class="indicator-card">
+                                        <div class="indicator-number">{{ indicadores.prescricoes_ativas }}</div>
+                                        <div class="indicator-label">Prescrições Ativas</div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>

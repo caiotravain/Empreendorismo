@@ -435,3 +435,204 @@ class Appointment(models.Model):
         self.appointment_time = new_time
         self.status = 'rescheduled'
         self.save()
+
+
+class PrescriptionTemplate(models.Model):
+    """
+    Prescription template model for predefined prescription formats
+    """
+    name = models.CharField(
+        max_length=200,
+        help_text="Name of the prescription template"
+    )
+    
+    description = models.TextField(
+        blank=True,
+        null=True,
+        help_text="Description of the prescription template"
+    )
+    
+    # Template content
+    header_text = models.TextField(
+        blank=True,
+        null=True,
+        help_text="Header text for the prescription"
+    )
+    
+    footer_text = models.TextField(
+        blank=True,
+        null=True,
+        help_text="Footer text for the prescription"
+    )
+    
+    # Doctor who created this template
+    doctor = models.ForeignKey(
+        Doctor,
+        on_delete=models.CASCADE,
+        related_name='prescription_templates',
+        help_text="Doctor who created this template"
+    )
+    
+    # Timestamps
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    
+    class Meta:
+        verbose_name = "Prescription Template"
+        verbose_name_plural = "Prescription Templates"
+        ordering = ['name']
+    
+    def __str__(self):
+        return self.name
+
+
+class Prescription(models.Model):
+    """
+    Prescription model to store medical prescriptions
+    """
+    # Status choices
+    STATUS_CHOICES = [
+        ('active', 'Ativa'),
+        ('completed', 'Concluída'),
+        ('cancelled', 'Cancelada'),
+        ('expired', 'Expirada'),
+    ]
+    
+    # Foreign Keys
+    patient = models.ForeignKey(
+        Patient,
+        on_delete=models.CASCADE,
+        related_name='prescriptions',
+        help_text="Patient for this prescription"
+    )
+    
+    doctor = models.ForeignKey(
+        Doctor,
+        on_delete=models.CASCADE,
+        related_name='prescriptions',
+        help_text="Doctor who prescribed this medication"
+    )
+    
+    # Prescription Details
+    prescription_date = models.DateField(
+        default=timezone.now,
+        help_text="Date when the prescription was created"
+    )
+    
+    template = models.ForeignKey(
+        PrescriptionTemplate,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='prescriptions',
+        help_text="Prescription template used"
+    )
+    
+    status = models.CharField(
+        max_length=20,
+        choices=STATUS_CHOICES,
+        default='active',
+        help_text="Current status of the prescription"
+    )
+    
+    # Additional Information
+    notes = models.TextField(
+        blank=True,
+        null=True,
+        help_text="Additional notes for the prescription"
+    )
+    
+    # Delivery Information
+    sent_by_email = models.BooleanField(
+        default=False,
+        help_text="Whether prescription was sent by email"
+    )
+    
+    sent_by_whatsapp = models.BooleanField(
+        default=False,
+        help_text="Whether prescription was sent by WhatsApp"
+    )
+    
+    printed = models.BooleanField(
+        default=False,
+        help_text="Whether prescription was printed"
+    )
+    
+    # Timestamps
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    
+    class Meta:
+        verbose_name = "Prescription"
+        verbose_name_plural = "Prescriptions"
+        ordering = ['-prescription_date', '-created_at']
+        indexes = [
+            models.Index(fields=['patient']),
+            models.Index(fields=['doctor']),
+            models.Index(fields=['prescription_date']),
+            models.Index(fields=['status']),
+        ]
+    
+    def __str__(self):
+        return f"Prescription for {self.patient.full_name} - {self.prescription_date}"
+    
+    @property
+    def patient_name(self):
+        return self.patient.full_name
+    
+    @property
+    def doctor_name(self):
+        return self.doctor.full_name
+
+
+class PrescriptionItem(models.Model):
+    """
+    Individual medication item in a prescription
+    """
+    # Foreign Key
+    prescription = models.ForeignKey(
+        Prescription,
+        on_delete=models.CASCADE,
+        related_name='items',
+        help_text="Prescription this item belongs to"
+    )
+    
+    # Medication Details
+    medication_name = models.CharField(
+        max_length=200,
+        help_text="Name of the medication"
+    )
+    
+    quantity = models.CharField(
+        max_length=100,
+        help_text="Quantity of the medication (e.g., '30 comprimidos', '1 frasco')"
+    )
+    
+    dosage = models.TextField(
+        help_text="Dosage instructions (e.g., '1 comprimido de 8/8 horas')"
+    )
+    
+    # Additional Information
+    notes = models.TextField(
+        blank=True,
+        null=True,
+        help_text="Additional notes for this medication"
+    )
+    
+    # Order in prescription
+    order = models.PositiveIntegerField(
+        default=0,
+        help_text="Order of this item in the prescription"
+    )
+    
+    class Meta:
+        verbose_name = "Prescription Item"
+        verbose_name_plural = "Prescription Items"
+        ordering = ['order', 'id']
+        indexes = [
+            models.Index(fields=['prescription']),
+            models.Index(fields=['order']),
+        ]
+    
+    def __str__(self):
+        return f"{self.medication_name} - {self.prescription.patient.full_name}"

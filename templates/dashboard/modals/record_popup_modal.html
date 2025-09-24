@@ -1,0 +1,38 @@
+<!-- Record Popup Modal -->
+<div class="modal fade" id="recordPopupModal" tabindex="-1" aria-labelledby="recordPopupModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="recordPopupModalLabel">
+                    <i class="fas fa-file-medical me-2"></i>Registro Médico
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <div class="row mb-3">
+                    <div class="col-md-4">
+                        <strong>Data:</strong> <span id="popup-date">-</span>
+                    </div>
+                    <div class="col-md-4">
+                        <strong>Hora:</strong> <span id="popup-time">-</span>
+                    </div>
+                    <div class="col-md-4">
+                        <strong>Médico:</strong> <span id="popup-doctor">-</span>
+                    </div>
+                </div>
+                <hr>
+                <div class="record-popup-content" id="popup-content">
+                    <!-- Record content will be displayed here -->
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                    <i class="fas fa-times me-1"></i>Fechar
+                </button>
+                <button type="button" class="btn btn-primary" onclick="printRecord()">
+                    <i class="fas fa-print me-1"></i>Imprimir
+                </button>
+            </div>
+        </div>
+    </div>
+</div>

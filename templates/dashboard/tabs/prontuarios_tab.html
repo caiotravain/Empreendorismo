@@ -1,0 +1,147 @@
+<!-- Prontuários Tab -->
+<div id="prontuarios-tab" class="tab-content" style="display: none;">
+    <div class="row">
+        <div class="col-12">
+            {% if selected_patient %}
+                <!-- Patient Prontuario Editor -->
+                <div class="alert alert-info" role="alert">
+                    <i class="fas fa-info-circle me-2"></i>
+                    <span id="patient-info-prontuarios">Visualizando prontuário de: {{ selected_patient.full_name }}</span>
+                </div>
+                
+                <!-- Prontuario Editor -->
+                <div class="card shadow mb-4">
+                    <div class="card-header py-3 d-flex justify-content-between align-items-center">
+                        <h6 class="m-0 font-weight-bold text-primary">
+                            <i class="fas fa-file-medical me-2"></i>Prontuário Médico
+                        </h6>
+                        <div>
+                            <button class="btn btn-outline-primary btn-sm me-2" onclick="printProntuario()">
+                                <i class="fas fa-print me-1"></i>Imprimir
+                            </button>
+                            <button class="btn btn-outline-secondary btn-sm" onclick="clearNewRecord()">
+                                <i class="fas fa-eraser me-1"></i>Limpar
+                            </button>
+                        </div>
+                    </div>
+                    <div class="card-body p-0">
+                        <!-- Existing Records Display -->
+                        <div id="existing-records" class="p-4" style="background-color: #f8f9fa; border-bottom: 1px solid #dee2e6;">
+                            <h6 class="text-muted mb-3">
+                                <i class="fas fa-history me-2"></i>Registros Anteriores
+                            </h6>
+                            <div id="records-content" style="max-height: 400px; overflow-y: auto;">
+                                {% if medical_records %}
+                                    <!-- Show records from newest to oldest as summaries -->
+                                    {% for record in medical_records %}
+                                        <div class="record-entry mb-3 p-3 bg-white rounded border-start border-primary border-3 cursor-pointer" 
+                                             onclick="showRecordPopup('{{ record.id }}', '{{ record.datetime|date:"d/m/Y" }}', '{{ record.datetime|time:"H:i" }}', '{{ record.doctor.full_name }}', '{{ record.content|escapejs }}')">
+                                            <div class="d-flex justify-content-between align-items-start mb-2">
+                                                <div>
+                                                    <strong class="text-primary">{{ record.datetime|date:"d/m/Y" }}</strong>
+                                                    <span class="text-muted ms-2">{{ record.datetime|time:"H:i" }}</span>
+                                                </div>
+                                                <small class="text-muted">{{ record.doctor.full_name }}</small>
+                                            </div>
+                                            <div class="record-summary">
+                                                {{ record.content|truncatewords:20 }}
+                                            </div>
+                                        </div>
+                                    {% endfor %}
+                                    
+                                    <!-- Load More Button -->
+                                    {% if has_more_records %}
+                                        <div class="text-center mt-3">
+                                            <button class="btn btn-outline-primary btn-sm" onclick="loadOlderRecords({{ next_offset }})">
+                                                <i class="fas fa-chevron-down me-1"></i>Carregar Mais Registros
+                                            </button>
+                                        </div>
+                                    {% endif %}
+                                {% else %}
+                                    <div class="text-center text-muted py-4">
+                                        <i class="fas fa-file-medical fa-3x mb-3"></i>
+                                        <p>Nenhum registro encontrado para este paciente.</p>
+                                    </div>
+                                {% endif %}
+                            </div>
+                        </div>
+                        
+                        <!-- New Record Editor -->
+                        <div class="p-4">
+                            <h6 class="text-success mb-3">
+                                <i class="fas fa-plus-circle me-2"></i>Nova Entrada
+                            </h6>
+                            <form id="new-record-form">
+                                <input type="hidden" id="patient-id" value="{{ selected_patient.id }}">
+                                <div class="mb-3">
+                                    <label for="new-record-content" class="form-label">Conteúdo da Entrada</label>
+                                    <textarea class="form-control" id="new-record-content" rows="8" 
+                                              placeholder="Digite aqui o conteúdo da nova entrada no prontuário..."></textarea>
+                                </div>
+                                <div class="d-flex justify-content-end gap-2">
+                                    <button type="button" class="btn btn-outline-secondary" onclick="clearNewRecord()">
+                                        <i class="fas fa-eraser me-1"></i>Limpar
+                                    </button>
+                                    <button type="submit" class="btn btn-success">
+                                        <i class="fas fa-save me-1"></i>Salvar Entrada
+                                    </button>
+                                </div>
+                            </form>
+                        </div>
+                    </div>
+                </div>
+            {% else %}
+                <!-- Patient Selection Required -->
+                <div class="alert alert-warning" role="alert">
+                    <i class="fas fa-exclamation-triangle me-2"></i>
+                    Selecione um paciente na agenda para visualizar e editar o prontuário médico.
+                </div>
+                
+                <!-- Patients with Medical Records -->
+                <div class="card shadow mb-4">
+                    <div class="card-header py-3 d-flex justify-content-between align-items-center">
+                        <h6 class="m-0 font-weight-bold text-primary">
+                            <i class="fas fa-users me-2"></i>Pacientes com Prontuários
+                        </h6>
+                    </div>
+                    <div class="card-body">
+                        {% if patients_with_records %}
+                            <div class="row">
+                                {% for patient_data in patients_with_records %}
+                                    <div class="col-md-6 col-lg-4 mb-3">
+                                        <div class="card border-left-primary h-100">
+                                            <div class="card-body">
+                                                <div class="d-flex justify-content-between align-items-start">
+                                                    <div>
+                                                        <h6 class="card-title text-primary">{{ patient_data.patient.full_name }}</h6>
+                                                        <p class="card-text text-muted small mb-2">
+                                                            <i class="fas fa-file-medical me-1"></i>
+                                                            {{ patient_data.total_records }} registro{{ patient_data.total_records|pluralize }}
+                                                        </p>
+                                                        <p class="card-text text-muted small">
+                                                            <i class="fas fa-clock me-1"></i>
+                                                            Último: {{ patient_data.latest_record.datetime|date:"d/m/Y H:i" }}
+                                                        </p>
+                                                    </div>
+                                                    <button class="btn btn-sm btn-outline-primary" 
+                                                            onclick="selectPatient('{{ patient_data.patient.full_name }}', '{{ patient_data.patient.id }}')">
+                                                        <i class="fas fa-eye me-1"></i>Ver
+                                                    </button>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                {% endfor %}
+                            </div>
+                        {% else %}
+                            <div class="text-center text-muted py-4">
+                                <i class="fas fa-file-medical fa-3x mb-3"></i>
+                                <p>Nenhum prontuário encontrado.</p>
+                            </div>
+                        {% endif %}
+                    </div>
+                </div>
+            {% endif %}
+        </div>
+    </div>
+</div>

@@ -1,0 +1,426 @@
+{% load dashboard_extras %}
+<!-- Agenda Tab -->
+<div id="agenda-tab" class="tab-content active">
+    <div class="row">
+        <!-- Agenda do Dia -->
+        <div class="col-lg-8 mb-4">
+            <div class="card shadow mb-4">
+                <div class="card-header py-3">
+                    <div class="d-flex justify-content-between align-items-center mb-3">
+                        <h6 class="m-0 font-weight-bold text-primary">Agenda</h6>
+                        <button class="btn btn-primary btn-sm" onclick="showNewAppointmentModal()">
+                            <i class="fas fa-plus me-1"></i>Nova Consulta
+                        </button>
+                    </div>
+                    
+                    <!-- Calendar Navigation -->
+                    <div class="d-flex justify-content-between align-items-center mb-3">
+                        <div class="d-flex align-items-center">
+                            <button class="btn btn-outline-secondary btn-sm me-2" onclick="navigateWeek(-1)">
+                                <i class="fas fa-chevron-left"></i>
+                            </button>
+                            <h5 class="mb-0 me-3" id="current-week-display">9 - 15 Jan 2025</h5>
+                            <button class="btn btn-outline-secondary btn-sm" onclick="navigateWeek(1)">
+                                <i class="fas fa-chevron-right"></i>
+                            </button>
+                            <button class="btn btn-outline-primary btn-sm ms-3" onclick="goToToday()">
+                                Hoje
+                            </button>
+                        </div>
+                        
+                        <!-- View Toggle -->
+                        <div class="btn-group" role="group">
+                            <button type="button" class="btn btn-outline-primary btn-sm" onclick="switchCalendarView('day')" id="day-view-btn">
+                                Dia
+                            </button>
+                            <button type="button" class="btn btn-primary btn-sm" onclick="switchCalendarView('week')" id="week-view-btn">
+                                Semana
+                            </button>
+                        </div>
+                    </div>
+                </div>
+                <div class="card-body p-0">
+                    <!-- Day View -->
+                    <div id="day-view" class="calendar-view" style="display: none;">
+                        <div class="table-responsive">
+                            <table class="table table-hover mb-0">
+                                <thead>
+                                    <tr>
+                                        <th>Horário</th>
+                                        <th>Paciente</th>
+                                        <th>Tipo</th>
+                                        <th>Status</th>
+                                        <th>Ações</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% if today_appointments %}
+                                        {% for appointment in today_appointments %}
+                                        <tr>
+                                            <td>{{ appointment.appointment_time|time:"H:i" }}</td>
+                                            <td>{{ appointment.patient.full_name }}</td>
+                                            <td>{{ appointment.get_appointment_type_display }}</td>
+                                            <td>
+                                                {% if appointment.status == 'completed' %}
+                                                    <span class="badge bg-success">Concluída</span>
+                                                {% elif appointment.status == 'scheduled' %}
+                                                    <span class="badge bg-info">Agendada</span>
+                                                {% elif appointment.status == 'confirmed' %}
+                                                    <span class="badge bg-primary">Confirmada</span>
+                                                {% elif appointment.status == 'in_progress' %}
+                                                    <span class="badge bg-warning">Em Andamento</span>
+                                                {% elif appointment.status == 'cancelled' %}
+                                                    <span class="badge bg-danger">Cancelada</span>
+                                                {% elif appointment.status == 'no_show' %}
+                                                    <span class="badge bg-secondary">Não Compareceu</span>
+                                                {% else %}
+                                                    <span class="badge bg-secondary">{{ appointment.get_status_display }}</span>
+                                                {% endif %}
+                                            </td>
+                                            <td>
+                                                <button class="btn btn-sm btn-outline-primary" onclick="selectPatient('{{ appointment.patient.full_name }}', '{{ appointment.patient.id }}')">
+                                                    {% if appointment.status == 'scheduled' or appointment.status == 'confirmed' %}
+                                                        Iniciar
+                                                    {% else %}
+                                                        Detalhes
+                                                    {% endif %}
+                                                </button>
+                                            </td>
+                                        </tr>
+                                        {% endfor %}
+                                    {% else %}
+                                        <tr>
+                                            <td colspan="5" class="text-center text-muted">
+                                                {% if current_doctor %}
+                                                    Nenhuma consulta agendada para hoje
+                                                {% else %}
+                                                    Faça login como médico para ver as consultas
+                                                {% endif %}
+                                            </td>
+                                        </tr>
+                                    {% endif %}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+
+                    <!-- Week View (Google Calendar Style) - Default -->
+                    <div id="week-view" class="calendar-view">
+                        <div class="calendar-week-container">
+                            <!-- Time column -->
+                            <div class="calendar-time-column">
+                                <div class="time-header">Hora</div>
+                                <div class="time-slots">
+                                    {% for hour in "06:00,06:30,07:00,07:30,08:00,08:30,09:00,09:30,10:00,10:30,11:00,11:30,12:00,12:30,13:00,13:30,14:00,14:30,15:00,15:30,16:00,16:30,17:00,17:30,18:00,18:30,19:00,19:30,20:00,20:30,21:00,21:30,22:00,22:30,23:00,23:30"|split:"," %}
+                                        <div class="time-slot">{{ hour }}</div>
+                                    {% endfor %}
+                                </div>
+                            </div>
+                            
+                            <!-- Days of the week -->
+                            <div class="calendar-days-container">
+                                <div class="calendar-day-header">
+                                    <div class="day-header">Dom</div>
+                                    <div class="day-header">Seg</div>
+                                    <div class="day-header">Ter</div>
+                                    <div class="day-header">Qua</div>
+                                    <div class="day-header">Qui</div>
+                                    <div class="day-header">Sex</div>
+                                    <div class="day-header">Sáb</div>
+                                </div>
+                                
+                                <div class="calendar-day-dates">
+                                    <div class="day-date">12</div>
+                                    <div class="day-date">13</div>
+                                    <div class="day-date">14</div>
+                                    <div class="day-date">15</div>
+                                    <div class="day-date">16</div>
+                                    <div class="day-date">17</div>
+                                    <div class="day-date">18</div>
+                                </div>
+                                
+                                <div class="calendar-grid">
+                                    <!-- Sunday -->
+                                    <div class="day-column">
+                                        <div class="time-grid">
+                                            {% for appointment in week_appointments %}
+                                                {% if appointment.appointment_date|date:"w" == "0" %}
+                                                    <div class="calendar-event" 
+                                                         data-time="{{ appointment.appointment_time|time:'H:i' }}" 
+                                                         data-duration="{{ appointment.duration_minutes }}" 
+                                                         data-appointment-id="{{ appointment.id }}"
+                                                         data-patient-name="{{ appointment.patient.full_name }}"
+                                                         data-doctor-name="{{ appointment.doctor.full_name }}"
+                                                         data-appointment-date="{{ appointment.appointment_date|date:'Y-m-d' }}"
+                                                         data-appointment-type="{{ appointment.get_appointment_type_display }}"
+                                                         data-status="{{ appointment.status }}"
+                                                         data-location="{{ appointment.location|default:'Consultório' }}"
+                                                         data-reason="{{ appointment.reason|default:'Consulta médica' }}"
+                                                         data-notes="{{ appointment.notes|default:'Nenhuma observação' }}"
+                                                         onclick="showStaticAppointmentDetails('{{ appointment.id }}')">
+                                                        <div class="event-title">{{ appointment.patient.full_name }}</div>
+                                                        <div class="event-time">{{ appointment.appointment_time|time:'H:i' }}</div>
+                                                        <div class="event-type">{{ appointment.get_appointment_type_display }}</div>
+                                                    </div>
+                                                {% endif %}
+                                            {% endfor %}
+                                        </div>
+                                    </div>
+                                    
+                                    <!-- Monday -->
+                                    <div class="day-column">
+                                        <div class="time-grid">
+                                            {% for appointment in week_appointments %}
+                                                {% if appointment.appointment_date|date:"w" == "1" %}
+                                                    <div class="calendar-event" 
+                                                         data-time="{{ appointment.appointment_time|time:'H:i' }}" 
+                                                         data-duration="{{ appointment.duration_minutes }}" 
+                                                         data-appointment-id="{{ appointment.id }}"
+                                                         data-patient-name="{{ appointment.patient.full_name }}"
+                                                         data-doctor-name="{{ appointment.doctor.full_name }}"
+                                                         data-appointment-date="{{ appointment.appointment_date|date:'Y-m-d' }}"
+                                                         data-appointment-type="{{ appointment.get_appointment_type_display }}"
+                                                         data-status="{{ appointment.status }}"
+                                                         data-location="{{ appointment.location|default:'Consultório' }}"
+                                                         data-reason="{{ appointment.reason|default:'Consulta médica' }}"
+                                                         data-notes="{{ appointment.notes|default:'Nenhuma observação' }}"
+                                                         onclick="showStaticAppointmentDetails('{{ appointment.id }}')">
+                                                        <div class="event-title">{{ appointment.patient.full_name }}</div>
+                                                        <div class="event-time">{{ appointment.appointment_time|time:'H:i' }}</div>
+                                                        <div class="event-type">{{ appointment.get_appointment_type_display }}</div>
+                                                    </div>
+                                                {% endif %}
+                                            {% endfor %}
+                                        </div>
+                                    </div>
+                                    
+                                    <!-- Tuesday -->
+                                    <div class="day-column">
+                                        <div class="time-grid">
+                                            {% for appointment in week_appointments %}
+                                                {% if appointment.appointment_date|date:"w" == "2" %}
+                                                    <div class="calendar-event" 
+                                                         data-time="{{ appointment.appointment_time|time:'H:i' }}" 
+                                                         data-duration="{{ appointment.duration_minutes }}" 
+                                                         data-appointment-id="{{ appointment.id }}"
+                                                         data-patient-name="{{ appointment.patient.full_name }}"
+                                                         data-doctor-name="{{ appointment.doctor.full_name }}"
+                                                         data-appointment-date="{{ appointment.appointment_date|date:'Y-m-d' }}"
+                                                         data-appointment-type="{{ appointment.get_appointment_type_display }}"
+                                                         data-status="{{ appointment.status }}"
+                                                         data-location="{{ appointment.location|default:'Consultório' }}"
+                                                         data-reason="{{ appointment.reason|default:'Consulta médica' }}"
+                                                         data-notes="{{ appointment.notes|default:'Nenhuma observação' }}"
+                                                         onclick="showStaticAppointmentDetails('{{ appointment.id }}')">
+                                                        <div class="event-title">{{ appointment.patient.full_name }}</div>
+                                                        <div class="event-time">{{ appointment.appointment_time|time:'H:i' }}</div>
+                                                        <div class="event-type">{{ appointment.get_appointment_type_display }}</div>
+                                                    </div>
+                                                {% endif %}
+                                            {% endfor %}
+                                        </div>
+                                    </div>
+                                    
+                                    <!-- Wednesday -->
+                                    <div class="day-column">
+                                        <div class="time-grid">
+                                            {% for appointment in week_appointments %}
+                                                {% if appointment.appointment_date|date:"w" == "3" %}
+                                                    <div class="calendar-event" 
+                                                         data-time="{{ appointment.appointment_time|time:'H:i' }}" 
+                                                         data-duration="{{ appointment.duration_minutes }}" 
+                                                         data-appointment-id="{{ appointment.id }}"
+                                                         data-patient-name="{{ appointment.patient.full_name }}"
+                                                         data-doctor-name="{{ appointment.doctor.full_name }}"
+                                                         data-appointment-date="{{ appointment.appointment_date|date:'Y-m-d' }}"
+                                                         data-appointment-type="{{ appointment.get_appointment_type_display }}"
+                                                         data-status="{{ appointment.status }}"
+                                                         data-location="{{ appointment.location|default:'Consultório' }}"
+                                                         data-reason="{{ appointment.reason|default:'Consulta médica' }}"
+                                                         data-notes="{{ appointment.notes|default:'Nenhuma observação' }}"
+                                                         onclick="showStaticAppointmentDetails('{{ appointment.id }}')">
+                                                        <div class="event-title">{{ appointment.patient.full_name }}</div>
+                                                        <div class="event-time">{{ appointment.appointment_time|time:'H:i' }}</div>
+                                                        <div class="event-type">{{ appointment.get_appointment_type_display }}</div>
+                                                    </div>
+                                                {% endif %}
+                                            {% endfor %}
+                                        </div>
+                                    </div>
+                                    
+                                    <!-- Thursday -->
+                                    <div class="day-column">
+                                        <div class="time-grid">
+                                            {% for appointment in week_appointments %}
+                                                {% if appointment.appointment_date|date:"w" == "4" %}
+                                                    <div class="calendar-event" 
+                                                         data-time="{{ appointment.appointment_time|time:'H:i' }}" 
+                                                         data-duration="{{ appointment.duration_minutes }}" 
+                                                         data-appointment-id="{{ appointment.id }}"
+                                                         data-patient-name="{{ appointment.patient.full_name }}"
+                                                         data-doctor-name="{{ appointment.doctor.full_name }}"
+                                                         data-appointment-date="{{ appointment.appointment_date|date:'Y-m-d' }}"
+                                                         data-appointment-type="{{ appointment.get_appointment_type_display }}"
+                                                         data-status="{{ appointment.status }}"
+                                                         data-location="{{ appointment.location|default:'Consultório' }}"
+                                                         data-reason="{{ appointment.reason|default:'Consulta médica' }}"
+                                                         data-notes="{{ appointment.notes|default:'Nenhuma observação' }}"
+                                                         onclick="showStaticAppointmentDetails('{{ appointment.id }}')">
+                                                        <div class="event-title">{{ appointment.patient.full_name }}</div>
+                                                        <div class="event-time">{{ appointment.appointment_time|time:'H:i' }}</div>
+                                                        <div class="event-type">{{ appointment.get_appointment_type_display }}</div>
+                                                    </div>
+                                                {% endif %}
+                                            {% endfor %}
+                                        </div>
+                                    </div>
+                                    
+                                    <!-- Friday -->
+                                    <div class="day-column">
+                                        <div class="time-grid">
+                                            {% for appointment in week_appointments %}
+                                                {% if appointment.appointment_date|date:"w" == "5" %}
+                                                    <div class="calendar-event" 
+                                                         data-time="{{ appointment.appointment_time|time:'H:i' }}" 
+                                                         data-duration="{{ appointment.duration_minutes }}" 
+                                                         data-appointment-id="{{ appointment.id }}"
+                                                         data-patient-name="{{ appointment.patient.full_name }}"
+                                                         data-doctor-name="{{ appointment.doctor.full_name }}"
+                                                         data-appointment-date="{{ appointment.appointment_date|date:'Y-m-d' }}"
+                                                         data-appointment-type="{{ appointment.get_appointment_type_display }}"
+                                                         data-status="{{ appointment.status }}"
+                                                         data-location="{{ appointment.location|default:'Consultório' }}"
+                                                         data-reason="{{ appointment.reason|default:'Consulta médica' }}"
+                                                         data-notes="{{ appointment.notes|default:'Nenhuma observação' }}"
+                                                         onclick="showStaticAppointmentDetails('{{ appointment.id }}')">
+                                                        <div class="event-title">{{ appointment.patient.full_name }}</div>
+                                                        <div class="event-time">{{ appointment.appointment_time|time:'H:i' }}</div>
+                                                        <div class="event-type">{{ appointment.get_appointment_type_display }}</div>
+                                                    </div>
+                                                {% endif %}
+                                            {% endfor %}
+                                        </div>
+                                    </div>
+                                    
+                                    <!-- Saturday -->
+                                    <div class="day-column">
+                                        <div class="time-grid">
+                                            {% for appointment in week_appointments %}
+                                                {% if appointment.appointment_date|date:"w" == "6" %}
+                                                    <div class="calendar-event" 
+                                                         data-time="{{ appointment.appointment_time|time:'H:i' }}" 
+                                                         data-duration="{{ appointment.duration_minutes }}" 
+                                                         data-appointment-id="{{ appointment.id }}"
+                                                         data-patient-name="{{ appointment.patient.full_name }}"
+                                                         data-doctor-name="{{ appointment.doctor.full_name }}"
+                                                         data-appointment-date="{{ appointment.appointment_date|date:'Y-m-d' }}"
+                                                         data-appointment-type="{{ appointment.get_appointment_type_display }}"
+                                                         data-status="{{ appointment.status }}"
+                                                         data-location="{{ appointment.location|default:'Consultório' }}"
+                                                         data-reason="{{ appointment.reason|default:'Consulta médica' }}"
+                                                         data-notes="{{ appointment.notes|default:'Nenhuma observação' }}"
+                                                         onclick="showStaticAppointmentDetails('{{ appointment.id }}')">
+                                                        <div class="event-title">{{ appointment.patient.full_name }}</div>
+                                                        <div class="event-time">{{ appointment.appointment_time|time:'H:i' }}</div>
+                                                        <div class="event-type">{{ appointment.get_appointment_type_display }}</div>
+                                                    </div>
+                                                {% endif %}
+                                            {% endfor %}
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Ações Rápidas -->
+        <div class="col-lg-4 mb-4">
+            <div class="card shadow mb-4">
+                <div class="card-header py-3">
+                    <h6 class="m-0 font-weight-bold text-primary">Ações Rápidas</h6>
+                </div>
+                <div class="card-body">
+                    <div class="d-grid gap-2">
+                        <button class="btn btn-primary" onclick="showNewAppointmentModal()">
+                            <i class="fas fa-plus me-2"></i>Nova Consulta
+                        </button>
+                        <button class="btn btn-outline-primary" onclick="showNewPatientModal()">
+                            <i class="fas fa-user-plus me-2"></i>Novo Paciente
+                        </button>
+                    </div>
+                </div>
+            </div>
+            <div class="row">
+        <!-- Modern Stats Cards - Stacked Vertically -->
+        <div class="col-12 mb-3">
+            <div class="stats-card stats-card-primary">
+                <div class="stats-card-body">
+                    <div class="stats-content">
+                        <div class="stats-info">
+                            <div class="stats-title">Consultas Hoje</div>
+                            <div class="stats-number">{{ stats.consultas_hoje }}</div>
+                        </div>
+                        <div class="stats-icon">
+                            <i class="fas fa-calendar-day"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-12 mb-3">
+            <div class="stats-card stats-card-success">
+                <div class="stats-card-body">
+                    <div class="stats-content">
+                        <div class="stats-info">
+                            <div class="stats-title">Pacientes Atendidos</div>
+                            <div class="stats-number">{{ stats.pacientes_atendidos }}</div>
+                        </div>
+                        <div class="stats-icon">
+                            <i class="fas fa-user-check"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-12 mb-3">
+            <div class="stats-card stats-card-info">
+                <div class="stats-card-body">
+                    <div class="stats-content">
+                        <div class="stats-info">
+                            <div class="stats-title">Consultas Pendentes</div>
+                            <div class="stats-number">{{ stats.consultas_pendentes }}</div>
+                        </div>
+                        <div class="stats-icon">
+                            <i class="fas fa-clock"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-12 mb-3">
+            <div class="stats-card stats-card-warning">
+                <div class="stats-card-body">
+                    <div class="stats-content">
+                        <div class="stats-info">
+                            <div class="stats-title">Próxima Consulta</div>
+                            <div class="stats-number" style="font-size: 1.2rem; line-height: 1.2;" onclick="showNextAppointmentDetails()" title="Clique para ver detalhes">
+                                {{ stats.proxima_consulta }}
+                            </div>
+                        </div>
+                        <div class="stats-icon">
+                            <i class="fas fa-calendar-check"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+        </div>
+    </div>
+</div>

@@ -8,7 +8,6 @@ urlpatterns = [
     path('prontuarios/', views.prontuarios, name='prontuarios'),
     path('add-medical-record/', views.add_medical_record, name='add_medical_record'),
     path('exames/', views.exames, name='exames'),
-    path('timeline/', views.timeline, name='timeline'),
     path('prescricao/', views.prescricao, name='prescricao'),
     path('indicadores/', views.indicadores, name='indicadores'),
     path('settings/', views.settings, name='settings'),
@@ -22,4 +21,11 @@ urlpatterns = [
     path('api/appointments/cancel/', views.api_cancel_appointment, name='api_cancel_appointment'),
     path('api/appointments/confirm-attendance/', views.api_confirm_attendance, name='api_confirm_attendance'),
     path('api/next-appointment/', views.api_next_appointment, name='api_next_appointment'),
+    
+    # API endpoints for prescriptions
+    path('api/prescriptions/', views.api_prescriptions, name='api_prescriptions'),
+    path('api/prescriptions/create/', views.api_create_prescription, name='api_create_prescription'),
+    path('api/prescriptions/send-email/', views.api_send_prescription_email, name='api_send_prescription_email'),
+    path('api/prescriptions/send-whatsapp/', views.api_send_prescription_whatsapp, name='api_send_prescription_whatsapp'),
+    path('api/prescriptions/print/', views.api_print_prescription, name='api_print_prescription'),
 ]
