@@ -112,9 +112,9 @@
                         </div>
                     </div>
 
-                    <!-- Location -->
+                    <!-- Location, Value and Payment Type -->
                     <div class="row">
-                        <div class="col-md-6 mb-3">
+                        <div class="col-md-4 mb-3">
                             <label for="appointment-location" class="form-label">
                                 <i class="fas fa-map-marker-alt me-1"></i>Local
                             </label>
@@ -122,8 +122,7 @@
                                    placeholder="Ex: Sala 1, Consultório A">
                         </div>
 
-                        <!-- Value -->
-                        <div class="col-md-6 mb-3">
+                        <div class="col-md-4 mb-3">
                             <label for="appointment-value" class="form-label">
                                 <i class="fas fa-dollar-sign me-1"></i>Valor da Consulta
                             </label>
@@ -133,20 +132,16 @@
                                        step="0.01" min="0" placeholder="0,00">
                             </div>
                         </div>
-                    </div>
 
-                    <div class="row">
-                        <!-- Reminder -->
-                        <div class="col-md-6 mb-3">
-                            <label class="form-label">
-                                <i class="fas fa-bell me-1"></i>Lembrete
+                        <div class="col-md-4 mb-3">
+                            <label for="appointment-payment-type" class="form-label">
+                                <i class="fas fa-credit-card me-1"></i>Tipo de Pagamento <span class="text-danger">*</span>
                             </label>
-                            <div class="form-check">
-                                <input class="form-check-input" type="checkbox" id="appointment-reminder" name="send_reminder">
-                                <label class="form-check-label" for="appointment-reminder">
-                                    Enviar lembrete para o paciente
-                                </label>
-                            </div>
+                            <select class="form-select" id="appointment-payment-type" name="payment_type" required>
+                                <option value="">Selecione o tipo de pagamento</option>
+                                <option value="convenio">Convênio</option>
+                                <option value="particular">Particular</option>
+                            </select>
                         </div>
                     </div>
 

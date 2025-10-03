@@ -40,6 +40,13 @@ function initializeTabs() {
 }
 
 function switchTab(tabName) {
+    // Check if trying to access other tabs without selecting a patient
+    // Allow access to 'agenda', 'indicadores', and 'finance' without patient selection
+    if (tabName !== 'agenda' && tabName !== 'indicadores' && tabName !== 'finance' && !selectedPatient) {
+        alert('Por favor, selecione um paciente na agenda primeiro.');
+        return;
+    }
+    
     // Hide all tab contents
     const tabContents = document.querySelectorAll('.tab-content');
     tabContents.forEach(content => {
@@ -55,21 +62,43 @@ function switchTab(tabName) {
     }
     
     // Update button states
-    const buttons = document.querySelectorAll('[data-tab]');
+    const buttons = document.querySelectorAll('.btn-group .btn');
     buttons.forEach(btn => {
         btn.classList.remove('btn-primary');
         btn.classList.add('btn-outline-primary');
     });
     
-    // Highlight active button
-    const activeButton = document.querySelector(`[data-tab="${tabName}"]`);
+    // Highlight active button by finding the button that calls this function
+    const activeButton = document.querySelector(`[onclick*="switchTab('${tabName}')"]`);
     if (activeButton) {
         activeButton.classList.remove('btn-outline-primary');
         activeButton.classList.add('btn-primary');
     }
     
-    // Store active tab in session storage
-    sessionStorage.setItem('activeTab', tabName);
+    // Load data for specific tabs
+    if (tabName === 'finance') {
+        if (typeof loadFinanceData === 'function') {
+            loadFinanceData();
+        }
+    }
+    
+    // Initialize FullCalendar when agenda tab is shown
+    if (tabName === 'agenda') {
+        if (typeof initializeFullCalendar === 'function') {
+            setTimeout(initializeFullCalendar, 100);
+        }
+        // Refresh agenda stats when switching to agenda tab
+        if (typeof refreshAgendaStats === 'function') {
+            refreshAgendaStats();
+        }
+    }
+    
+    // Initialize prescription form when prescricao tab is shown
+    if (tabName === 'prescricao') {
+        if (typeof initializePrescriptionForm === 'function') {
+            setTimeout(initializePrescriptionForm, 100);
+        }
+    }
 }
 
 // Form validation

@@ -55,9 +55,6 @@
                 <button type="button" class="btn btn-outline-primary disabled" id="prontuarios-btn" onclick="switchTab('prontuarios')" disabled>
                     <i class="fas fa-file-medical me-1"></i>Prontuários
                 </button>
-                <button type="button" class="btn btn-outline-primary disabled" id="exames-btn" onclick="switchTab('exames')" disabled>
-                    <i class="fas fa-vial me-1"></i>Histórico de Exames
-                </button>
                 <button type="button" class="btn btn-outline-primary disabled" id="prescricao-btn" onclick="switchTab('prescricao')" disabled>
                     <i class="fas fa-prescription-bottle-alt me-1"></i>Prescrição Online
                 </button>
@@ -83,6 +80,9 @@
 {% endblock %}
 
 {% block extra_js %}
+<!-- FullCalendar JS -->
+<script src="{% static 'fullcalendar-6.1.19/dist/index.global.js' %}"></script>
 <script src="{% static 'js/extra.js' %}"></script>
 <script src="{% static 'js/finance.js' %}"></script>
+<script src="{% static 'js/fullcalendar.js' %}"></script>
 {% endblock %}

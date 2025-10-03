@@ -1181,3 +1181,361 @@
     color: #6c757d;
     font-weight: 500;
 }
+
+/* FullCalendar Custom Styles */
+#calendar {
+    padding: 1rem;
+    background: #fff;
+    border-radius: 0.375rem;
+    height: 600px;
+    overflow: hidden;
+    border: 1px solid #e9ecef;
+    box-shadow: 0 0.125rem 0.25rem rgba(0, 0, 0, 0.075);
+}
+
+.fc {
+    height: 100%;
+    overflow: auto;
+    font-family: inherit;
+}
+
+/* Custom scrollbar for calendar */
+.fc::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+}
+
+.fc::-webkit-scrollbar-track {
+    background: #f1f1f1;
+    border-radius: 4px;
+}
+
+.fc::-webkit-scrollbar-thumb {
+    background: #c1c1c1;
+    border-radius: 4px;
+}
+
+.fc::-webkit-scrollbar-thumb:hover {
+    background: #a8a8a8;
+}
+
+.fc-toolbar {
+    margin-bottom: 1rem;
+}
+
+.fc-toolbar-title {
+    font-size: 1.5rem;
+    font-weight: 600;
+    color: #495057;
+}
+
+.fc-button {
+    background: linear-gradient(135deg, #007bff, #0056b3);
+    border: none;
+    border-radius: 0.375rem;
+    font-weight: 500;
+    padding: 0.375rem 0.75rem;
+    font-size: 0.875rem;
+    color: white;
+    transition: all 0.3s ease;
+}
+
+.fc-button:hover {
+    background: linear-gradient(135deg, #0056b3, #007bff);
+    transform: translateY(-1px);
+    box-shadow: 0 4px 15px rgba(0, 123, 255, 0.3);
+    color: white;
+}
+
+.fc-button:focus {
+    box-shadow: 0 0 0 0.2rem rgba(0, 123, 255, 0.25);
+    color: white;
+}
+
+.fc-button-primary:not(:disabled).fc-button-active {
+    background: linear-gradient(135deg, #0056b3, #007bff);
+    box-shadow: 0 4px 15px rgba(0, 123, 255, 0.3);
+    color: white;
+}
+
+.fc-button:disabled {
+    background-color: #e9ecef;
+    border-color: #dee2e6;
+    color: #6c757d;
+}
+
+.fc-daygrid-event {
+    border-radius: 0.25rem !important;
+    font-size: 0.7rem !important;
+    padding: 0.1rem 0.2rem !important;
+    margin: 0.05rem 0 !important;
+    min-height: 20px !important;
+}
+
+.fc-timegrid-event {
+    border-radius: 0.25rem !important;
+    font-size: 0.7rem !important;
+    padding: 0.1rem 0.2rem !important;
+    margin: 0.05rem 0 !important;
+    min-height: 20px !important;
+}
+
+.fc-list-event {
+    border-radius: 0.25rem !important;
+    margin-bottom: 0.25rem !important;
+    min-height: 30px !important;
+    padding: 0.5rem !important;
+}
+
+.fc-event-title {
+    font-weight: 600 !important;
+    line-height: 1.2 !important;
+    text-align: center !important;
+    width: 100% !important;
+    margin-bottom: 2px !important;
+}
+
+/* Fix for week/day views - keep title inline */
+.fc-timegrid-event .fc-event-title,
+.fc-daygrid-event .fc-event-title {
+    width: auto !important;
+    margin-bottom: 0 !important;
+    white-space: nowrap !important;
+}
+
+.fc-event-time {
+    font-size: 0.7rem !important;
+    opacity: 0.8 !important;
+    text-align: center !important;
+}
+
+.fc-list-event-title {
+    font-weight: 600 !important;
+    color: inherit !important;
+}
+
+.fc-list-event-time {
+    font-size: 0.75rem !important;
+    color: inherit !important;
+    opacity: 0.8 !important;
+}
+
+.fc-timegrid-slot {
+    height: 2rem;
+}
+
+.fc-timegrid-slot-label {
+    font-size: 0.75rem;
+    color: #6c757d;
+}
+
+.fc-daygrid-day-number {
+    font-weight: 600;
+    color: #495057;
+}
+
+.fc-day-today {
+    background-color: #f8f9fa;
+}
+
+.fc-daygrid-day-events {
+    margin-top: 0.25rem;
+}
+
+
+
+
+/* Event status colors - using data attributes for better specificity */
+.fc-event[data-status="scheduled"] {
+    background-color:rgb(173 2 2);
+    border-color: rgb(173 2 2);
+    color: white !important;
+}
+
+.fc-event[data-status="confirmed"] {
+    background-color: #007bff !important;
+    border-color: #007bff !important;
+    color: white !important;
+}
+
+.fc-event[data-status="in_progress"] {
+    background-color: #ffc107 !important;
+    border-color: #ffc107 !important;
+    color: #212529 !important;
+}
+
+.fc-event[data-status="completed"] {
+    background-color: #28a745 !important;
+    border-color: #28a745 !important;
+    color: white !important;
+}
+
+.fc-event[data-status="cancelled"] {
+    background-color: #dc3545 !important;
+    border-color: #dc3545 !important;
+    color: white !important;
+}
+
+.fc-event[data-status="no_show"] {
+    background-color: #6c757d !important;
+    border-color: #6c757d !important;
+    color: white !important;
+}
+
+/* Business hours styling */
+.fc-non-business {
+    background-color: #f8f9fa;
+}
+
+/* Header styling - remove underline */
+.fc-col-header-cell {
+    background-color: #f8f9fa;
+    color: #495057;
+    font-weight: 600;
+    text-align: center;
+    padding: 0.75rem 0;
+    border-bottom: none;
+}
+
+.fc-col-header-cell-cushion {
+    color: #495057;
+    text-decoration: none;
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+    #calendar {
+        height: 500px;
+        padding: 0.5rem;
+    }
+    
+    .fc-toolbar {
+        flex-direction: column;
+        gap: 0.5rem;
+    }
+    
+    .fc-toolbar-chunk {
+        display: flex;
+        justify-content: center;
+    }
+    
+    .fc-button {
+        font-size: 0.75rem;
+        padding: 0.25rem 0.5rem;
+    }
+    
+    .fc-toolbar-title {
+        font-size: 1.25rem;
+    }
+}
+
+@media (max-width: 576px) {
+    #calendar {
+        height: 400px;
+        padding: 0.25rem;
+    }
+}
+
+/* Yellow dollar symbol for particular appointments */
+.particular-dollar {
+    display: inline-block;
+    background-color: #ffc107;
+    color: #000;
+    padding: 2px 6px;
+    border-radius: 4px;
+    font-weight: bold;
+    font-size: 0.8em;
+    margin-left: 4px;
+}
+
+/* Gentle Calendar Event Styling */
+.fc-event {
+    border-radius: 6px !important;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1) !important;
+    margin: 1px 0 !important;
+    font-size: 0.8rem !important;
+    font-weight: 500 !important;
+    transition: all 0.2s ease !important;
+    display: flex !important;
+    flex-direction: column !important;
+    align-items: center !important;
+    justify-content: center !important;
+    text-align: center !important;
+    padding: 4px 6px !important;
+    color: white !important;
+}
+
+.fc-event:hover {
+    transform: translateY(-1px) !important;
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.15) !important;
+}
+
+.fc-event-title {
+    font-weight: 600 !important;
+    line-height: 1.2 !important;
+    text-align: center !important;
+    width: 100% !important;
+    margin-bottom: 2px !important;
+}
+
+.fc-event-description {
+    font-size: 0.7em !important;
+    opacity: 0.8 !important;
+    text-align: center !important;
+    margin-top: 2px !important;
+    line-height: 1 !important;
+    display: block !important;
+    width: 100% !important;
+}
+
+/* Fix for week/day views - keep description inline with title */
+.fc-timegrid-event .fc-event-description,
+.fc-daygrid-event .fc-event-description {
+    display: inline !important;
+    margin-top: 0 !important;
+    margin-left: 4px !important;
+    width: auto !important;
+}
+
+/* Ensure event content is properly displayed */
+.fc-event .fc-event-main {
+    display: flex !important;
+    flex-direction: column !important;
+    align-items: center !important;
+    justify-content: center !important;
+    text-align: center !important;
+    width: 100% !important;
+    height: 100% !important;
+}
+
+/* Fix for week/day views - keep patient name and dollar sign on same line */
+.fc-timegrid-event .fc-event-main,
+.fc-daygrid-event .fc-event-main {
+    flex-direction: row !important;
+    flex-wrap: nowrap !important;
+    justify-content: center !important;
+    align-items: center !important;
+    gap: 4px !important;
+}
+
+/* Fix for list view events */
+.fc-list-event .fc-event-main {
+    display: flex !important;
+    flex-direction: row !important;
+    align-items: center !important;
+    justify-content: space-between !important;
+    text-align: left !important;
+}
+
+.fc-list-event .fc-event-title {
+    text-align: left !important;
+    flex: 1 !important;
+}
+
+.fc-list-event .fc-event-time {
+    text-align: right !important;
+    margin-left: 1rem !important;
+}
+
+/* Status-specific gentle styling */
+

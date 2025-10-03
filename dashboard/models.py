@@ -258,6 +258,12 @@ class Appointment(models.Model):
         ('other', 'Outro'),
     ]
     
+    # Payment type choices
+    PAYMENT_TYPE_CHOICES = [
+        ('convenio', 'Convênio'),
+        ('particular', 'Particular'),
+    ]
+    
     # Foreign Keys
     patient = models.ForeignKey(
         Patient,
@@ -292,6 +298,13 @@ class Appointment(models.Model):
         choices=TYPE_CHOICES,
         default='consultation',
         help_text="Type of appointment"
+    )
+    
+    payment_type = models.CharField(
+        max_length=20,
+        choices=PAYMENT_TYPE_CHOICES,
+        default='particular',
+        help_text="Payment type for the appointment"
     )
     
     status = models.CharField(

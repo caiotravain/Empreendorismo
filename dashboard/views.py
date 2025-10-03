@@ -197,13 +197,6 @@ def prontuarios(request):
     }
     return render(request, 'dashboard/home.html', context)
 
-@login_required
-def exames(request):
-    """Medical exams history view"""
-    context = {
-        'active_tab': 'exames',
-    }
-    return render(request, 'dashboard/home.html', context)
 
 
 @login_required
@@ -356,6 +349,7 @@ def api_appointments(request):
         appointment_time = request.POST.get('appointment_time')
         duration_minutes = request.POST.get('duration_minutes', 30)
         appointment_type = request.POST.get('appointment_type', 'consultation')
+        payment_type = request.POST.get('payment_type')
         status = request.POST.get('status', 'scheduled')
         reason = request.POST.get('reason', '')
         notes = request.POST.get('notes', '')
@@ -363,10 +357,10 @@ def api_appointments(request):
         value = request.POST.get('value', '')
         
         # Validate required fields
-        if not all([patient_id, appointment_date, appointment_time]):
+        if not all([patient_id, appointment_date, appointment_time, payment_type]):
             return JsonResponse({
                 'success': False,
-                'error': 'Paciente, data e horário são obrigatórios'
+                'error': 'Paciente, data, horário e tipo de pagamento são obrigatórios'
             })
         
         # Get patient object
@@ -410,6 +404,7 @@ def api_appointments(request):
             appointment_time=appointment_time,
             duration_minutes=int(duration_minutes),
             appointment_type=appointment_type,
+            payment_type=payment_type,
             status=status,
             reason=reason,
             notes=notes,
@@ -497,6 +492,8 @@ def api_week_appointments(request):
                 'appointment_time': appointment.appointment_time.strftime('%H:%M'),
                 'duration_minutes': appointment.duration_minutes,
                 'appointment_type': appointment.get_appointment_type_display(),
+                'payment_type': appointment.get_payment_type_display(),
+                'value': float(appointment.value) if appointment.value else None,
                 'status': appointment.status,
                 'reason': appointment.reason,
                 'notes': appointment.notes,
@@ -809,6 +806,65 @@ def api_sync_appointment_income(request):
 
 
 @login_required
+@require_POST
+def api_update_appointment(request):
+    """API endpoint to update appointment time or duration"""
+    try:
+        # Get current user's doctor profile
+        try:
+            current_doctor = Doctor.objects.get(user=request.user)
+        except Doctor.DoesNotExist:
+            return JsonResponse({
+                'success': False,
+                'error': 'Usuário não é um médico válido'
+            })
+        
+        # Get appointment ID and update data
+        appointment_id = request.POST.get('appointment_id')
+        appointment_date = request.POST.get('appointment_date')
+        appointment_time = request.POST.get('appointment_time')
+        duration_minutes = request.POST.get('duration_minutes')
+        
+        if not appointment_id:
+            return JsonResponse({
+                'success': False,
+                'error': 'ID da consulta é obrigatório'
+            })
+        
+        # Get the appointment
+        try:
+            appointment = Appointment.objects.get(
+                id=appointment_id,
+                doctor=current_doctor
+            )
+        except Appointment.DoesNotExist:
+            return JsonResponse({
+                'success': False,
+                'error': 'Consulta não encontrada'
+            })
+        
+        # Update appointment fields if provided
+        if appointment_date:
+            appointment.appointment_date = appointment_date
+        if appointment_time:
+            appointment.appointment_time = appointment_time
+        if duration_minutes:
+            appointment.duration_minutes = int(duration_minutes)
+        
+        appointment.save()
+        
+        return JsonResponse({
+            'success': True,
+            'message': 'Consulta atualizada com sucesso'
+        })
+        
+    except Exception as e:
+        return JsonResponse({
+            'success': False,
+            'error': f'Erro ao atualizar consulta: {str(e)}'
+        })
+
+@login_required
 @require_http_methods(["GET"])
 def api_next_appointment(request):
     """API endpoint to get the next appointment details"""
@@ -875,6 +931,90 @@ def api_next_appointment(request):
         return JsonResponse({
             'success': False,
             'error': f'Erro ao buscar próxima consulta: {str(e)}'
+        })
+
+@login_required
+@require_http_methods(["GET"])
+def api_agenda_stats(request):
+    """API endpoint to get current agenda stats"""
+    try:
+        # Get current user's doctor profile
+        try:
+            current_doctor = Doctor.objects.get(user=request.user)
+        except Doctor.DoesNotExist:
+            return JsonResponse({
+                'success': False,
+                'error': 'Usuário não é um médico válido'
+            })
+        
+        today = timezone.now().date()
+        now = timezone.now()
+        current_time = now.time()
+
+        # Calculate stats using the same logic as in home view
+        total_today = Appointment.objects.filter(
+            doctor=current_doctor,
+            appointment_date=today
+        ).count()
+        completed_today = Appointment.objects.filter(
+            doctor=current_doctor,
+            appointment_date=today,
+            status='completed'
+        ).count()
+        
+        pending_today = Appointment.objects.filter(
+            doctor=current_doctor,
+            appointment_date=today,
+            status__in=['scheduled', 'confirmed']
+        ).count()
+        
+        # Get next appointment (from today onwards, including future appointments today)
+        # First, try to find appointments today that haven't happened yet
+        today_future_appointments = Appointment.objects.filter(
+            doctor=current_doctor,
+            appointment_date=today,
+            appointment_time__gt=current_time,
+            status__in=['scheduled', 'confirmed']
+        ).exclude(
+            status='cancelled'
+        ).order_by('appointment_time').first()
+        
+        if today_future_appointments:
+            # Next appointment is today
+            next_appointment_time = f"Hoje às {today_future_appointments.appointment_time.strftime('%H:%M')}"
+        else:
+            # Look for appointments from tomorrow onwards
+            tomorrow = today + timedelta(days=1)
+            next_appointment = Appointment.objects.filter(
+                doctor=current_doctor,
+                appointment_date__gte=tomorrow,
+                status__in=['scheduled', 'confirmed']
+            ).exclude(
+                status='cancelled'
+            ).order_by('appointment_date', 'appointment_time').first()
+            
+            if next_appointment:
+                if next_appointment.appointment_date == tomorrow:
+                    next_appointment_time = f"Amanhã às {next_appointment.appointment_time.strftime('%H:%M')}"
+                else:
+                    next_appointment_time = f"{next_appointment.appointment_date.strftime('%d/%m')} às {next_appointment.appointment_time.strftime('%H:%M')}"
+            else:
+                next_appointment_time = 'N/A'
+        
+        return JsonResponse({
+            'success': True,
+            'stats': {
+                'consultas_hoje': total_today,
+                'pacientes_atendidos': completed_today,
+                'consultas_pendentes': pending_today,
+                'proxima_consulta': next_appointment_time,
+            }
+        })
+        
+    except Exception as e:
+        return JsonResponse({
+            'success': False,
+            'error': f'Erro ao buscar estatísticas: {str(e)}'
         })
 
 # Prescription Views
@@ -1619,4 +1759,78 @@ def api_expense_totals(request):
         return JsonResponse({
             'success': False,
             'error': f'Erro ao calcular totais: {str(e)}'
+        })
+
+
+@login_required
+@require_http_methods(["DELETE"])
+def api_delete_expense(request, expense_id):
+    """API endpoint to delete an expense"""
+    try:
+        # Get current user's doctor profile
+        current_doctor = Doctor.objects.get(user=request.user)
+        
+        # Get the expense
+        try:
+            expense = Expense.objects.get(id=expense_id, doctor=current_doctor)
+        except Expense.DoesNotExist:
+            return JsonResponse({
+                'success': False,
+                'error': 'Despesa não encontrada'
+            })
+        
+        # Delete the expense
+        expense.delete()
+        
+        return JsonResponse({
+            'success': True,
+            'message': f'Despesa "{expense.description}" excluída com sucesso'
+        })
+        
+    except Doctor.DoesNotExist:
+        return JsonResponse({
+            'success': False,
+            'error': 'Perfil de médico não encontrado'
+        })
+    except Exception as e:
+        return JsonResponse({
+            'success': False,
+            'error': f'Erro ao excluir despesa: {str(e)}'
+        })
+
+
+@login_required
+@require_http_methods(["DELETE"])
+def api_delete_income(request, income_id):
+    """API endpoint to delete an income"""
+    try:
+        # Get current user's doctor profile
+        current_doctor = Doctor.objects.get(user=request.user)
+        
+        # Get the income
+        try:
+            income = Income.objects.get(id=income_id, doctor=current_doctor)
+        except Income.DoesNotExist:
+            return JsonResponse({
+                'success': False,
+                'error': 'Receita não encontrada'
+            })
+        
+        # Delete the income
+        income.delete()
+        
+        return JsonResponse({
+            'success': True,
+            'message': f'Receita "{income.description}" excluída com sucesso'
+        })
+        
+    except Doctor.DoesNotExist:
+        return JsonResponse({
+            'success': False,
+            'error': 'Perfil de médico não encontrado'
+        })
+    except Exception as e:
+        return JsonResponse({
+            'success': False,
+            'error': f'Erro ao excluir receita: {str(e)}'
         })

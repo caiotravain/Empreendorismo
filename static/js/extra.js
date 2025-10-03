@@ -1,46 +1,6 @@
 let selectedPatient = null;
 
-function switchTab(tabName) {
-    // Check if trying to access other tabs without selecting a patient
-    // Allow access to 'agenda', 'indicadores', and 'finance' without patient selection
-    if (tabName !== 'agenda' && tabName !== 'indicadores' && tabName !== 'finance' && !selectedPatient) {
-        alert('Por favor, selecione um paciente na agenda primeiro.');
-        return;
-    }
-    
-    // Hide all tab contents
-    const tabContents = document.querySelectorAll('.tab-content');
-    tabContents.forEach(content => {
-        content.style.display = 'none';
-        content.classList.remove('active');
-    });
-    
-    // Show selected tab content
-    const selectedTab = document.getElementById(tabName + '-tab');
-    if (selectedTab) {
-        selectedTab.style.display = 'block';
-        selectedTab.classList.add('active');
-    }
-    
-    // Update button states
-    const buttons = document.querySelectorAll('.btn-group .btn');
-    buttons.forEach(btn => {
-        btn.classList.remove('btn-primary');
-        btn.classList.add('btn-outline-primary');
-    });
-    
-    // Highlight active button by finding the button that calls this function
-    const activeButton = document.querySelector(`[onclick*="switchTab('${tabName}')"]`);
-    if (activeButton) {
-        activeButton.classList.remove('btn-outline-primary');
-        activeButton.classList.add('btn-primary');
-    }
-    
-    // Load data for specific tabs
-    if (tabName === 'finance') {
-        loadFinanceData();
-    }
-}
+// switchTab function is now handled by main.js
 
 function switchChartView(view) {
     const monthlyChart = document.getElementById('monthly-chart');
@@ -172,11 +132,6 @@ function updatePatientInfo(patientName) {
         prontuariosInfo.textContent = `Visualizando prontuário de: ${patientName}`;
     }
     
-    // Update patient info in exames tab
-    const examesInfo = document.getElementById('patient-info-exames');
-    if (examesInfo) {
-        examesInfo.textContent = `Visualizando histórico de exames de: ${patientName}`;
-    }
     
     
     // Update patient info in prescrição tab
@@ -541,558 +496,6 @@ function showNotification(message, type = 'info') {
     }, 5000);
 }
 
-// Calendar functionality
-let currentDate = new Date();
-let currentView = 'week';
-
-function switchCalendarView(view) {
-    currentView = view;
-    
-    // Hide all calendar views
-    document.querySelectorAll('.calendar-view').forEach(view => {
-        view.style.display = 'none';
-    });
-    
-    // Show selected view
-    document.getElementById(view + '-view').style.display = 'block';
-    
-    // Update button states
-    document.querySelectorAll('[id$="-view-btn"]').forEach(btn => {
-        btn.classList.remove('btn-primary');
-        btn.classList.add('btn-outline-primary');
-    });
-    
-    document.getElementById(view + '-view-btn').classList.remove('btn-outline-primary');
-    document.getElementById(view + '-view-btn').classList.add('btn-primary');
-    
-    // Update display based on view
-    updateCalendarDisplay();
-}
-
-function navigateWeek(direction) {
-    currentDate.setDate(currentDate.getDate() + (direction * 7));
-    updateCalendarDisplay();
-}
-
-function goToToday() {
-    currentDate = new Date();
-    updateCalendarDisplay();
-}
-
-function updateCalendarDisplay() {
-    const weekDisplay = document.getElementById('current-week-display');
-    if (weekDisplay) {
-        const startOfWeek = getStartOfWeek(currentDate);
-        const endOfWeek = getEndOfWeek(currentDate);
-        
-        const startStr = startOfWeek.toLocaleDateString('pt-BR', { day: 'numeric', month: 'short' });
-        const endStr = endOfWeek.toLocaleDateString('pt-BR', { day: 'numeric', month: 'short', year: 'numeric' });
-        
-        weekDisplay.textContent = `${startStr} - ${endStr}`;
-    }
-    
-    // Update day dates in week view
-    updateWeekViewDates();
-    
-    // Load appointments for the new week
-    loadWeekAppointments();
-}
-
-function getStartOfWeek(date) {
-    const d = new Date(date);
-    const day = d.getDay();
-    const diff = d.getDate() - day;
-    return new Date(d.setDate(diff));
-}
-
-function getEndOfWeek(date) {
-    const start = getStartOfWeek(date);
-    const end = new Date(start);
-    end.setDate(start.getDate() + 6);
-    return end;
-}
-
-function updateWeekViewDates() {
-    const startOfWeek = getStartOfWeek(currentDate);
-    const dayDates = document.querySelectorAll('.day-date');
-    const dayColumns = document.querySelectorAll('.day-column');
-    
-    for (let i = 0; i < 7; i++) {
-        const date = new Date(startOfWeek);
-        date.setDate(startOfWeek.getDate() + i);
-        dayDates[i].textContent = date.getDate();
-        
-        // Highlight today
-        const today = new Date();
-        if (date.toDateString() === today.toDateString()) {
-            dayDates[i].classList.add('today');
-            dayColumns[i].classList.add('today');
-        } else {
-            dayDates[i].classList.remove('today');
-            dayColumns[i].classList.remove('today');
-        }
-    }
-}
-
-// Synchronize scrolling between time column and calendar grid
-function initializeCalendarScrolling() {
-    const timeSlots = document.querySelector('.time-slots');
-    const calendarGrid = document.querySelector('.calendar-grid');
-    
-    if (timeSlots && calendarGrid) {
-        // Sync time column scroll with calendar grid
-        timeSlots.addEventListener('scroll', function() {
-            calendarGrid.scrollTop = timeSlots.scrollTop;
-        });
-        
-        // Sync calendar grid scroll with time column
-        calendarGrid.addEventListener('scroll', function() {
-            timeSlots.scrollTop = calendarGrid.scrollTop;
-        });
-        
-    // Auto-scroll to current hour
-    scrollToCurrentHour();
-    }
-}
-
-// Auto-scroll to current hour
-function scrollToCurrentHour() {
-    const timeSlots = document.querySelector('.time-slots');
-    const calendarGrid = document.querySelector('.calendar-grid');
-    
-    if (timeSlots && calendarGrid) {
-        const now = new Date();
-        const currentHour = now.getHours();
-        const currentMinute = now.getMinutes();
-        
-        // Calculate scroll position (adjusted for 6 AM start)
-        let scrollPosition = (currentHour * 60) + (currentMinute * 1);
-        
-        // Adjust for 6 AM start time
-        if (scrollPosition < 360) { // Before 6 AM (360 minutes = 6 hours)
-            scrollPosition += 24 * 60; // Add 24 hours to position after midnight
-        }
-        scrollPosition -= 360; // Subtract 6 hours (360 minutes) to start from 6 AM
-        scrollPosition -= 200; // Offset to center current time
-        
-        // Smooth scroll to current time
-        timeSlots.scrollTo({
-            top: Math.max(0, scrollPosition),
-            behavior: 'smooth'
-        });
-        
-        calendarGrid.scrollTo({
-            top: Math.max(0, scrollPosition),
-            behavior: 'smooth'
-        });
-    }
-}
-
-// Calculate event position based on time
-function calculateEventPosition(timeString) {
-    // Parse time string (e.g., "09:00", "14:30")
-    const [hours, minutes] = timeString.split(':').map(Number);
-    
-    // Calculate position from 06:00 (start of calendar)
-    let totalMinutes = hours * 60 + minutes;
-    
-    // Adjust for 6 AM start time
-    if (totalMinutes < 360) { // Before 6 AM (360 minutes = 6 hours)
-        totalMinutes += 24 * 60; // Add 24 hours to position after midnight
-    }
-    totalMinutes -= 360; // Subtract 6 hours (360 minutes) to start from 6 AM
-    
-    // Each 30-minute slot is 30px high, so 1px per minute
-    return totalMinutes;
-}
-
-// Calculate event height based on duration
-function calculateEventHeight(durationMinutes = 30) {
-    return durationMinutes; // 1px per minute
-}
-
-// Fix event positions to match time slots
-function fixEventPositions() {
-    const events = document.querySelectorAll('.calendar-event');
-    
-    events.forEach(event => {
-        const timeString = event.getAttribute('data-time');
-        const duration = parseInt(event.getAttribute('data-duration')) || 30;
-        if (timeString) {
-            const topPosition = calculateEventPosition(timeString);
-            const height = calculateEventHeight(duration);
-            
-            event.style.top = topPosition + 'px';
-            event.style.height = height + 'px';
-        }
-    });
-}
-
-// Load appointments for the current week
-function loadWeekAppointments() {
-    const startOfWeek = getStartOfWeek(currentDate);
-    // Format as YYYY-MM-DD using local date to avoid timezone issues
-    const weekStartStr = startOfWeek.getFullYear() + '-' + 
-                        String(startOfWeek.getMonth() + 1).padStart(2, '0') + '-' + 
-                        String(startOfWeek.getDate()).padStart(2, '0');
-    
-    fetch(`/dashboard/api/week-appointments/?week_start=${weekStartStr}`)
-        .then(response => response.json())
-        .then(data => {
-            if (data.success) {
-                // Clear existing appointments
-                clearWeekAppointments();
-                
-                // Add new appointments
-                data.appointments.forEach(appointment => {
-                    addAppointmentToCalendar(appointment);
-                });
-                
-                // Fix event positions after adding appointments
-                fixEventPositions();
-            } else {
-                console.error('Error loading week appointments:', data.error);
-            }
-        })
-        .catch(error => {
-            console.error('Error loading week appointments:', error);
-        });
-}
-
-// Clear all appointments from the calendar
-function clearWeekAppointments() {
-    const dayColumns = document.querySelectorAll('.day-column');
-    dayColumns.forEach(column => {
-        const timeGrid = column.querySelector('.time-grid');
-        if (timeGrid) {
-            // Remove all calendar events except current time line
-            const events = timeGrid.querySelectorAll('.calendar-event');
-            events.forEach(event => event.remove());
-        }
-    });
-}
-
-// Add a single appointment to the calendar
-function addAppointmentToCalendar(appointment) {
-    // Parse date string as local date to avoid timezone issues
-    const dateParts = appointment.appointment_date.split('-');
-    const appointmentDate = new Date(parseInt(dateParts[0]), parseInt(dateParts[1]) - 1, parseInt(dateParts[2]));
-    const dayOfWeek = appointmentDate.getDay(); // 0 = Sunday, 1 = Monday, etc.
-    
-    // Get the corresponding day column (0-indexed, but our columns start with Sunday)
-    const dayColumns = document.querySelectorAll('.day-column');
-    if (dayColumns[dayOfWeek]) {
-        const timeGrid = dayColumns[dayOfWeek].querySelector('.time-grid');
-        if (timeGrid) {
-            const eventDiv = document.createElement('div');
-            eventDiv.className = 'calendar-event';
-            eventDiv.setAttribute('data-time', appointment.appointment_time);
-            eventDiv.setAttribute('data-duration', appointment.duration_minutes);
-            eventDiv.onclick = () => showAppointmentDetails(appointment);
-            
-            const cancelIcon = appointment.status === 'cancelled' ? 
-                '<div class="event-cancel-icon"><i class="fas fa-times"></i></div>' : '';
-            
-            eventDiv.innerHTML = `
-                ${cancelIcon}
-                <div class="event-title">${appointment.patient_name}</div>
-                <div class="event-time">${appointment.appointment_time}</div>
-                <div class="event-type">${appointment.appointment_type}</div>
-            `;
-            
-            timeGrid.appendChild(eventDiv);
-        }
-    }
-}
-
-// Show appointment details popup
-function showAppointmentDetails(appointment) {
-    // Populate the modal with appointment data
-    document.getElementById('modal-patient-name').textContent = appointment.patient_name || '-';
-    document.getElementById('modal-doctor-name').textContent = appointment.doctor_name || '-';
-    document.getElementById('modal-appointment-date').textContent = formatDate(appointment.appointment_date) || '-';
-    document.getElementById('modal-appointment-time').textContent = appointment.appointment_time || '-';
-    document.getElementById('modal-appointment-duration').textContent = (appointment.duration_minutes || 30) + ' minutos';
-    document.getElementById('modal-appointment-type').textContent = appointment.appointment_type || '-';
-    document.getElementById('modal-appointment-location').textContent = appointment.location || 'Não especificado';
-    document.getElementById('modal-appointment-reason').textContent = appointment.reason || 'Não especificado';
-    document.getElementById('modal-appointment-notes').textContent = appointment.notes || 'Nenhuma observação';
-    
-    // Update status badge with appropriate styling
-    const statusBadge = document.getElementById('modal-status-badge');
-    const statusText = getStatusDisplay(appointment.status) || '-';
-    statusBadge.textContent = statusText;
-    
-    // Apply status-specific styling
-    statusBadge.className = 'badge';
-    switch(appointment.status) {
-        case 'scheduled':
-            statusBadge.classList.add('bg-secondary');
-            break;
-        case 'confirmed':
-            statusBadge.classList.add('bg-primary');
-            break;
-        case 'in_progress':
-            statusBadge.classList.add('bg-warning');
-            break;
-        case 'completed':
-            statusBadge.classList.add('bg-success');
-            break;
-        case 'cancelled':
-            statusBadge.classList.add('bg-danger');
-            break;
-        case 'no_show':
-            statusBadge.classList.add('bg-dark');
-            break;
-        case 'rescheduled':
-            statusBadge.classList.add('bg-info');
-            break;
-        default:
-            statusBadge.classList.add('bg-secondary');
-    }
-    
-    // Store appointment ID for edit/cancel actions
-    document.getElementById('appointmentDetailsModal').setAttribute('data-appointment-id', appointment.id);
-    
-    // Show/hide buttons based on appointment status
-    const confirmBtn = document.getElementById('confirm-attendance-btn');
-    const cancelBtn = document.getElementById('cancel-appointment-btn');
-    
-    // Hide both buttons first
-    confirmBtn.style.display = 'none';
-    cancelBtn.style.display = 'none';
-    
-    // Show appropriate button based on status
-    if (appointment.status === 'cancelled') {
-        // If cancelled, show only confirm attendance button
-        confirmBtn.style.display = 'inline-block';
-        confirmBtn.innerHTML = '<i class="fas fa-check-circle me-1"></i>Confirmar Presença';
-    } else if (appointment.status === 'confirmed') {
-        // If confirmed, show only cancel button
-        cancelBtn.style.display = 'inline-block';
-        cancelBtn.innerHTML = '<i class="fas fa-times-circle me-1"></i>Cancelar Consulta';
-    } else if (appointment.status === 'scheduled') {
-        // If scheduled, show both buttons
-        confirmBtn.style.display = 'inline-block';
-        cancelBtn.style.display = 'inline-block';
-        confirmBtn.innerHTML = '<i class="fas fa-check-circle me-1"></i>Confirmar Presença';
-        cancelBtn.innerHTML = '<i class="fas fa-times-circle me-1"></i>Cancelar Consulta';
-    } else if (appointment.status === 'completed') {
-        // If completed, show no action buttons
-        // Both buttons remain hidden
-    } else {
-        // For other statuses, show both buttons
-        confirmBtn.style.display = 'inline-block';
-        cancelBtn.style.display = 'inline-block';
-        confirmBtn.innerHTML = '<i class="fas fa-check-circle me-1"></i>Confirmar Presença';
-        cancelBtn.innerHTML = '<i class="fas fa-times-circle me-1"></i>Cancelar Consulta';
-    }
-    
-    // Show the modal
-    const modal = new bootstrap.Modal(document.getElementById('appointmentDetailsModal'));
-    modal.show();
-}
-
-// Format date for display
-function formatDate(dateString) {
-    if (!dateString) return '-';
-    // Parse date string as local date to avoid timezone issues
-    const dateParts = dateString.split('-');
-    const date = new Date(parseInt(dateParts[0]), parseInt(dateParts[1]) - 1, parseInt(dateParts[2]));
-    return date.toLocaleDateString('pt-BR', {
-        day: '2-digit',
-        month: '2-digit',
-        year: 'numeric'
-    });
-}
-
-// Get status display text
-function getStatusDisplay(status) {
-    const statusMap = {
-        'scheduled': 'Agendada',
-        'confirmed': 'Confirmada',
-        'in_progress': 'Em Andamento',
-        'completed': 'Concluída',
-        'cancelled': 'Cancelada',
-        'no_show': 'Não Compareceu',
-        'rescheduled': 'Reagendada'
-    };
-    return statusMap[status] || status;
-}
-
-// Show appointment details for static appointments (from template)
-function showStaticAppointmentDetails(appointmentId) {
-    const appointmentElement = document.querySelector(`[data-appointment-id="${appointmentId}"]`);
-    if (!appointmentElement) {
-        console.error('Appointment element not found for ID:', appointmentId);
-        return;
-    }
-    
-    // Extract data from the element's data attributes
-    const appointment = {
-        id: appointmentId,
-        patient_name: appointmentElement.getAttribute('data-patient-name') || '-',
-        doctor_name: appointmentElement.getAttribute('data-doctor-name') || '-',
-        appointment_date: appointmentElement.getAttribute('data-appointment-date') || '-',
-        appointment_time: appointmentElement.getAttribute('data-time') || '-',
-        duration_minutes: parseInt(appointmentElement.getAttribute('data-duration')) || 30,
-        appointment_type: appointmentElement.getAttribute('data-appointment-type') || '-',
-        status: appointmentElement.getAttribute('data-status') || 'scheduled',
-        location: appointmentElement.getAttribute('data-location') || 'Consultório',
-        reason: appointmentElement.getAttribute('data-reason') || 'Consulta médica',
-        notes: appointmentElement.getAttribute('data-notes') || 'Nenhuma observação'
-    };
-    
-    showAppointmentDetails(appointment);
-}
-
-// Confirm attendance function
-function confirmAttendance() {
-    const modal = document.getElementById('appointmentDetailsModal');
-    const appointmentId = modal.getAttribute('data-appointment-id');
-    
-    if (!appointmentId) {
-        alert('Erro: ID da consulta não encontrado.');
-        return;
-    }
-    
-    if (confirm('Tem certeza que deseja confirmar a presença do paciente nesta consulta?')) {
-        // Make AJAX call to confirm attendance
-        const formData = new FormData();
-        formData.append('appointment_id', appointmentId);
-        formData.append('csrfmiddlewaretoken', getCookie('csrftoken'));
-        
-        fetch('/dashboard/api/appointments/confirm-attendance/', {
-            method: 'POST',
-            body: formData,
-            headers: {
-                'X-Requested-With': 'XMLHttpRequest',
-            }
-        })
-        .then(response => response.json())
-        .then(data => {
-            if (data.success) {
-                alert(data.message);
-                // Update the appointment status in the modal
-                const statusBadge = document.getElementById('modal-status-badge');
-                statusBadge.textContent = 'Confirmada';
-                statusBadge.className = 'badge bg-primary';
-                
-                // Update button visibility - now show only cancel button
-                const confirmBtn = document.getElementById('confirm-attendance-btn');
-                const cancelBtn = document.getElementById('cancel-appointment-btn');
-                confirmBtn.style.display = 'none';
-                cancelBtn.style.display = 'inline-block';
-                
-                // Close the modal
-                const bootstrapModal = bootstrap.Modal.getInstance(modal);
-                bootstrapModal.hide();
-                // Refresh the page to show updated status
-                location.reload();
-            } else {
-                alert('Erro: ' + data.error);
-            }
-        })
-        .catch(error => {
-            console.error('Error:', error);
-            alert('Erro ao confirmar presença. Tente novamente.');
-        });
-    }
-}
-
-// Cancel appointment function
-function cancelAppointment() {
-    const modal = document.getElementById('appointmentDetailsModal');
-    const appointmentId = modal.getAttribute('data-appointment-id');
-    
-    if (!appointmentId) {
-        alert('Erro: ID da consulta não encontrado.');
-        return;
-    }
-    
-    const reason = prompt('Digite o motivo do cancelamento:');
-    if (reason === null) {
-        return; // User cancelled
-    }
-    
-    // Proceed with cancellation regardless of reason content
-    // Make AJAX call to cancel appointment
-    const formData = new FormData();
-    formData.append('appointment_id', appointmentId);
-    formData.append('cancellation_reason', reason || 'Cancelado pelo usuário');
-    formData.append('csrfmiddlewaretoken', getCookie('csrftoken'));
-    
-    fetch('/dashboard/api/appointments/cancel/', {
-        method: 'POST',
-        body: formData,
-        headers: {
-            'X-Requested-With': 'XMLHttpRequest',
-        }
-    })
-    .then(response => response.json())
-    .then(data => {
-        if (data.success) {
-            // Update the appointment status in the modal
-            const statusBadge = document.getElementById('modal-status-badge');
-            statusBadge.textContent = 'Cancelada';
-            statusBadge.className = 'badge bg-danger';
-            
-            // Update button visibility - now show only confirm button
-            const confirmBtn = document.getElementById('confirm-attendance-btn');
-            const cancelBtn = document.getElementById('cancel-appointment-btn');
-            confirmBtn.style.display = 'inline-block';
-            cancelBtn.style.display = 'none';
-            
-            // Close the modal
-            const bootstrapModal = bootstrap.Modal.getInstance(modal);
-            bootstrapModal.hide();
-            // Refresh the page to show updated status
-            location.reload();
-        } else {
-            alert('Erro: ' + data.error);
-        }
-    })
-    .catch(error => {
-        console.error('Error:', error);
-        alert('Erro ao cancelar consulta. Tente novamente.');
-    });
-}
-
-// Add current time indicator
-function addCurrentTimeIndicator() {
-    const dayColumns = document.querySelectorAll('.day-column');
-    const now = new Date();
-    const currentHour = now.getHours();
-    const currentMinute = now.getMinutes();
-    
-    // Calculate position for current time (adjusted for 6 AM start)
-    let currentTimePosition = (currentHour * 60) + currentMinute;
-    
-    // Adjust for 6 AM start time
-    if (currentTimePosition < 360) { // Before 6 AM (360 minutes = 6 hours)
-        currentTimePosition += 24 * 60; // Add 24 hours to position after midnight
-    }
-    currentTimePosition -= 360; // Subtract 6 hours (360 minutes) to start from 6 AM
-    
-    dayColumns.forEach(column => {
-        // Remove existing current time line
-        const existingLine = column.querySelector('.current-time-line');
-        if (existingLine) {
-            existingLine.remove();
-        }
-        
-        // Only show current time line for today
-        if (column.classList.contains('today')) {
-            const timeGrid = column.querySelector('.time-grid');
-            if (timeGrid) {
-                const currentTimeLine = document.createElement('div');
-                currentTimeLine.className = 'current-time-line';
-                currentTimeLine.style.top = currentTimePosition + 'px';
-                timeGrid.appendChild(currentTimeLine);
-            }
-        }
-    });
-}
 
 // Set default active tab to 'agenda'
 document.addEventListener('DOMContentLoaded', function() {
@@ -1106,18 +509,6 @@ document.addEventListener('DOMContentLoaded', function() {
     // Initialize patient selection header
     updatePatientSelectionHeader('', 'none');
     
-    // Initialize calendar
-    updateCalendarDisplay();
-    
-    // Initialize calendar scrolling synchronization
-    initializeCalendarScrolling();
-    
-    // Fix event positions
-    fixEventPositions();
-    
-    // Add current time indicator
-    addCurrentTimeIndicator();
-    
     // Attach prontuario event listeners
     attachProntuarioEventListeners();
     
@@ -1129,6 +520,9 @@ document.addEventListener('DOMContentLoaded', function() {
     
     // Initialize prescription form
     initializePrescriptionForm();
+    
+    // Refresh agenda stats on page load
+    refreshAgendaStats();
 });
 
 // Appointment Modal Functions
@@ -1146,6 +540,20 @@ function showNewAppointmentModal() {
     const nextHour = new Date();
     nextHour.setHours(nextHour.getHours() + 1, 0, 0, 0);
     document.getElementById('appointment-time').value = nextHour.toTimeString().slice(0, 5);
+    
+    // Ensure patient search is set up when modal is shown
+    if (window.allPatients && window.allPatients.length > 0) {
+        setupPatientSearch();
+    } else {
+        // Load patients if not already loaded
+        loadPatientsAndDoctors();
+    }
+    
+    // Also set up patient search when modal is fully shown
+    const modalElement = document.getElementById('newAppointmentModal');
+    modalElement.addEventListener('shown.bs.modal', function() {
+        setupPatientSearch();
+    }, { once: true });
     
     modal.show();
 }
@@ -1167,6 +575,7 @@ function loadPatientsAndDoctors() {
     fetch('/dashboard/api/patients/')
         .then(response => response.json())
         .then(data => {
+            console.log('Patients loaded:', data);
             window.allPatients = data.success ? data.patients : [];
             setupPatientSearch();
         })
@@ -1183,7 +592,17 @@ function setupPatientSearch() {
     const dropdown = document.getElementById('patient-dropdown');
     const hiddenInput = document.getElementById('appointment-patient');
     
-    if (!searchInput || !dropdown || !hiddenInput) return;
+    console.log('Setting up patient search:', {
+        searchInput: !!searchInput,
+        dropdown: !!dropdown,
+        hiddenInput: !!hiddenInput,
+        patientsCount: window.allPatients ? window.allPatients.length : 0
+    });
+    
+    if (!searchInput || !dropdown || !hiddenInput) {
+        console.log('Patient search elements not found, will retry when modal opens');
+        return;
+    }
     
     // Show all patients initially
     showPatients(window.allPatients);
@@ -1257,21 +676,9 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     }
     
-    // Handle confirm attendance button
-    const confirmAttendanceBtn = document.getElementById('confirm-attendance-btn');
-    if (confirmAttendanceBtn) {
-        confirmAttendanceBtn.addEventListener('click', function() {
-            confirmAttendance();
-        });
-    }
+    // Confirm attendance button is handled by fullcalendar.js when showing appointment details
     
-    // Handle cancel appointment button
-    const cancelAppointmentBtn = document.getElementById('cancel-appointment-btn');
-    if (cancelAppointmentBtn) {
-        cancelAppointmentBtn.addEventListener('click', function() {
-            cancelAppointment();
-        });
-    }
+    // Cancel appointment button is handled by fullcalendar.js when showing appointment details
 });
 
 function submitNewAppointment() {
@@ -1304,10 +711,13 @@ function submitNewAppointment() {
             // Show success message
             showNotification('Consulta agendada com sucesso!', 'success');
             
-            // Reload the page to show the new appointment
-            setTimeout(() => {
-                window.location.reload();
-            }, 1500);
+            // Refresh calendar and stats instead of reloading the page
+            if (typeof refreshCalendar === 'function') {
+                refreshCalendar();
+            }
+            if (typeof refreshAgendaStats === 'function') {
+                refreshAgendaStats();
+            }
         } else {
             showNotification('Erro ao agendar consulta: ' + (data.error || 'Erro desconhecido'), 'error');
         }
@@ -1576,6 +986,41 @@ function showNextAppointmentDetails() {
         .catch(error => {
             console.error('Error fetching next appointment:', error);
             showNotification('Erro ao carregar próxima consulta.', 'error');
+        });
+}
+
+// Function to refresh agenda stats
+function refreshAgendaStats() {
+    console.log('Refreshing agenda stats');
+    fetch('/dashboard/api/agenda-stats/')
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                // Update the stats cards - look specifically in the agenda tab
+                const agendaTab = document.getElementById('agenda-tab');
+                if (agendaTab) {
+                    const consultasHojeElement = agendaTab.querySelector('.stats-card-primary .stats-number');
+                    const pacientesAtendidosElement = agendaTab.querySelector('.stats-card-success .stats-number');
+                    const consultasPendentesElement = agendaTab.querySelector('.stats-card-info .stats-number');
+                    const proximaConsultaElement = agendaTab.querySelector('.stats-card-warning .stats-number');
+                    
+                    if (consultasHojeElement) {
+                        consultasHojeElement.textContent = data.stats.consultas_hoje;
+                    }
+                    if (pacientesAtendidosElement) {
+                        pacientesAtendidosElement.textContent = data.stats.pacientes_atendidos;
+                    }
+                    if (consultasPendentesElement) {
+                        consultasPendentesElement.textContent = data.stats.consultas_pendentes;
+                    }
+                    if (proximaConsultaElement) {
+                        proximaConsultaElement.textContent = data.stats.proxima_consulta;
+                    }
+                }
+            }
+        })
+        .catch(error => {
+            // Silent fail
         });
 }
 

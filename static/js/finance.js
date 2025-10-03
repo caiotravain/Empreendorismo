@@ -26,7 +26,6 @@ function loadFinanceData() {
             if (expensesData.success) {
                 updateExpensesList(expensesData.expenses);
                 updateExpenseTotals(expensesData.expenses);
-                updateFilterDropdowns(expensesData.expenses);
             } else {
                 console.error('Error loading expenses:', expensesData.error);
                 showAlert('Erro ao carregar despesas: ' + expensesData.error, 'danger');
@@ -40,6 +39,12 @@ function loadFinanceData() {
                 showAlert('Erro ao carregar receitas: ' + incomesData.error, 'danger');
             }
             
+            // Update filter dropdowns with both expenses and incomes
+            updateFilterDropdowns(expensesData.expenses || [], incomesData.incomes || []);
+            
+            // Add event listeners to filter dropdowns
+            setupFilterEventListeners();
+            
             // Update net income
             updateNetIncome(expensesData.expenses || [], incomesData.incomes || []);
         })
@@ -50,12 +55,19 @@ function loadFinanceData() {
     });
 }
 
-function updateFilterDropdowns(expenses) {
-    // Get unique years from expenses
-    const years = [...new Set(expenses.map(expense => {
+function updateFilterDropdowns(expenses, incomes = []) {
+    // Get unique years from both expenses and incomes
+    const expenseYears = expenses.map(expense => {
         const date = new Date(expense.expense_date.split('/').reverse().join('-'));
         return date.getFullYear();
-    }))].sort((a, b) => b - a);
+    });
+    
+    const incomeYears = incomes.map(income => {
+        const date = new Date(income.income_date.split('/').reverse().join('-'));
+        return date.getFullYear();
+    });
+    
+    const years = [...new Set([...expenseYears, ...incomeYears])].sort((a, b) => b - a);
     
     // Add current year if not present
     const currentYear = new Date().getFullYear();
@@ -155,9 +167,14 @@ function updateExpensesList(expenses) {
                     <strong class="text-primary">${expense.formatted_amount}</strong>
                 </td>
                 <td>
-                    <button class="btn btn-sm btn-outline-primary" onclick="viewExpense(${expense.id})" title="Ver detalhes">
-                        <i class="fas fa-eye"></i>
-                    </button>
+                    <div class="btn-group" role="group">
+                        <button class="btn btn-sm btn-outline-primary" onclick="viewExpense(${expense.id})" title="Ver detalhes">
+                            <i class="fas fa-eye"></i>
+                        </button>
+                        <button class="btn btn-sm btn-outline-danger" onclick="deleteExpense(${expense.id})" title="Excluir despesa">
+                            <i class="fas fa-trash"></i>
+                        </button>
+                    </div>
                 </td>
             </tr>
         `;
@@ -246,9 +263,14 @@ function updateIncomesList(incomes) {
                     <strong class="text-success">R$ ${parseFloat(income.amount).toFixed(2).replace('.', ',').replace(/\B(?=(\d{3})+(?!\d))/g, '.')}</strong>
                 </td>
                 <td>
-                    <button class="btn btn-sm btn-outline-success" onclick="viewIncome(${income.id})" title="Ver detalhes">
-                        <i class="fas fa-eye"></i>
-                    </button>
+                    <div class="btn-group" role="group">
+                        <button class="btn btn-sm btn-outline-success" onclick="viewIncome(${income.id})" title="Ver detalhes">
+                            <i class="fas fa-eye"></i>
+                        </button>
+                        <button class="btn btn-sm btn-outline-danger" onclick="deleteIncome(${income.id})" title="Excluir receita">
+                            <i class="fas fa-trash"></i>
+                        </button>
+                    </div>
                 </td>
             </tr>
         `;
@@ -395,6 +417,112 @@ function filterExpenses() {
             showAlert('Erro ao carregar despesas filtradas', 'danger');
         });
 }
+
+function filterIncomes() {
+    const year = document.getElementById('year-filter').value;
+    const month = document.getElementById('month-filter').value;
+    
+    // Build API URL with parameters
+    let apiUrl = '/dashboard/api/incomes/';
+    const params = new URLSearchParams();
+    if (year) params.append('year', year);
+    if (month) params.append('month', month);
+    
+    if (params.toString()) {
+        apiUrl += '?' + params.toString();
+    }
+    
+    // Load filtered data
+    fetch(apiUrl)
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                updateIncomesList(data.incomes);
+                updateIncomeTotals(data.incomes);
+            } else {
+                console.error('Error loading filtered incomes:', data.error);
+                showAlert('Erro ao carregar receitas filtradas: ' + data.error, 'danger');
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            showAlert('Erro ao carregar receitas filtradas', 'danger');
+        });
+}
+
+function filterFinanceData() {
+    const year = document.getElementById('year-filter').value;
+    const month = document.getElementById('month-filter').value;
+    
+    // Build API URLs with parameters
+    let expensesApiUrl = '/dashboard/api/expenses/';
+    let incomesApiUrl = '/dashboard/api/incomes/';
+    const params = new URLSearchParams();
+    if (year) params.append('year', year);
+    if (month) params.append('month', month);
+    
+    if (params.toString()) {
+        expensesApiUrl += '?' + params.toString();
+        incomesApiUrl += '?' + params.toString();
+    }
+    
+    // Load filtered data for both expenses and incomes
+    Promise.all([
+        fetch(expensesApiUrl).then(response => response.json()),
+        fetch(incomesApiUrl).then(response => response.json())
+    ])
+    .then(([expensesData, incomesData]) => {
+        if (expensesData.success) {
+            updateExpensesList(expensesData.expenses);
+            updateExpenseTotals(expensesData.expenses);
+        } else {
+            console.error('Error loading filtered expenses:', expensesData.error);
+            showAlert('Erro ao carregar despesas filtradas: ' + expensesData.error, 'danger');
+        }
+        
+        if (incomesData.success) {
+            updateIncomesList(incomesData.incomes);
+            updateIncomeTotals(incomesData.incomes);
+        } else {
+            console.error('Error loading filtered incomes:', incomesData.error);
+            showAlert('Erro ao carregar receitas filtradas: ' + incomesData.error, 'danger');
+        }
+        
+        // Update net income with filtered data
+        updateNetIncome(expensesData.expenses || [], incomesData.incomes || []);
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        showAlert('Erro ao carregar dados filtrados', 'danger');
+    });
+}
+
+// Setup event listeners for filter dropdowns
+function setupFilterEventListeners() {
+    const yearFilter = document.getElementById('year-filter');
+    const monthFilter = document.getElementById('month-filter');
+    
+    console.log('Setting up filter event listeners...');
+    console.log('Year filter found:', !!yearFilter);
+    console.log('Month filter found:', !!monthFilter);
+    
+    if (yearFilter) {
+        // Remove existing event listeners to avoid duplicates
+        yearFilter.removeEventListener('change', filterFinanceData);
+        yearFilter.addEventListener('change', filterFinanceData);
+        console.log('Year filter event listener added');
+    }
+    
+    if (monthFilter) {
+        // Remove existing event listeners to avoid duplicates
+        monthFilter.removeEventListener('change', filterFinanceData);
+        monthFilter.addEventListener('change', filterFinanceData);
+        console.log('Month filter event listener added');
+    }
+}
+
+// Make function globally available
+window.filterFinanceData = filterFinanceData;
 
 // Handle form submissions
 document.addEventListener('DOMContentLoaded', function() {
@@ -603,3 +731,80 @@ function showAlert(message, type) {
         }
     }, 5000);
 }
+
+// Delete functions
+function deleteExpense(expenseId) {
+    if (confirm('Tem certeza que deseja excluir esta despesa? Esta ação não pode ser desfeita.')) {
+        // Show loading state
+        const deleteBtn = event.target.closest('button');
+        const originalContent = deleteBtn.innerHTML;
+        deleteBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
+        deleteBtn.disabled = true;
+        
+        fetch(`/dashboard/api/expenses/delete/${expenseId}/`, {
+            method: 'DELETE',
+            headers: {
+                'X-CSRFToken': getCookie('csrftoken')
+            }
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                showAlert('Despesa excluída com sucesso!', 'success');
+                // Reload finance data
+                loadFinanceData();
+            } else {
+                showAlert('Erro ao excluir despesa: ' + data.error, 'danger');
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            showAlert('Erro ao excluir despesa', 'danger');
+        })
+        .finally(() => {
+            // Restore button state
+            deleteBtn.innerHTML = originalContent;
+            deleteBtn.disabled = false;
+        });
+    }
+}
+
+function deleteIncome(incomeId) {
+    if (confirm('Tem certeza que deseja excluir esta receita? Esta ação não pode ser desfeita.')) {
+        // Show loading state
+        const deleteBtn = event.target.closest('button');
+        const originalContent = deleteBtn.innerHTML;
+        deleteBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
+        deleteBtn.disabled = true;
+        
+        fetch(`/dashboard/api/incomes/delete/${incomeId}/`, {
+            method: 'DELETE',
+            headers: {
+                'X-CSRFToken': getCookie('csrftoken')
+            }
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                showAlert('Receita excluída com sucesso!', 'success');
+                // Reload finance data
+                loadFinanceData();
+            } else {
+                showAlert('Erro ao excluir receita: ' + data.error, 'danger');
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            showAlert('Erro ao excluir receita', 'danger');
+        })
+        .finally(() => {
+            // Restore button state
+            deleteBtn.innerHTML = originalContent;
+            deleteBtn.disabled = false;
+        });
+    }
+}
+
+// Make functions globally available
+window.deleteExpense = deleteExpense;
+window.deleteIncome = deleteIncome;
