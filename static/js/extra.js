@@ -189,6 +189,20 @@ function loadOlderRecords(offset) {
     }
 }
 
+function loadOlderRecordsFromButton(button) {
+    const patientId = document.getElementById('patient-id');
+    const offset = button.getAttribute('data-offset');
+    if (patientId && offset) {
+        // Show loading state
+        const originalText = button.innerHTML;
+        button.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i>Carregando...';
+        button.disabled = true;
+        
+        // Load older records and append them
+        loadOlderRecordsAjax(patientId.value, offset, button, originalText);
+    }
+}
+
 function loadOlderRecordsAjax(patientId, offset, loadBtn, originalText) {
     const url = `/dashboard/prontuarios/?patient_id=${patientId}&offset=${offset}&limit=3`;
     
@@ -210,7 +224,7 @@ function loadOlderRecordsAjax(patientId, offset, loadBtn, originalText) {
                 }
                 
                 // Extract new records and new load more button from response
-                const newRecords = newRecordsContent.querySelectorAll('.record-entry');
+                const newRecords = newRecordsContent.querySelectorAll('.timeline-item');
                 const newLoadMoreContainer = newRecordsContent.querySelector('.text-center.mt-3');
                 
                 // Append all new records at the end
@@ -405,6 +419,18 @@ function showRecordPopup(recordId, date, time, doctor, content) {
     // Show the modal
     const modal = new bootstrap.Modal(document.getElementById('recordPopupModal'));
     modal.show();
+}
+
+function showRecordPopupFromTimeline(element) {
+    // Extract data from timeline element
+    const recordId = element.getAttribute('data-record-id');
+    const date = element.getAttribute('data-record-date');
+    const time = element.getAttribute('data-record-time');
+    const doctor = element.getAttribute('data-record-doctor');
+    const content = element.getAttribute('data-record-content');
+    
+    // Call the existing function
+    showRecordPopup(recordId, date, time, doctor, content);
 }
 
 function printRecord() {
