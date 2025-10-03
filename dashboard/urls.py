@@ -10,6 +10,7 @@ urlpatterns = [
     path('exames/', views.exames, name='exames'),
     path('prescricao/', views.prescricao, name='prescricao'),
     path('indicadores/', views.indicadores, name='indicadores'),
+    path('finance/', views.finance, name='finance'),
     path('settings/', views.settings, name='settings'),
     
     # API endpoints for appointment modal
@@ -20,6 +21,7 @@ urlpatterns = [
     path('api/week-appointments/', views.api_week_appointments, name='api_week_appointments'),
     path('api/appointments/cancel/', views.api_cancel_appointment, name='api_cancel_appointment'),
     path('api/appointments/confirm-attendance/', views.api_confirm_attendance, name='api_confirm_attendance'),
+    path('api/appointments/sync-income/', views.api_sync_appointment_income, name='api_sync_appointment_income'),
     path('api/next-appointment/', views.api_next_appointment, name='api_next_appointment'),
     
     # API endpoints for prescriptions
@@ -28,4 +30,13 @@ urlpatterns = [
     path('api/prescriptions/send-email/', views.api_send_prescription_email, name='api_send_prescription_email'),
     path('api/prescriptions/send-whatsapp/', views.api_send_prescription_whatsapp, name='api_send_prescription_whatsapp'),
     path('api/prescriptions/print/', views.api_print_prescription, name='api_print_prescription'),
+    
+    # API endpoints for expenses
+    path('api/expenses/', views.api_expenses, name='api_expenses'),
+    path('api/expenses/create/', views.api_create_expense, name='api_create_expense'),
+    path('api/expenses/totals/', views.api_expense_totals, name='api_expense_totals'),
+    
+    # API endpoints for incomes
+    path('api/incomes/', views.api_incomes, name='api_incomes'),
+    path('api/incomes/create/', views.api_create_income, name='api_create_income'),
 ]

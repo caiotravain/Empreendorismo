@@ -1,0 +1,345 @@
+<!-- Finance Tab Content -->
+<div id="finance-tab" class="tab-content" style="display: none;">
+    <div class="row">
+        <!-- Filter and Summary Cards -->
+        <div class="col-12">
+            <div class="row mb-4">
+                <!-- Filter Controls -->
+                <div class="col-md-6">
+                    <div class="card border-0 shadow-sm">
+                        <div class="card-body">
+                            <h6 class="card-title mb-3">
+                                <i class="fas fa-filter me-2"></i>Filtros
+                            </h6>
+                            <div class="row">
+                                <div class="col-md-6">
+                                    <label for="year-filter" class="form-label">Ano</label>
+                                    <select class="form-select" id="year-filter" onchange="filterExpenses()">
+                                        <option value="">Carregando...</option>
+                                    </select>
+                                </div>
+                                <div class="col-md-6">
+                                    <label for="month-filter" class="form-label">Mês</label>
+                                    <select class="form-select" id="month-filter" onchange="filterExpenses()">
+                                        <option value="">Todos os meses</option>
+                                    </select>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Summary Cards -->
+                <div class="col-md-6">
+                    <div class="row">
+                        <div class="col-4">
+                            <div class="card border-0 shadow-sm bg-success text-white">
+                                <div class="card-body text-center">
+                                    <h4 class="card-title mb-1" id="total-income-amount">
+                                        <i class="fas fa-spinner fa-spin"></i>
+                                    </h4>
+                                    <small class="card-text">Total de Receitas</small>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-4">
+                            <div class="card border-0 shadow-sm bg-danger text-white">
+                                <div class="card-body text-center">
+                                    <h4 class="card-title mb-1" id="total-expenses-amount">
+                                        <i class="fas fa-spinner fa-spin"></i>
+                                    </h4>
+                                    <small class="card-text">Total de Despesas</small>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-4">
+                            <div class="card border-0 shadow-sm bg-primary text-white">
+                                <div class="card-body text-center">
+                                    <h4 class="card-title mb-1" id="net-income-amount">
+                                        <i class="fas fa-spinner fa-spin"></i>
+                                    </h4>
+                                    <small class="card-text">Lucro Líquido</small>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Action Buttons -->
+        <div class="col-12 mb-4">
+            <div class="d-flex justify-content-between align-items-center">
+                <h5 class="mb-0">
+                    <i class="fas fa-chart-line me-2"></i>Receitas e Despesas
+                </h5>
+                <div>
+                    <button class="btn btn-warning me-2" onclick="syncAppointmentIncome()">
+                        <i class="fas fa-sync me-1"></i>Sincronizar Receitas
+                    </button>
+                    <button class="btn btn-success me-2" onclick="showIncomeModal()">
+                        <i class="fas fa-plus me-1"></i>Nova Receita
+                    </button>
+                    <button class="btn btn-primary" onclick="showExpenseModal()">
+                        <i class="fas fa-plus me-1"></i>Nova Despesa
+                    </button>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Income List -->
+        <div class="col-12 mb-4">
+            <div class="card border-0 shadow-sm">
+                <div class="card-header bg-success text-white">
+                    <h6 class="mb-0">
+                        <i class="fas fa-arrow-up me-2"></i>Receitas
+                    </h6>
+                </div>
+                <div class="card-body">
+                    <div id="incomes-list">
+                        <div class="text-center py-5" id="loading-incomes">
+                            <i class="fas fa-spinner fa-spin fa-2x text-success mb-3"></i>
+                            <h5 class="text-muted">Carregando receitas...</h5>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Expenses List -->
+        <div class="col-12">
+            <div class="card border-0 shadow-sm">
+                <div class="card-header bg-danger text-white">
+                    <h6 class="mb-0">
+                        <i class="fas fa-arrow-down me-2"></i>Despesas
+                    </h6>
+                </div>
+                <div class="card-body">
+                    <div id="expenses-list">
+                        <div class="text-center py-5" id="loading-expenses">
+                            <i class="fas fa-spinner fa-spin fa-2x text-danger mb-3"></i>
+                            <h5 class="text-muted">Carregando despesas...</h5>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Category Breakdown will be loaded dynamically -->
+    </div>
+</div>
+
+<!-- Expense Modal -->
+<div class="modal fade" id="expenseModal" tabindex="-1" aria-labelledby="expenseModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="expenseModalLabel">
+                    <i class="fas fa-plus me-2"></i>Nova Despesa
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <form id="expenseForm">
+                <div class="modal-body">
+                    <div class="row">
+                        <div class="col-md-8">
+                            <div class="mb-3">
+                                <label for="expense-description" class="form-label">Descrição *</label>
+                                <input type="text" class="form-control" id="expense-description" name="description" required>
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="mb-3">
+                                <label for="expense-amount" class="form-label">Valor *</label>
+                                <div class="input-group">
+                                    <span class="input-group-text">R$</span>
+                                    <input type="number" class="form-control" id="expense-amount" name="amount" step="0.01" min="0" required>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label for="expense-category" class="form-label">Categoria *</label>
+                                <select class="form-select" id="expense-category" name="category" required>
+                                    <option value="">Selecione uma categoria</option>
+                                    <option value="office_supplies">Material de Escritório</option>
+                                    <option value="medical_supplies">Material Médico</option>
+                                    <option value="equipment">Equipamentos</option>
+                                    <option value="utilities">Utilidades</option>
+                                    <option value="rent">Aluguel</option>
+                                    <option value="insurance">Seguro</option>
+                                    <option value="marketing">Marketing</option>
+                                    <option value="professional_services">Serviços Profissionais</option>
+                                    <option value="travel">Viagens</option>
+                                    <option value="education">Educação</option>
+                                    <option value="other">Outros</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label for="expense-date" class="form-label">Data</label>
+                                <input type="date" class="form-control" id="expense-date" name="expense_date">
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label for="expense-vendor" class="form-label">Fornecedor</label>
+                                <input type="text" class="form-control" id="expense-vendor" name="vendor">
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label for="expense-receipt" class="form-label">Número do Recibo</label>
+                                <input type="text" class="form-control" id="expense-receipt" name="receipt_number">
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="expense-notes" class="form-label">Observações</label>
+                        <textarea class="form-control" id="expense-notes" name="notes" rows="3"></textarea>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="submit" class="btn btn-primary">
+                        <i class="fas fa-save me-1"></i>Salvar Despesa
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Income Modal -->
+<div class="modal fade" id="incomeModal" tabindex="-1" aria-labelledby="incomeModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="incomeModalLabel">
+                    <i class="fas fa-plus me-2"></i>Nova Receita
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <form id="incomeForm">
+                <div class="modal-body">
+                    <div class="row">
+                        <div class="col-md-8">
+                            <div class="mb-3">
+                                <label for="income-description" class="form-label">Descrição *</label>
+                                <input type="text" class="form-control" id="income-description" name="description" required>
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="mb-3">
+                                <label for="income-amount" class="form-label">Valor *</label>
+                                <div class="input-group">
+                                    <span class="input-group-text">R$</span>
+                                    <input type="number" class="form-control" id="income-amount" name="amount" step="0.01" min="0" required>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label for="income-category" class="form-label">Categoria *</label>
+                                <select class="form-select" id="income-category" name="category" required>
+                                    <option value="">Selecione uma categoria</option>
+                                    <option value="consultation">Consulta</option>
+                                    <option value="follow_up">Retorno</option>
+                                    <option value="checkup">Check-up</option>
+                                    <option value="emergency">Emergência</option>
+                                    <option value="procedure">Procedimento</option>
+                                    <option value="therapy">Terapia</option>
+                                    <option value="other">Outros</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label for="income-date" class="form-label">Data</label>
+                                <input type="date" class="form-control" id="income-date" name="income_date">
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label for="income-payment-method" class="form-label">Forma de Pagamento</label>
+                                <select class="form-select" id="income-payment-method" name="payment_method">
+                                    <option value="">Selecione</option>
+                                    <option value="cash">Dinheiro</option>
+                                    <option value="card">Cartão</option>
+                                    <option value="transfer">Transferência</option>
+                                    <option value="pix">PIX</option>
+                                    <option value="other">Outros</option>
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="income-notes" class="form-label">Observações</label>
+                        <textarea class="form-control" id="income-notes" name="notes" rows="3"></textarea>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="submit" class="btn btn-success">
+                        <i class="fas fa-save me-1"></i>Salvar Receita
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Income Details Modal -->
+<div class="modal fade" id="incomeDetailsModal" tabindex="-1" aria-labelledby="incomeDetailsModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="incomeDetailsModalLabel">
+                    <i class="fas fa-chart-line me-2"></i>Detalhes da Receita
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body" id="income-details-content">
+                <!-- Content will be loaded here -->
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Fechar</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Expense Details Modal -->
+<div class="modal fade" id="expenseDetailsModal" tabindex="-1" aria-labelledby="expenseDetailsModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="expenseDetailsModalLabel">
+                    <i class="fas fa-receipt me-2"></i>Detalhes da Despesa
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body" id="expense-details-content">
+                <!-- Content will be loaded here -->
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Fechar</button>
+            </div>
+        </div>
+    </div>
+</div>

@@ -322,6 +322,15 @@ class Appointment(models.Model):
         help_text="Location of the appointment (room, clinic, etc.)"
     )
     
+    # Value/Price
+    value = models.DecimalField(
+        max_digits=10,
+        decimal_places=2,
+        blank=True,
+        null=True,
+        help_text="Value/price of the appointment"
+    )
+    
     # Reminder settings
     reminder_sent = models.BooleanField(
         default=False,
@@ -372,6 +381,7 @@ class Appointment(models.Model):
         constraints = [
             models.UniqueConstraint(
                 fields=['doctor', 'appointment_date', 'appointment_time'],
+                condition=models.Q(status__in=['scheduled', 'confirmed', 'in_progress', 'completed', 'no_show', 'rescheduled']),
                 name='unique_doctor_appointment_time'
             )
         ]
@@ -416,8 +426,13 @@ class Appointment(models.Model):
         return appointment_datetime > now
     
     def cancel(self, reason=None):
-        """Cancel the appointment"""
+        """Cancel the appointment and remove associated income records"""
         from django.utils import timezone
+        
+        # Remove any associated income records
+        # Use the related_name to avoid circular import
+        self.incomes.all().delete()
+        
         self.status = 'cancelled'
         self.cancelled_at = timezone.now()
         if reason:
@@ -636,3 +651,206 @@ class PrescriptionItem(models.Model):
     
     def __str__(self):
         return f"{self.medication_name} - {self.prescription.patient.full_name}"
+
+
+class Expense(models.Model):
+    """
+    Expense model to track doctor's financial expenses
+    """
+    # Category choices
+    CATEGORY_CHOICES = [
+        ('office_supplies', 'Material de Escritório'),
+        ('medical_supplies', 'Material Médico'),
+        ('equipment', 'Equipamentos'),
+        ('utilities', 'Utilidades'),
+        ('rent', 'Aluguel'),
+        ('insurance', 'Seguro'),
+        ('marketing', 'Marketing'),
+        ('professional_services', 'Serviços Profissionais'),
+        ('travel', 'Viagens'),
+        ('education', 'Educação'),
+        ('other', 'Outros'),
+    ]
+    
+    # Foreign Key
+    doctor = models.ForeignKey(
+        Doctor,
+        on_delete=models.CASCADE,
+        related_name='expenses',
+        help_text="Doctor who made this expense"
+    )
+    
+    # Expense Details
+    amount = models.DecimalField(
+        max_digits=10,
+        decimal_places=2,
+        help_text="Amount of the expense"
+    )
+    
+    description = models.CharField(
+        max_length=200,
+        help_text="Description of the expense"
+    )
+    
+    category = models.CharField(
+        max_length=30,
+        choices=CATEGORY_CHOICES,
+        help_text="Category of the expense"
+    )
+    
+    expense_date = models.DateField(
+        default=timezone.now,
+        help_text="Date when the expense was made"
+    )
+    
+    # Additional Information
+    notes = models.TextField(
+        blank=True,
+        null=True,
+        help_text="Additional notes about the expense"
+    )
+    
+    # Receipt/Invoice information
+    receipt_number = models.CharField(
+        max_length=100,
+        blank=True,
+        null=True,
+        help_text="Receipt or invoice number"
+    )
+    
+    vendor = models.CharField(
+        max_length=200,
+        blank=True,
+        null=True,
+        help_text="Vendor or supplier name"
+    )
+    
+    # Timestamps
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    
+    class Meta:
+        verbose_name = "Expense"
+        verbose_name_plural = "Expenses"
+        ordering = ['-expense_date', '-created_at']
+        indexes = [
+            models.Index(fields=['doctor']),
+            models.Index(fields=['expense_date']),
+            models.Index(fields=['category']),
+        ]
+    
+    def __str__(self):
+        return f"{self.description} - R$ {self.amount} ({self.expense_date})"
+    
+    @property
+    def doctor_name(self):
+        return self.doctor.full_name
+    
+    @property
+    def formatted_amount(self):
+        return f"R$ {self.amount:,.2f}".replace(',', 'X').replace('.', ',').replace('X', '.')
+
+
+class Income(models.Model):
+    """
+    Income model to track doctor's financial income from appointments
+    """
+    # Category choices
+    CATEGORY_CHOICES = [
+        ('consultation', 'Consulta'),
+        ('follow_up', 'Retorno'),
+        ('checkup', 'Check-up'),
+        ('emergency', 'Emergência'),
+        ('procedure', 'Procedimento'),
+        ('therapy', 'Terapia'),
+        ('other', 'Outros'),
+    ]
+    
+    # Foreign Keys
+    doctor = models.ForeignKey(
+        Doctor,
+        on_delete=models.CASCADE,
+        related_name='incomes',
+        help_text="Doctor who received this income"
+    )
+    
+    appointment = models.ForeignKey(
+        Appointment,
+        on_delete=models.CASCADE,
+        related_name='incomes',
+        blank=True,
+        null=True,
+        help_text="Appointment that generated this income"
+    )
+    
+    # Income Details
+    amount = models.DecimalField(
+        max_digits=10,
+        decimal_places=2,
+        help_text="Amount of the income"
+    )
+    
+    description = models.CharField(
+        max_length=200,
+        help_text="Description of the income"
+    )
+    
+    category = models.CharField(
+        max_length=30,
+        choices=CATEGORY_CHOICES,
+        help_text="Category of the income"
+    )
+    
+    income_date = models.DateField(
+        default=timezone.now,
+        help_text="Date when the income was received"
+    )
+    
+    # Additional Information
+    notes = models.TextField(
+        blank=True,
+        null=True,
+        help_text="Additional notes about the income"
+    )
+    
+    # Payment information
+    PAYMENT_METHOD_CHOICES = [
+        ('cash', 'Dinheiro'),
+        ('card', 'Cartão'),
+        ('transfer', 'Transferência'),
+        ('pix', 'PIX'),
+        ('other', 'Outros'),
+    ]
+    
+    payment_method = models.CharField(
+        max_length=20,
+        choices=PAYMENT_METHOD_CHOICES,
+        blank=True,
+        null=True,
+        help_text="Payment method"
+    )
+    
+    # Timestamps
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    
+    class Meta:
+        verbose_name = "Income"
+        verbose_name_plural = "Incomes"
+        ordering = ['-income_date', '-created_at']
+        indexes = [
+            models.Index(fields=['doctor']),
+            models.Index(fields=['income_date']),
+            models.Index(fields=['category']),
+        ]
+    
+    def __str__(self):
+        return f"{self.description} - R$ {self.amount} ({self.income_date})"
+    
+    @property
+    def doctor_name(self):
+        return self.doctor.full_name
+    
+    @property
+    def formatted_amount(self):
+        return f"R$ {self.amount:,.2f}".replace(',', 'X').replace('.', ',').replace('X', '.')

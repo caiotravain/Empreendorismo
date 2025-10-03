@@ -2,8 +2,8 @@ let selectedPatient = null;
 
 function switchTab(tabName) {
     // Check if trying to access other tabs without selecting a patient
-    // Allow access to 'agenda' and 'indicadores' without patient selection
-    if (tabName !== 'agenda' && tabName !== 'indicadores' && !selectedPatient) {
+    // Allow access to 'agenda', 'indicadores', and 'finance' without patient selection
+    if (tabName !== 'agenda' && tabName !== 'indicadores' && tabName !== 'finance' && !selectedPatient) {
         alert('Por favor, selecione um paciente na agenda primeiro.');
         return;
     }
@@ -34,6 +34,11 @@ function switchTab(tabName) {
     if (activeButton) {
         activeButton.classList.remove('btn-outline-primary');
         activeButton.classList.add('btn-primary');
+    }
+    
+    // Load data for specific tabs
+    if (tabName === 'finance') {
+        loadFinanceData();
     }
 }
 
@@ -645,8 +650,8 @@ function initializeCalendarScrolling() {
             timeSlots.scrollTop = calendarGrid.scrollTop;
         });
         
-        // Auto-scroll to current hour
-        scrollToCurrentHour();
+    // Auto-scroll to current hour
+    scrollToCurrentHour();
     }
 }
 
@@ -1010,54 +1015,47 @@ function cancelAppointment() {
         return; // User cancelled
     }
     
-    if (reason.trim() === '') {
-        alert('Por favor, informe o motivo do cancelamento.');
-        return;
-    }
+    // Proceed with cancellation regardless of reason content
+    // Make AJAX call to cancel appointment
+    const formData = new FormData();
+    formData.append('appointment_id', appointmentId);
+    formData.append('cancellation_reason', reason || 'Cancelado pelo usuário');
+    formData.append('csrfmiddlewaretoken', getCookie('csrftoken'));
     
-    if (confirm('Tem certeza que deseja cancelar esta consulta?')) {
-        // Make AJAX call to cancel appointment
-        const formData = new FormData();
-        formData.append('appointment_id', appointmentId);
-        formData.append('cancellation_reason', reason);
-        formData.append('csrfmiddlewaretoken', getCookie('csrftoken'));
-        
-        fetch('/dashboard/api/appointments/cancel/', {
-            method: 'POST',
-            body: formData,
-            headers: {
-                'X-Requested-With': 'XMLHttpRequest',
-            }
-        })
-        .then(response => response.json())
-        .then(data => {
-            if (data.success) {
-                alert(data.message);
-                // Update the appointment status in the modal
-                const statusBadge = document.getElementById('modal-status-badge');
-                statusBadge.textContent = 'Cancelada';
-                statusBadge.className = 'badge bg-danger';
-                
-                // Update button visibility - now show only confirm button
-                const confirmBtn = document.getElementById('confirm-attendance-btn');
-                const cancelBtn = document.getElementById('cancel-appointment-btn');
-                confirmBtn.style.display = 'inline-block';
-                cancelBtn.style.display = 'none';
-                
-                // Close the modal
-                const bootstrapModal = bootstrap.Modal.getInstance(modal);
-                bootstrapModal.hide();
-                // Refresh the page to show updated status
-                location.reload();
-            } else {
-                alert('Erro: ' + data.error);
-            }
-        })
-        .catch(error => {
-            console.error('Error:', error);
-            alert('Erro ao cancelar consulta. Tente novamente.');
-        });
-    }
+    fetch('/dashboard/api/appointments/cancel/', {
+        method: 'POST',
+        body: formData,
+        headers: {
+            'X-Requested-With': 'XMLHttpRequest',
+        }
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            // Update the appointment status in the modal
+            const statusBadge = document.getElementById('modal-status-badge');
+            statusBadge.textContent = 'Cancelada';
+            statusBadge.className = 'badge bg-danger';
+            
+            // Update button visibility - now show only confirm button
+            const confirmBtn = document.getElementById('confirm-attendance-btn');
+            const cancelBtn = document.getElementById('cancel-appointment-btn');
+            confirmBtn.style.display = 'inline-block';
+            cancelBtn.style.display = 'none';
+            
+            // Close the modal
+            const bootstrapModal = bootstrap.Modal.getInstance(modal);
+            bootstrapModal.hide();
+            // Refresh the page to show updated status
+            location.reload();
+        } else {
+            alert('Erro: ' + data.error);
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        alert('Erro ao cancelar consulta. Tente novamente.');
+    });
 }
 
 // Add current time indicator

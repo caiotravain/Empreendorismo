@@ -6,7 +6,8 @@ from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_POST
 from django.views.decorators.http import require_http_methods
 from datetime import date, timedelta, datetime
-from .models import Appointment, Patient, Doctor, MedicalRecord, Prescription, PrescriptionItem, PrescriptionTemplate
+from decimal import Decimal, InvalidOperation
+from .models import Appointment, Patient, Doctor, MedicalRecord, Prescription, PrescriptionItem, PrescriptionTemplate, Expense, Income
 
 @login_required
 def home(request):
@@ -27,7 +28,7 @@ def home(request):
             appointment_date=today
         ).order_by('appointment_time')
     
-    # Get this week's appointments for the calendar view
+    # Get this week's appointments for the calendar view (excluding cancelled)
     start_of_week = today - timedelta(days=today.weekday())
     end_of_week = start_of_week + timedelta(days=6)
     
@@ -36,7 +37,7 @@ def home(request):
         week_appointments = Appointment.objects.filter(
             doctor=current_doctor,
             appointment_date__range=[start_of_week, end_of_week]
-        ).order_by('appointment_date', 'appointment_time')
+        ).exclude(status='cancelled').order_by('appointment_date', 'appointment_time')
     
     # Calculate stats
     if current_doctor:
@@ -359,6 +360,7 @@ def api_appointments(request):
         reason = request.POST.get('reason', '')
         notes = request.POST.get('notes', '')
         location = request.POST.get('location', '')
+        value = request.POST.get('value', '')
         
         # Validate required fields
         if not all([patient_id, appointment_date, appointment_time]):
@@ -376,18 +378,29 @@ def api_appointments(request):
                 'error': 'Paciente não encontrado'
             })
         
-        # Check for appointment conflicts
+        # Check for appointment conflicts (excluding cancelled appointments)
         existing_appointment = Appointment.objects.filter(
             doctor=current_doctor,
             appointment_date=appointment_date,
             appointment_time=appointment_time
-        ).exists()
+        ).exclude(status='cancelled').exists()
         
         if existing_appointment:
             return JsonResponse({
                 'success': False,
                 'error': 'Já existe uma consulta agendada para este médico no horário selecionado'
             })
+        
+        # Convert value to decimal if provided
+        appointment_value = None
+        if value and value.strip():
+            try:
+                appointment_value = Decimal(value)
+            except (ValueError, InvalidOperation):
+                return JsonResponse({
+                    'success': False,
+                    'error': 'Valor da consulta inválido'
+                })
         
         # Create the appointment
         appointment = Appointment.objects.create(
@@ -400,8 +413,25 @@ def api_appointments(request):
             status=status,
             reason=reason,
             notes=notes,
-            location=location
+            location=location,
+            value=appointment_value
         )
+        
+        # Create income record if value is provided, appointment is confirmed/completed, and date is today or in the past
+        if appointment_value and appointment_value > 0 and status in ['confirmed', 'completed']:
+            from datetime import date
+            today = date.today()
+            if appointment_date <= today:
+                from .models import Income
+                Income.objects.create(
+                    doctor=current_doctor,
+                    appointment=appointment,
+                    amount=appointment_value,
+                    description=f"Consulta - {patient.full_name}",
+                    category=appointment_type,
+                    income_date=appointment_date,
+                    notes=f"Receita gerada pela consulta agendada para {appointment_date} às {appointment_time}"
+                )
         
         return JsonResponse({
             'success': True,
@@ -449,11 +479,11 @@ def api_week_appointments(request):
         # Calculate end of week
         end_date = start_date + timedelta(days=6)
         
-        # Get appointments for the week
+        # Get appointments for the week (excluding cancelled)
         appointments = Appointment.objects.filter(
             doctor=current_doctor,
             appointment_date__range=[start_date, end_date]
-        ).order_by('appointment_date', 'appointment_time')
+        ).exclude(status='cancelled').order_by('appointment_date', 'appointment_time')
         
         # Format appointments for frontend
         appointments_data = []
@@ -591,12 +621,24 @@ def api_cancel_appointment(request):
                 'error': 'Não é possível cancelar uma consulta já concluída'
             })
         
+        # Remove any associated income records before cancelling
+        income_deleted_count = 0
+        associated_incomes = Income.objects.filter(appointment=appointment)
+        if associated_incomes.exists():
+            income_deleted_count = associated_incomes.count()
+            associated_incomes.delete()
+        
         # Cancel the appointment
         appointment.cancel(cancellation_reason)
         
+        message = f'Consulta de {appointment.patient.full_name} cancelada com sucesso'
+        if income_deleted_count > 0:
+            message += f' e {income_deleted_count} receita(s) removida(s)'
+        
         return JsonResponse({
             'success': True,
-            'message': f'Consulta de {appointment.patient.full_name} cancelada com sucesso'
+            'message': message,
+            'income_deleted_count': income_deleted_count
         })
         
     except Exception as e:
@@ -653,13 +695,48 @@ def api_confirm_attendance(request):
                 'error': 'Não é possível confirmar presença de uma consulta cancelada'
             })
         
+        # Check if appointment is in the future (shouldn't create income for future appointments)
+        from datetime import date
+        today = date.today()
+        if appointment.appointment_date > today:
+            return JsonResponse({
+                'success': False,
+                'error': 'Não é possível confirmar presença de uma consulta futura'
+            })
+        
         # Update appointment status to confirmed
         appointment.status = 'confirmed'
         appointment.save()
         
+        # Create income record if appointment has a value and is today or in the past
+        income_created = False
+        if appointment.value and appointment.value > 0:
+            # Only create income if appointment date is today or in the past
+            from datetime import date
+            today = date.today()
+            if appointment.appointment_date <= today:
+                # Check if income already exists for this appointment
+                existing_income = Income.objects.filter(appointment=appointment).first()
+                if not existing_income:
+                    Income.objects.create(
+                        doctor=current_doctor,
+                        appointment=appointment,
+                        amount=appointment.value,
+                        description=f"Consulta - {appointment.patient.full_name}",
+                        category=appointment.appointment_type,
+                        income_date=appointment.appointment_date,
+                        notes=f"Receita gerada pela consulta confirmada em {appointment.appointment_date} às {appointment.appointment_time}"
+                    )
+                    income_created = True
+        
+        message = f'Presença de {appointment.patient.full_name} confirmada com sucesso'
+        if income_created:
+            message += f' e receita de R$ {appointment.value} registrada'
+        
         return JsonResponse({
             'success': True,
-            'message': f'Presença de {appointment.patient.full_name} confirmada com sucesso'
+            'message': message,
+            'income_created': income_created
         })
         
     except Exception as e:
@@ -667,6 +744,69 @@ def api_confirm_attendance(request):
             'success': False,
             'error': f'Erro ao confirmar presença: {str(e)}'
         })
+
+
+@login_required
+@require_POST
+def api_sync_appointment_income(request):
+    """API endpoint to sync income records for all completed appointments"""
+    try:
+        # Get current user's doctor profile
+        try:
+            current_doctor = Doctor.objects.get(user=request.user)
+        except Doctor.DoesNotExist:
+            return JsonResponse({
+                'success': False,
+                'error': 'Usuário não é um médico válido'
+            })
+        
+        # Get all completed appointments with values that don't have income records
+        # Only include appointments that are confirmed/completed, have values, are not cancelled,
+        # and are today or in the past
+        from datetime import date
+        today = date.today()
+        
+        completed_appointments = Appointment.objects.filter(
+            doctor=current_doctor,
+            status__in=['confirmed', 'completed'],  # Both confirmed and completed count as "done"
+            value__gt=0,
+            appointment_date__lte=today  # Only today or past appointments
+        ).exclude(
+            status='cancelled'  # Explicitly exclude cancelled appointments
+        ).exclude(
+            incomes__isnull=False  # Exclude appointments that already have income records
+        )
+        
+        income_created_count = 0
+        total_value = 0
+        
+        for appointment in completed_appointments:
+            # Create income record for this appointment
+            Income.objects.create(
+                doctor=current_doctor,
+                appointment=appointment,
+                amount=appointment.value,
+                description=f"Consulta - {appointment.patient.full_name}",
+                category=appointment.appointment_type,
+                income_date=appointment.appointment_date,
+                notes=f"Receita gerada pela consulta em {appointment.appointment_date} às {appointment.appointment_time}"
+            )
+            income_created_count += 1
+            total_value += float(appointment.value)
+        
+        return JsonResponse({
+            'success': True,
+            'message': f'{income_created_count} receitas criadas automaticamente. Total: R$ {total_value:.2f}',
+            'income_created_count': income_created_count,
+            'total_value': total_value
+        })
+        
+    except Exception as e:
+        return JsonResponse({
+            'success': False,
+            'error': f'Erro ao sincronizar receitas: {str(e)}'
+        })
+
 
 @login_required
 @require_http_methods(["GET"])
@@ -1035,4 +1175,448 @@ def api_print_prescription(request):
         return JsonResponse({
             'success': False,
             'error': f'Erro ao carregar prescrição para impressão: {str(e)}'
+        })
+
+
+@login_required
+def finance(request):
+    """Finance view with expense tracking and filtering"""
+    # Get current user's doctor profile
+    try:
+        current_doctor = Doctor.objects.get(user=request.user)
+    except Doctor.DoesNotExist:
+        current_doctor = None
+    
+    # Get filter parameters
+    selected_year = request.GET.get('year', timezone.now().year)
+    selected_month = request.GET.get('month', timezone.now().month)
+    
+    # Convert to integers
+    try:
+        selected_year = int(selected_year)
+        selected_month = int(selected_month)
+    except (ValueError, TypeError):
+        selected_year = timezone.now().year
+        selected_month = timezone.now().month
+    
+    # Get expenses and income for the selected period
+    expenses = []
+    incomes = []
+    total_expenses = 0
+    total_income = 0
+    expenses_by_category = {}
+    incomes_by_category = {}
+    
+    if current_doctor:
+        expenses = Expense.objects.filter(
+            doctor=current_doctor,
+            expense_date__year=selected_year,
+            expense_date__month=selected_month
+        ).order_by('-expense_date')
+        
+        incomes = Income.objects.filter(
+            doctor=current_doctor,
+            income_date__year=selected_year,
+            income_date__month=selected_month
+        ).order_by('-income_date')
+        
+        # Calculate totals
+        total_expenses = sum(expense.amount for expense in expenses)
+        total_income = sum(income.amount for income in incomes)
+        
+        # Group by category
+        for expense in expenses:
+            category = expense.get_category_display()
+            if category not in expenses_by_category:
+                expenses_by_category[category] = 0
+            expenses_by_category[category] += float(expense.amount)
+            
+        for income in incomes:
+            category = income.get_category_display()
+            if category not in incomes_by_category:
+                incomes_by_category[category] = 0
+            incomes_by_category[category] += float(income.amount)
+    
+    # Get available years and months for filtering
+    available_years = []
+    available_months = []
+    
+    if current_doctor:
+        # Get years with expenses
+        expense_years = Expense.objects.filter(doctor=current_doctor).values_list('expense_date__year', flat=True).distinct()
+        available_years = sorted(expense_years, reverse=True)
+        
+        # Get months for the selected year
+        if selected_year:
+            expense_months = Expense.objects.filter(
+                doctor=current_doctor,
+                expense_date__year=selected_year
+            ).values_list('expense_date__month', flat=True).distinct()
+            available_months = sorted(expense_months, reverse=True)
+    
+    # Add current year if not in the list
+    current_year = timezone.now().year
+    if current_year not in available_years:
+        available_years.insert(0, current_year)
+    
+    # Add current month if not in the list
+    current_month = timezone.now().month
+    if selected_year == current_year and current_month not in available_months:
+        available_months.insert(0, current_month)
+    
+    context = {
+        'active_tab': 'finance',
+        'expenses': expenses,
+        'incomes': incomes,
+        'total_expenses': total_expenses,
+        'total_income': total_income,
+        'expenses_by_category': expenses_by_category,
+        'incomes_by_category': incomes_by_category,
+        'selected_year': selected_year,
+        'selected_month': selected_month,
+        'available_years': available_years,
+        'available_months': available_months,
+        'current_doctor': current_doctor,
+    }
+    return render(request, 'dashboard/home.html', context)
+
+
+@login_required
+@require_http_methods(["GET"])
+def api_incomes(request):
+    """API endpoint to get incomes with filtering"""
+    try:
+        # Get current user's doctor profile
+        try:
+            current_doctor = Doctor.objects.get(user=request.user)
+        except Doctor.DoesNotExist:
+            return JsonResponse({
+                'success': False,
+                'error': 'Usuário não é um médico válido'
+            })
+        
+        # Get filter parameters
+        selected_year = request.GET.get('year')
+        selected_month = request.GET.get('month')
+        
+        # Build filter query
+        filter_query = {'doctor': current_doctor}
+        
+        if selected_year:
+            filter_query['income_date__year'] = int(selected_year)
+        if selected_month:
+            filter_query['income_date__month'] = int(selected_month)
+        
+        # Get incomes
+        incomes = Income.objects.filter(**filter_query).order_by('-income_date')
+        
+        # Serialize incomes
+        incomes_data = []
+        for income in incomes:
+            incomes_data.append({
+                'id': income.id,
+                'description': income.description,
+                'amount': float(income.amount),
+                'category': income.category,
+                'category_display': income.get_category_display(),
+                'income_date': income.income_date.strftime('%d/%m/%Y'),
+                'payment_method': income.payment_method,
+                'payment_method_display': income.get_payment_method_display() if income.payment_method else None,
+                'notes': income.notes,
+                'created_at': income.created_at.strftime('%d/%m/%Y %H:%M')
+            })
+        
+        return JsonResponse({
+            'success': True,
+            'incomes': incomes_data
+        })
+        
+    except Exception as e:
+        return JsonResponse({
+            'success': False,
+            'error': f'Erro ao carregar receitas: {str(e)}'
+        })
+
+
+@login_required
+@require_http_methods(["GET"])
+def api_expenses(request):
+    """API endpoint to get expenses with filtering"""
+    try:
+        # Get current user's doctor profile
+        current_doctor = Doctor.objects.get(user=request.user)
+        
+        # Get filter parameters
+        year = request.GET.get('year')
+        month = request.GET.get('month')
+        category = request.GET.get('category')
+        
+        # Build filter
+        filters = {'doctor': current_doctor}
+        
+        if year:
+            filters['expense_date__year'] = int(year)
+        if month:
+            filters['expense_date__month'] = int(month)
+        if category:
+            filters['category'] = category
+        
+        # Get expenses
+        expenses = Expense.objects.filter(**filters).order_by('-expense_date')
+        
+        # Serialize expenses
+        expenses_data = []
+        for expense in expenses:
+            expenses_data.append({
+                'id': expense.id,
+                'description': expense.description,
+                'amount': float(expense.amount),
+                'formatted_amount': expense.formatted_amount,
+                'category': expense.get_category_display(),
+                'category_value': expense.category,
+                'expense_date': expense.expense_date.strftime('%d/%m/%Y'),
+                'vendor': expense.vendor or '',
+                'receipt_number': expense.receipt_number or '',
+                'notes': expense.notes or '',
+                'created_at': expense.created_at.strftime('%d/%m/%Y %H:%M'),
+            })
+        
+        return JsonResponse({
+            'success': True,
+            'expenses': expenses_data
+        })
+        
+    except Doctor.DoesNotExist:
+        return JsonResponse({
+            'success': False,
+            'error': 'Perfil de médico não encontrado'
+        })
+    except Exception as e:
+        return JsonResponse({
+            'success': False,
+            'error': f'Erro ao carregar despesas: {str(e)}'
+        })
+
+
+@login_required
+@require_POST
+def api_create_income(request):
+    """API endpoint to create a new income"""
+    try:
+        # Get current user's doctor profile
+        try:
+            current_doctor = Doctor.objects.get(user=request.user)
+        except Doctor.DoesNotExist:
+            return JsonResponse({
+                'success': False,
+                'error': 'Usuário não é um médico válido'
+            })
+        
+        # Get form data
+        description = request.POST.get('description')
+        amount = request.POST.get('amount')
+        category = request.POST.get('category')
+        income_date = request.POST.get('income_date')
+        payment_method = request.POST.get('payment_method', '')
+        notes = request.POST.get('notes', '')
+        
+        # Validate required fields
+        if not all([description, amount, category]):
+            return JsonResponse({
+                'success': False,
+                'error': 'Descrição, valor e categoria são obrigatórios'
+            })
+        
+        # Convert amount to decimal
+        try:
+            amount_decimal = Decimal(amount)
+        except (ValueError, InvalidOperation):
+            return JsonResponse({
+                'success': False,
+                'error': 'Valor inválido'
+            })
+        
+        # Parse income date
+        if income_date:
+            try:
+                income_date_obj = datetime.strptime(income_date, '%Y-%m-%d').date()
+            except ValueError:
+                return JsonResponse({
+                    'success': False,
+                    'error': 'Data inválida'
+                })
+        else:
+            income_date_obj = timezone.now().date()
+        
+        # Create the income
+        income = Income.objects.create(
+            doctor=current_doctor,
+            amount=amount_decimal,
+            description=description,
+            category=category,
+            income_date=income_date_obj,
+            payment_method=payment_method,
+            notes=notes
+        )
+        
+        return JsonResponse({
+            'success': True,
+            'income_id': income.id,
+            'message': f'Receita criada com sucesso: {description}'
+        })
+        
+    except Exception as e:
+        return JsonResponse({
+            'success': False,
+            'error': f'Erro ao criar receita: {str(e)}'
+        })
+
+
+@login_required
+@require_POST
+@csrf_exempt
+def api_create_expense(request):
+    """API endpoint to create a new expense"""
+    try:
+        # Get current user's doctor profile
+        current_doctor = Doctor.objects.get(user=request.user)
+        
+        # Get form data
+        description = request.POST.get('description', '').strip()
+        amount = request.POST.get('amount', '').strip()
+        category = request.POST.get('category', '').strip()
+        expense_date = request.POST.get('expense_date', '').strip()
+        vendor = request.POST.get('vendor', '').strip()
+        receipt_number = request.POST.get('receipt_number', '').strip()
+        notes = request.POST.get('notes', '').strip()
+        
+        # Validate required fields
+        if not description:
+            return JsonResponse({
+                'success': False,
+                'error': 'Descrição é obrigatória'
+            })
+        
+        if not amount:
+            return JsonResponse({
+                'success': False,
+                'error': 'Valor é obrigatório'
+            })
+        
+        if not category:
+            return JsonResponse({
+                'success': False,
+                'error': 'Categoria é obrigatória'
+            })
+        
+        # Validate amount
+        try:
+            amount = float(amount.replace(',', '.'))
+            if amount <= 0:
+                raise ValueError()
+        except ValueError:
+            return JsonResponse({
+                'success': False,
+                'error': 'Valor deve ser um número positivo'
+            })
+        
+        # Validate date
+        if expense_date:
+            try:
+                from datetime import datetime
+                expense_date = datetime.strptime(expense_date, '%Y-%m-%d').date()
+            except ValueError:
+                return JsonResponse({
+                    'success': False,
+                    'error': 'Data inválida'
+                })
+        else:
+            expense_date = timezone.now().date()
+        
+        # Create expense
+        expense = Expense.objects.create(
+            doctor=current_doctor,
+            description=description,
+            amount=amount,
+            category=category,
+            expense_date=expense_date,
+            vendor=vendor or None,
+            receipt_number=receipt_number or None,
+            notes=notes or None
+        )
+        
+        return JsonResponse({
+            'success': True,
+            'expense': {
+                'id': expense.id,
+                'description': expense.description,
+                'amount': float(expense.amount),
+                'formatted_amount': expense.formatted_amount,
+                'category': expense.get_category_display(),
+                'expense_date': expense.expense_date.strftime('%d/%m/%Y'),
+                'vendor': expense.vendor or '',
+                'receipt_number': expense.receipt_number or '',
+                'notes': expense.notes or '',
+            }
+        })
+        
+    except Doctor.DoesNotExist:
+        return JsonResponse({
+            'success': False,
+            'error': 'Perfil de médico não encontrado'
+        })
+    except Exception as e:
+        return JsonResponse({
+            'success': False,
+            'error': f'Erro ao criar despesa: {str(e)}'
+        })
+
+
+@login_required
+@require_http_methods(["GET"])
+def api_expense_totals(request):
+    """API endpoint to get expense totals by period"""
+    try:
+        # Get current user's doctor profile
+        current_doctor = Doctor.objects.get(user=request.user)
+        
+        # Get filter parameters
+        year = request.GET.get('year', timezone.now().year)
+        month = request.GET.get('month', timezone.now().month)
+        
+        # Get expenses for the period
+        expenses = Expense.objects.filter(
+            doctor=current_doctor,
+            expense_date__year=int(year),
+            expense_date__month=int(month)
+        )
+        
+        # Calculate totals
+        total_amount = sum(expense.amount for expense in expenses)
+        
+        # Group by category
+        category_totals = {}
+        for expense in expenses:
+            category = expense.get_category_display()
+            if category not in category_totals:
+                category_totals[category] = 0
+            category_totals[category] += float(expense.amount)
+        
+        return JsonResponse({
+            'success': True,
+            'total_amount': float(total_amount),
+            'formatted_total': f"R$ {total_amount:,.2f}".replace(',', 'X').replace('.', ',').replace('X', '.'),
+            'category_totals': category_totals,
+            'expense_count': expenses.count()
+        })
+        
+    except Doctor.DoesNotExist:
+        return JsonResponse({
+            'success': False,
+            'error': 'Perfil de médico não encontrado'
+        })
+    except Exception as e:
+        return JsonResponse({
+            'success': False,
+            'error': f'Erro ao calcular totais: {str(e)}'
         })

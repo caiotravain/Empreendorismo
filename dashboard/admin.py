@@ -1,5 +1,5 @@
 from django.contrib import admin
-from .models import Patient, Doctor, MedicalRecord, Appointment
+from .models import Patient, Doctor, MedicalRecord, Appointment, Expense, Income
 
 
 @admin.register(Patient)
@@ -240,9 +240,19 @@ class AppointmentAdmin(admin.ModelAdmin):
     mark_as_completed.short_description = "Mark selected appointments as completed"
     
     def mark_as_cancelled(self, request, queryset):
-        """Mark selected appointments as cancelled"""
+        """Mark selected appointments as cancelled and remove associated income records"""
+        income_deleted_count = 0
+        for appointment in queryset:
+            # Count and delete associated income records
+            associated_incomes = appointment.incomes.all()
+            income_deleted_count += associated_incomes.count()
+            associated_incomes.delete()
+        
         updated = queryset.update(status='cancelled')
-        self.message_user(request, f'{updated} appointments marked as cancelled.')
+        message = f'{updated} appointments marked as cancelled'
+        if income_deleted_count > 0:
+            message += f' and {income_deleted_count} income records removed'
+        self.message_user(request, message)
     mark_as_cancelled.short_description = "Mark selected appointments as cancelled"
     
     def send_reminders(self, request, queryset):
@@ -251,3 +261,115 @@ class AppointmentAdmin(admin.ModelAdmin):
         updated = queryset.update(reminder_sent=True)
         self.message_user(request, f'Reminders sent for {updated} appointments.')
     send_reminders.short_description = "Send reminders for selected appointments"
+
+
+@admin.register(Expense)
+class ExpenseAdmin(admin.ModelAdmin):
+    list_display = [
+        'description',
+        'doctor',
+        'amount',
+        'category',
+        'expense_date',
+        'vendor',
+        'receipt_number',
+        'created_at'
+    ]
+    list_filter = [
+        'category',
+        'expense_date',
+        'doctor',
+        'created_at',
+        'vendor'
+    ]
+    search_fields = [
+        'description',
+        'doctor__user__first_name',
+        'doctor__user__last_name',
+        'doctor__medical_license',
+        'vendor',
+        'receipt_number',
+        'notes'
+    ]
+    readonly_fields = ['created_at', 'updated_at', 'formatted_amount']
+    date_hierarchy = 'expense_date'
+    ordering = ['-expense_date', '-created_at']
+    
+    fieldsets = (
+        ('Expense Information', {
+            'fields': ('doctor', 'description', 'amount', 'formatted_amount', 'category', 'expense_date')
+        }),
+        ('Vendor Information', {
+            'fields': ('vendor', 'receipt_number'),
+            'classes': ('collapse',)
+        }),
+        ('Additional Information', {
+            'fields': ('notes',),
+            'classes': ('collapse',)
+        }),
+        ('Timestamps', {
+            'fields': ('created_at', 'updated_at'),
+            'classes': ('collapse',)
+        }),
+    )
+    
+    actions = ['export_expenses']
+    
+    def export_expenses(self, request, queryset):
+        """Export selected expenses to CSV"""
+        # This would implement CSV export functionality
+        self.message_user(request, f'Export functionality for {queryset.count()} expenses would be implemented here.')
+    export_expenses.short_description = "Export selected expenses to CSV"
+
+
+@admin.register(Income)
+class IncomeAdmin(admin.ModelAdmin):
+    list_display = [
+        'description', 
+        'amount', 
+        'category', 
+        'income_date', 
+        'doctor_name', 
+        'payment_method',
+        'created_at'
+    ]
+    list_filter = [
+        'category', 
+        'income_date', 
+        'payment_method',
+        'created_at',
+        'doctor'
+    ]
+    search_fields = [
+        'description', 
+        'notes', 
+        'doctor__first_name', 
+        'doctor__last_name'
+    ]
+    date_hierarchy = 'income_date'
+    ordering = ['-income_date', '-created_at']
+    
+    fieldsets = (
+        ('Informações Básicas', {
+            'fields': ('doctor', 'description', 'amount', 'category')
+        }),
+        ('Data e Pagamento', {
+            'fields': ('income_date', 'payment_method')
+        }),
+        ('Informações Adicionais', {
+            'fields': ('notes', 'appointment'),
+            'classes': ('collapse',)
+        }),
+        ('Timestamps', {
+            'fields': ('created_at', 'updated_at'),
+            'classes': ('collapse',)
+        }),
+    )
+    
+    actions = ['export_incomes']
+    
+    def export_incomes(self, request, queryset):
+        """Export selected incomes to CSV"""
+        # This would implement CSV export functionality
+        self.message_user(request, f'Export functionality for {queryset.count()} incomes would be implemented here.')
+    export_incomes.short_description = "Export selected incomes to CSV"

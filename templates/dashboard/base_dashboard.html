@@ -49,6 +49,9 @@
                 <button type="button" class="btn btn-outline-primary" id="indicadores-btn" onclick="switchTab('indicadores')">
                     <i class="fas fa-chart-line me-1"></i>Indicadores
                 </button>
+                <button type="button" class="btn btn-outline-primary" id="finance-btn" onclick="switchTab('finance')">
+                    <i class="fas fa-chart-pie me-1"></i>Financeiro
+                </button>
                 <button type="button" class="btn btn-outline-primary disabled" id="prontuarios-btn" onclick="switchTab('prontuarios')" disabled>
                     <i class="fas fa-file-medical me-1"></i>Prontuários
                 </button>
@@ -81,4 +84,5 @@
 
 {% block extra_js %}
 <script src="{% static 'js/extra.js' %}"></script>
+<script src="{% static 'js/finance.js' %}"></script>
 {% endblock %}
