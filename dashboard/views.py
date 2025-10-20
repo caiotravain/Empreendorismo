@@ -99,6 +99,30 @@ def home(request):
         pending_today = 0
         next_appointment_time = 'N/A'
     
+    # Get all patients for the patients tab (will be filtered by JavaScript)
+    all_patients = Patient.objects.all().order_by('last_name', 'first_name')
+    patients = all_patients.filter(is_active=True)  # Default view shows only active
+    
+    # Calculate patient statistics
+    from django.utils import timezone as django_timezone
+    
+    # Get all patients (including inactive) for statistics
+    total_patients = all_patients.count()
+    active_patients = all_patients.filter(is_active=True).count()
+    
+    # Patients created this month (only active)
+    now = django_timezone.now()
+    start_of_month = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+    new_this_month = patients.filter(created_at__gte=start_of_month).count()
+    
+    # Pending appointments (if doctor exists)
+    pending_appointments = 0
+    if current_doctor:
+        pending_appointments = Appointment.objects.filter(
+            doctor=current_doctor,
+            status__in=['scheduled', 'confirmed']
+        ).count()
+    
     context = {
         'active_tab': 'agenda',
         'current_doctor': current_doctor,
@@ -106,6 +130,14 @@ def home(request):
         'week_appointments': week_appointments,
         'start_of_week': start_of_week,
         'end_of_week': end_of_week,
+        'patients': patients,
+        'all_patients': all_patients,
+        'patient_stats': {
+            'total_patients': total_patients,
+            'active_patients': active_patients,
+            'new_this_month': new_this_month,
+            'pending_appointments': pending_appointments,
+        },
         'stats': {
             'consultas_hoje': total_today,
             'pacientes_atendidos': completed_today,
@@ -229,6 +261,50 @@ def indicadores(request):
     return render(request, 'dashboard/home.html', context)
 
 @login_required
+def patients(request):
+    """Patients management view"""
+    # Get current user's doctor profile
+    try:
+        current_doctor = Doctor.objects.get(user=request.user)
+    except Doctor.DoesNotExist:
+        current_doctor = None
+    
+    # Get all patients
+    patients = Patient.objects.all().order_by('last_name', 'first_name')
+    
+    # Calculate statistics
+    from datetime import date, timedelta
+    from django.utils import timezone
+    
+    total_patients = patients.count()
+    
+    # Patients created this month
+    now = timezone.now()
+    start_of_month = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+    new_this_month = patients.filter(created_at__gte=start_of_month).count()
+    
+    # Pending appointments (if doctor exists)
+    pending_appointments = 0
+    if current_doctor:
+        pending_appointments = Appointment.objects.filter(
+            doctor=current_doctor,
+            status__in=['scheduled', 'confirmed']
+        ).count()
+    
+    context = {
+        'active_tab': 'patients',
+        'current_doctor': current_doctor,
+        'patients': patients,
+        'stats': {
+            'total_patients': total_patients,
+            'active_patients': total_patients,  # All patients are considered active
+            'new_this_month': new_this_month,
+            'pending_appointments': pending_appointments,
+        }
+    }
+    return render(request, 'dashboard/home.html', context)
+
+@login_required
 def settings(request):
     """Settings view"""
     context = {
@@ -296,6 +372,49 @@ def api_patients(request):
         return JsonResponse({
             'success': True,
             'patients': patients_data
+        })
+    except Exception as e:
+        return JsonResponse({
+            'success': False,
+            'error': str(e)
+        })
+
+@login_required
+@require_http_methods(["GET"])
+def api_patient_detail(request, patient_id):
+    """API endpoint to get a specific patient's details"""
+    try:
+        patient = Patient.objects.get(id=patient_id)
+        
+        patient_data = {
+            'id': patient.id,
+            'first_name': patient.first_name,
+            'last_name': patient.last_name,
+            'email': patient.email,
+            'phone': patient.phone,
+            'date_of_birth': patient.date_of_birth.strftime('%Y-%m-%d') if patient.date_of_birth else '',
+            'gender': patient.gender,
+            'address': patient.address,
+            'city': patient.city,
+            'state': patient.state,
+            'zip_code': patient.zip_code,
+            'emergency_contact_name': patient.emergency_contact_name,
+            'emergency_contact_phone': patient.emergency_contact_phone,
+            'medical_insurance': patient.medical_insurance,
+            'full_name': patient.full_name,
+            'age': patient.age,
+            'is_active': patient.is_active,
+            'created_at': patient.created_at.strftime('%d/%m/%Y'),
+        }
+        
+        return JsonResponse({
+            'success': True,
+            'patient': patient_data
+        })
+    except Patient.DoesNotExist:
+        return JsonResponse({
+            'success': False,
+            'error': 'Paciente não encontrado'
         })
     except Exception as e:
         return JsonResponse({
@@ -1833,4 +1952,229 @@ def api_delete_income(request, income_id):
         return JsonResponse({
             'success': False,
             'error': f'Erro ao excluir receita: {str(e)}'
+        })
+
+@login_required
+@require_http_methods(["POST"])
+def api_deactivate_patient(request, patient_id):
+    """API endpoint to deactivate a patient"""
+    try:
+        # Get the patient
+        try:
+            patient = Patient.objects.get(id=patient_id)
+        except Patient.DoesNotExist:
+            return JsonResponse({
+                'success': False,
+                'error': 'Paciente não encontrado'
+            })
+        
+        # Check if patient is already inactive
+        if not patient.is_active:
+            return JsonResponse({
+                'success': False,
+                'error': 'Paciente já está inativo'
+            })
+        
+        # Deactivate the patient
+        patient.is_active = False
+        patient.save()
+        
+        return JsonResponse({
+            'success': True,
+            'message': f'Paciente "{patient.full_name}" desativado com sucesso'
+        })
+        
+    except Exception as e:
+        return JsonResponse({
+            'success': False,
+            'error': f'Erro ao desativar paciente: {str(e)}'
+        })
+
+@login_required
+@require_http_methods(["POST"])
+def api_activate_patient(request, patient_id):
+    """API endpoint to activate a patient"""
+    try:
+        # Get the patient
+        try:
+            patient = Patient.objects.get(id=patient_id)
+        except Patient.DoesNotExist:
+            return JsonResponse({
+                'success': False,
+                'error': 'Paciente não encontrado'
+            })
+        
+        # Check if patient is already active
+        if patient.is_active:
+            return JsonResponse({
+                'success': False,
+                'error': 'Paciente já está ativo'
+            })
+        
+        # Activate the patient
+        patient.is_active = True
+        patient.save()
+        
+        return JsonResponse({
+            'success': True,
+            'message': f'Paciente "{patient.full_name}" ativado com sucesso'
+        })
+        
+    except Exception as e:
+        return JsonResponse({
+            'success': False,
+            'error': f'Erro ao ativar paciente: {str(e)}'
+        })
+
+@login_required
+@require_POST
+def api_create_patient(request):
+    """API endpoint to create a new patient"""
+    try:
+        # Get form data
+        first_name = request.POST.get('first_name', '').strip()
+        last_name = request.POST.get('last_name', '').strip()
+        email = request.POST.get('email', '').strip()
+        phone = request.POST.get('phone', '').strip()
+        date_of_birth = request.POST.get('date_of_birth')
+        gender = request.POST.get('gender')
+        address = request.POST.get('address', '').strip()
+        city = request.POST.get('city', '').strip()
+        state = request.POST.get('state', '').strip()
+        zip_code = request.POST.get('zip_code', '').strip()
+        emergency_contact_name = request.POST.get('emergency_contact_name', '').strip()
+        emergency_contact_phone = request.POST.get('emergency_contact_phone', '').strip()
+        medical_insurance = request.POST.get('medical_insurance', '').strip()
+        
+        # Validate required fields
+        if not all([first_name, last_name, date_of_birth, gender]):
+            return JsonResponse({
+                'success': False,
+                'error': 'Nome, sobrenome, data de nascimento e sexo são obrigatórios'
+            })
+        
+        # Create the patient
+        patient = Patient.objects.create(
+            first_name=first_name,
+            last_name=last_name,
+            email=email if email else None,
+            phone=phone if phone else None,
+            date_of_birth=date_of_birth,
+            gender=gender,
+            address=address if address else None,
+            city=city if city else None,
+            state=state if state else None,
+            zip_code=zip_code if zip_code else None,
+            emergency_contact_name=emergency_contact_name if emergency_contact_name else None,
+            emergency_contact_phone=emergency_contact_phone if emergency_contact_phone else None,
+            medical_insurance=medical_insurance if medical_insurance else None,
+            is_active=True
+        )
+        
+        return JsonResponse({
+            'success': True,
+            'message': f'Paciente {patient.full_name} criado com sucesso'
+        })
+        
+    except Exception as e:
+        return JsonResponse({
+            'success': False,
+            'error': f'Erro ao criar paciente: {str(e)}'
+        })
+
+@login_required
+@require_POST
+def api_update_patient(request):
+    """API endpoint to update a patient"""
+    try:
+        # Get form data
+        patient_id = request.POST.get('patient_id')
+        first_name = request.POST.get('first_name', '').strip()
+        last_name = request.POST.get('last_name', '').strip()
+        email = request.POST.get('email', '').strip()
+        phone = request.POST.get('phone', '').strip()
+        date_of_birth = request.POST.get('date_of_birth')
+        gender = request.POST.get('gender')
+        address = request.POST.get('address', '').strip()
+        city = request.POST.get('city', '').strip()
+        state = request.POST.get('state', '').strip()
+        zip_code = request.POST.get('zip_code', '').strip()
+        emergency_contact_name = request.POST.get('emergency_contact_name', '').strip()
+        emergency_contact_phone = request.POST.get('emergency_contact_phone', '').strip()
+        medical_insurance = request.POST.get('medical_insurance', '').strip()
+        
+        # Validate required fields
+        if not all([patient_id, first_name, last_name, date_of_birth, gender]):
+            return JsonResponse({
+                'success': False,
+                'error': 'ID do paciente, nome, sobrenome, data de nascimento e sexo são obrigatórios'
+            })
+        
+        # Get the patient
+        try:
+            patient = Patient.objects.get(id=patient_id)
+        except Patient.DoesNotExist:
+            return JsonResponse({
+                'success': False,
+                'error': 'Paciente não encontrado'
+            })
+        
+        # Update patient fields
+        patient.first_name = first_name
+        patient.last_name = last_name
+        patient.email = email if email else None
+        patient.phone = phone if phone else None
+        patient.date_of_birth = date_of_birth
+        patient.gender = gender
+        patient.address = address if address else None
+        patient.city = city if city else None
+        patient.state = state if state else None
+        patient.zip_code = zip_code if zip_code else None
+        patient.emergency_contact_name = emergency_contact_name if emergency_contact_name else None
+        patient.emergency_contact_phone = emergency_contact_phone if emergency_contact_phone else None
+        patient.medical_insurance = medical_insurance if medical_insurance else None
+        
+        patient.save()
+        
+        # Helper function to safely format dates
+        def safe_date_format(date_obj, format_str):
+            if date_obj and hasattr(date_obj, 'strftime'):
+                return date_obj.strftime(format_str)
+            elif date_obj:
+                return str(date_obj)
+            else:
+                return ''
+        
+        # Return updated patient data
+        patient_data = {
+            'id': patient.id,
+            'first_name': patient.first_name,
+            'last_name': patient.last_name,
+            'email': patient.email,
+            'phone': patient.phone,
+            'date_of_birth': safe_date_format(patient.date_of_birth, '%Y-%m-%d'),
+            'gender': patient.gender,
+            'address': patient.address,
+            'city': patient.city,
+            'state': patient.state,
+            'zip_code': patient.zip_code,
+            'emergency_contact_name': patient.emergency_contact_name,
+            'emergency_contact_phone': patient.emergency_contact_phone,
+            'medical_insurance': patient.medical_insurance,
+            'full_name': patient.full_name,
+            'age': patient.age if patient.age is not None else 0,
+            'is_active': patient.is_active,
+            'created_at': safe_date_format(patient.created_at, '%d/%m/%Y'),
+        }
+        
+        return JsonResponse({
+            'success': True,
+            'message': f'Paciente {patient.full_name} atualizado com sucesso',
+            'patient': patient_data
+        })
+        
+    except Exception as e:
+        return JsonResponse({
+            'success': False,
+            'error': f'Erro ao atualizar paciente: {str(e)}'
         })

@@ -1701,3 +1701,144 @@
 
 /* Status-specific gentle styling */
 
+/* Patients Tab Styles */
+.avatar-sm {
+    width: 32px;
+    height: 32px;
+    font-size: 0.75rem;
+}
+
+.avatar-lg {
+    width: 80px;
+    height: 80px;
+    font-size: 1.5rem;
+}
+
+.bg-pink {
+    background-color: #e91e63 !important;
+}
+
+#patients-table tbody tr:hover {
+    background-color: #f8f9fa;
+}
+
+#patients-table .btn-group .btn {
+    margin-right: 2px;
+}
+
+#patients-table .btn-group .btn:last-child {
+    margin-right: 0;
+}
+
+.patient-search-container {
+    position: relative;
+}
+
+.patient-search-container .input-group-text {
+    background-color: #f8f9fa;
+    border-color: #dee2e6;
+}
+
+.patient-stats-card {
+    transition: transform 0.2s ease;
+}
+
+.patient-stats-card:hover {
+    transform: translateY(-2px);
+}
+
+.patient-details-avatar {
+    background: linear-gradient(135deg, #007bff, #28a745);
+}
+
+.patient-edit-form .form-label {
+    font-weight: 600;
+    color: #495057;
+}
+
+.patient-edit-form .form-control:focus {
+    border-color: #007bff;
+    box-shadow: 0 0 0 0.2rem rgba(0, 123, 255, 0.25);
+}
+
+.patient-edit-form .form-select:focus {
+    border-color: #007bff;
+    box-shadow: 0 0 0 0.2rem rgba(0, 123, 255, 0.25);
+}
+
+/* Patient table responsive adjustments */
+@media (max-width: 768px) {
+    #patients-table {
+        font-size: 0.875rem;
+    }
+    
+    #patients-table .btn-group .btn {
+        padding: 0.25rem 0.5rem;
+        font-size: 0.75rem;
+    }
+    
+    .avatar-sm {
+        width: 24px;
+        height: 24px;
+        font-size: 0.625rem;
+    }
+}
+
+/* Patient modal styles */
+.patient-details-section {
+    border-bottom: 1px solid #dee2e6;
+    padding-bottom: 1rem;
+    margin-bottom: 1rem;
+}
+
+.patient-details-section:last-child {
+    border-bottom: none;
+    margin-bottom: 0;
+}
+
+.patient-details-section h6 {
+    color: #007bff;
+    font-weight: 600;
+    margin-bottom: 0.5rem;
+}
+
+.patient-details-section p {
+    margin-bottom: 0.5rem;
+}
+
+/* Alert styles for patient management */
+.alert {
+    border-radius: 0.5rem;
+    border: none;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.alert-success {
+    background-color: #d4edda;
+    color: #155724;
+}
+
+.alert-danger {
+    background-color: #f8d7da;
+    color: #721c24;
+}
+
+/* Patient search and filter styles */
+.patient-filters {
+    background-color: #f8f9fa;
+    border-radius: 0.5rem;
+    padding: 1rem;
+    margin-bottom: 1rem;
+}
+
+.patient-filters .form-control,
+.patient-filters .form-select {
+    border-color: #dee2e6;
+}
+
+.patient-filters .form-control:focus,
+.patient-filters .form-select:focus {
+    border-color: #007bff;
+    box-shadow: 0 0 0 0.2rem rgba(0, 123, 255, 0.25);
+}
+

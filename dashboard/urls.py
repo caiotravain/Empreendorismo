@@ -8,12 +8,14 @@ urlpatterns = [
     path('prontuarios/', views.prontuarios, name='prontuarios'),
     path('add-medical-record/', views.add_medical_record, name='add_medical_record'),
     path('prescricao/', views.prescricao, name='prescricao'),
+    path('patients/', views.patients, name='patients'),
     path('indicadores/', views.indicadores, name='indicadores'),
     path('finance/', views.finance, name='finance'),
     path('settings/', views.settings, name='settings'),
     
     # API endpoints for appointment modal
     path('api/patients/', views.api_patients, name='api_patients'),
+    path('api/patients/<int:patient_id>/', views.api_patient_detail, name='api_patient_detail'),
     path('api/doctors/', views.api_doctors, name='api_doctors'),
     path('api/appointments/', views.api_appointments, name='api_appointments'),
     path('api/patients/create/', views.api_create_patient, name='api_create_patient'),
@@ -42,4 +44,9 @@ urlpatterns = [
     path('api/incomes/', views.api_incomes, name='api_incomes'),
     path('api/incomes/create/', views.api_create_income, name='api_create_income'),
     path('api/incomes/delete/<int:income_id>/', views.api_delete_income, name='api_delete_income'),
+    
+    # API endpoints for patients
+    path('api/patients/update/', views.api_update_patient, name='api_update_patient'),
+    path('api/patients/deactivate/<int:patient_id>/', views.api_deactivate_patient, name='api_deactivate_patient'),
+    path('api/patients/activate/<int:patient_id>/', views.api_activate_patient, name='api_activate_patient'),
 ]

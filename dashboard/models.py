@@ -48,6 +48,12 @@ class Patient(models.Model):
     emergency_contact_phone = models.CharField(max_length=20, blank=True, null=True, help_text="Emergency contact phone")
     medical_insurance = models.CharField(max_length=200, blank=True, null=True, help_text="Medical insurance information")
     
+    # Status
+    is_active = models.BooleanField(
+        default=True,
+        help_text="Whether the patient is currently active"
+    )
+    
     # Timestamps
     created_at = models.DateTimeField(auto_now_add=True, help_text="When this patient record was created")
     updated_at = models.DateTimeField(auto_now=True, help_text="When this patient record was last updated")
@@ -72,8 +78,21 @@ class Patient(models.Model):
     @property
     def age(self):
         from datetime import date
+        if not self.date_of_birth:
+            return None
+        
+        # Handle both date objects and string dates
+        if isinstance(self.date_of_birth, str):
+            try:
+                from datetime import datetime
+                birth_date = datetime.strptime(self.date_of_birth, '%Y-%m-%d').date()
+            except (ValueError, TypeError):
+                return None
+        else:
+            birth_date = self.date_of_birth
+        
         today = date.today()
-        return today.year - self.date_of_birth.year - ((today.month, today.day) < (self.date_of_birth.month, self.date_of_birth.day))
+        return today.year - birth_date.year - ((today.month, today.day) < (birth_date.month, birth_date.day))
 
 
 class Doctor(models.Model):

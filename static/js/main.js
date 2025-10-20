@@ -41,10 +41,14 @@ function initializeTabs() {
 
 function switchTab(tabName) {
     // Check if trying to access other tabs without selecting a patient
-    // Allow access to 'agenda', 'indicadores', and 'finance' without patient selection
-    if (tabName !== 'agenda' && tabName !== 'indicadores' && tabName !== 'finance' && !selectedPatient) {
-        alert('Por favor, selecione um paciente na agenda primeiro.');
-        return;
+    // Allow access to 'agenda', 'pacientes', 'indicadores', and 'finance' without patient selection
+    // Only require patient selection for 'prontuarios' and 'prescricao' tabs
+    if (tabName === 'prontuarios' || tabName === 'prescricao') {
+        // Check if selectedPatient is available and not null
+        if (typeof selectedPatient === 'undefined' || selectedPatient === null) {
+            alert('Por favor, selecione um paciente na agenda primeiro.');
+            return;
+        }
     }
     
     // Hide all tab contents
@@ -79,6 +83,15 @@ function switchTab(tabName) {
     if (tabName === 'finance') {
         if (typeof loadFinanceData === 'function') {
             loadFinanceData();
+        }
+    }
+    
+    // Load patients data when pacientes tab is shown
+    if (tabName === 'pacientes') {
+        // Patients tab is already included in the template
+        // Apply filters when tab is shown
+        if (typeof filterPatients === 'function') {
+            setTimeout(filterPatients, 100);
         }
     }
     
@@ -309,6 +322,7 @@ function performSearch(query) {
     // Implement search functionality here
     console.log('Searching for:', query);
 }
+
 
 // Export functions for global use
 window.SaaSPlatform = {
