@@ -247,10 +247,12 @@ function showAppointmentDetailsFromCalendar(event) {
     
     // Show/hide action buttons based on status
     const confirmBtn = document.getElementById('confirm-attendance-btn');
+    const completeBtn = document.getElementById('complete-appointment-btn');
     const cancelBtn = document.getElementById('cancel-appointment-btn');
     
     // Reset button visibility
     confirmBtn.style.display = 'none';
+    completeBtn.style.display = 'none';
     cancelBtn.style.display = 'none';
     
     // Show appropriate buttons based on status
@@ -258,6 +260,7 @@ function showAppointmentDetailsFromCalendar(event) {
         confirmBtn.style.display = 'inline-block';
         cancelBtn.style.display = 'inline-block';
     } else if (props.status === 'confirmed') {
+        completeBtn.style.display = 'inline-block';
         cancelBtn.style.display = 'inline-block';
     } else if (props.status === 'completed') {
         // No action buttons for completed appointments
@@ -267,6 +270,7 @@ function showAppointmentDetailsFromCalendar(event) {
     
     // Set up button click handlers
     confirmBtn.onclick = () => confirmAppointmentAttendance(event.id);
+    completeBtn.onclick = () => completeAppointment(event.id);
     cancelBtn.onclick = () => cancelAppointment(event.id);
     
     // Show the modal
@@ -324,6 +328,35 @@ function confirmAppointmentAttendance(appointmentId) {
     })
     .catch(error => {
         showNotification('Erro ao confirmar presença', 'error');
+    });
+}
+
+function completeAppointment(appointmentId) {
+    fetch('/dashboard/api/appointments/complete/', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/x-www-form-urlencoded',
+            'X-CSRFToken': getCookie('csrftoken')
+        },
+        body: `appointment_id=${appointmentId}`
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            showNotification(data.message, 'success');
+            const modal = bootstrap.Modal.getInstance(document.getElementById('appointmentDetailsModal'));
+            modal.hide();
+            refreshCalendar();
+            // Refresh agenda stats after completing appointment
+            if (typeof refreshAgendaStats === 'function') {
+                refreshAgendaStats();
+            }
+        } else {
+            showNotification('Erro ao concluir consulta: ' + data.error, 'error');
+        }
+    })
+    .catch(error => {
+        showNotification('Erro ao concluir consulta', 'error');
     });
 }
 

@@ -1,0 +1,108 @@
+{% load dashboard_extras %}
+<!-- Relatórios Tab -->
+<div id="relatorios-tab" class="tab-content" style="display: none;">
+    <div class="row">
+        <div class="col-12">
+            <h4 class="mb-4">
+                <i class="fas fa-file-alt text-primary me-2"></i>
+                Relatórios
+            </h4>
+        </div>
+    </div>
+
+    <!-- Report Type Selection -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card shadow">
+                <div class="card-header bg-primary text-white">
+                    <h6 class="mb-0">
+                        <i class="fas fa-filter me-2"></i>
+                        Selecionar Relatório
+                    </h6>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label for="report-type" class="form-label">Tipo de Relatório</label>
+                            <select id="report-type" class="form-select" onchange="handleReportTypeChange()">
+                                <option value="">Selecione um relatório</option>
+                                <option value="appointments">Consultas Realizadas</option>
+                                <option value="payment_methods">Métodos de Pagamento</option>
+                                <option value="patient_summary">Resumo de Pacientes</option>
+                                <option value="financial_summary">Resumo Financeiro</option>
+                                <option value="monthly_appointments">Consultas Mensais</option>
+                            </select>
+                        </div>
+                        <div class="col-md-3 mb-3">
+                            <label for="report-start-date" class="form-label">Data Início</label>
+                            <input type="date" id="report-start-date" class="form-control">
+                        </div>
+                        <div class="col-md-3 mb-3">
+                            <label for="report-end-date" class="form-label">Data Fim</label>
+                            <input type="date" id="report-end-date" class="form-control">
+                        </div>
+                    </div>
+                    <div class="row">
+                        <div class="col-12">
+                            <button class="btn btn-primary" onclick="generateReport()">
+                                <i class="fas fa-file-pdf me-2"></i>Gerar Relatório
+                            </button>
+                            <button class="btn btn-success" onclick="exportReport()" id="export-btn" style="display: none;">
+                                <i class="fas fa-download me-2"></i>Exportar
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Report Results -->
+    <div class="row" id="report-results-container" style="display: none;">
+        <div class="col-12">
+            <div class="card shadow">
+                <div class="card-header bg-success text-white">
+                    <h6 class="mb-0">
+                        <i class="fas fa-chart-bar me-2"></i>
+                        Resultados do Relatório
+                    </h6>
+                </div>
+                <div class="card-body" id="report-results">
+                    <!-- Report results will be displayed here -->
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Quick Stats -->
+    <div class="row mt-4">
+        <div class="col-md-4 mb-3">
+            <div class="card shadow">
+                <div class="card-body text-center">
+                    <i class="fas fa-calendar-check fa-3x text-success mb-3"></i>
+                    <h5 class="card-title">Consultas Realizadas</h5>
+                    <h3 class="text-success" id="quick-stats-completed">-</h3>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4 mb-3">
+            <div class="card shadow">
+                <div class="card-body text-center">
+                    <i class="fas fa-money-bill-wave fa-3x text-primary mb-3"></i>
+                    <h5 class="card-title">Receita Total</h5>
+                    <h3 class="text-primary" id="quick-stats-revenue">-</h3>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4 mb-3">
+            <div class="card shadow">
+                <div class="card-body text-center">
+                    <i class="fas fa-users fa-3x text-info mb-3"></i>
+                    <h5 class="card-title">Pacientes Atendidos</h5>
+                    <h3 class="text-info" id="quick-stats-patients">-</h3>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+

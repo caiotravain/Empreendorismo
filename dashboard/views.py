@@ -1,10 +1,11 @@
 from django.shortcuts import render, get_object_or_404, redirect
 from django.contrib.auth.decorators import login_required
 from django.utils import timezone
-from django.http import JsonResponse
+from django.http import JsonResponse, HttpResponse
 from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_POST
 from django.views.decorators.http import require_http_methods
+from django.db import models
 from datetime import date, timedelta, datetime
 from decimal import Decimal, InvalidOperation
 from .models import Appointment, Patient, Doctor, MedicalRecord, Prescription, PrescriptionItem, PrescriptionTemplate, Expense, Income
@@ -309,6 +310,18 @@ def indicadores(request):
             'exames_solicitados': 23,
             'prescricoes_ativas': 67,
         }
+    }
+    return render(request, 'dashboard/home.html', context)
+
+@login_required
+def relatorios(request):
+    """Reports view"""
+    # Get current doctor (from selection for admins, or user's doctor)
+    current_doctor = get_selected_doctor(request)
+    
+    context = {
+        'active_tab': 'relatorios',
+        'current_doctor': current_doctor,
     }
     return render(request, 'dashboard/home.html', context)
 
@@ -914,28 +927,94 @@ def api_confirm_attendance(request):
         appointment.status = 'confirmed'
         appointment.save()
         
-        # Create income record if appointment has a value and is today or in the past
-        income_created = False
-        if appointment.value and appointment.value > 0:
-            # Only create income if appointment date is today or in the past
-            from datetime import date
-            today = date.today()
-            if appointment.appointment_date <= today:
-                # Check if income already exists for this appointment
-                existing_income = Income.objects.filter(appointment=appointment).first()
-                if not existing_income:
-                    Income.objects.create(
-                        doctor=current_doctor,
-                        appointment=appointment,
-                        amount=appointment.value,
-                        description=f"Consulta - {appointment.patient.full_name}",
-                        category=appointment.appointment_type,
-                        income_date=appointment.appointment_date,
-                        notes=f"Receita gerada pela consulta confirmada em {appointment.appointment_date} às {appointment.appointment_time}"
-                    )
-                    income_created = True
+        # Note: Income is only created when appointment is completed, not when confirmed
+        # This ensures financial reports only count completed appointments
         
         message = f'Presença de {appointment.patient.full_name} confirmada com sucesso'
+        
+        return JsonResponse({
+            'success': True,
+            'message': message,
+            'income_created': False
+        })
+        
+    except Exception as e:
+        return JsonResponse({
+            'success': False,
+            'error': f'Erro ao confirmar presença: {str(e)}'
+        })
+
+
+@login_required
+@require_POST
+def api_complete_appointment(request):
+    """API endpoint to complete an appointment"""
+    try:
+        # Get current user's doctor profile
+        try:
+            current_doctor = Doctor.objects.get(user=request.user)
+        except Doctor.DoesNotExist:
+            return JsonResponse({
+                'success': False,
+                'error': 'Usuário não é um médico válido'
+            })
+        
+        # Get appointment ID
+        appointment_id = request.POST.get('appointment_id')
+        
+        if not appointment_id:
+            return JsonResponse({
+                'success': False,
+                'error': 'ID da consulta é obrigatório'
+            })
+        
+        # Get the appointment
+        try:
+            appointment = Appointment.objects.get(
+                id=appointment_id,
+                doctor=current_doctor
+            )
+        except Appointment.DoesNotExist:
+            return JsonResponse({
+                'success': False,
+                'error': 'Consulta não encontrada'
+            })
+        
+        # Check if appointment can be completed
+        if appointment.status == 'completed':
+            return JsonResponse({
+                'success': False,
+                'error': 'Esta consulta já foi concluída'
+            })
+        
+        if appointment.status == 'cancelled':
+            return JsonResponse({
+                'success': False,
+                'error': 'Não é possível concluir uma consulta cancelada'
+            })
+        
+        # Update appointment status to completed
+        appointment.status = 'completed'
+        appointment.save()
+        
+        # Create income record if appointment has a value and doesn't already have one
+        income_created = False
+        if appointment.value and appointment.value > 0:
+            # Check if income already exists for this appointment
+            existing_income = Income.objects.filter(appointment=appointment).first()
+            if not existing_income:
+                Income.objects.create(
+                    doctor=current_doctor,
+                    appointment=appointment,
+                    amount=appointment.value,
+                    description=f"Consulta - {appointment.patient.full_name}",
+                    category=appointment.appointment_type,
+                    income_date=appointment.appointment_date,
+                    notes=f"Receita gerada pela consulta concluída em {appointment.appointment_date} às {appointment.appointment_time}"
+                )
+                income_created = True
+        
+        message = f'Consulta de {appointment.patient.full_name} concluída com sucesso'
         if income_created:
             message += f' e receita de R$ {appointment.value} registrada'
         
@@ -948,7 +1027,7 @@ def api_confirm_attendance(request):
     except Exception as e:
         return JsonResponse({
             'success': False,
-            'error': f'Erro ao confirmar presença: {str(e)}'
+            'error': f'Erro ao concluir consulta: {str(e)}'
         })
 
 
@@ -974,7 +1053,7 @@ def api_sync_appointment_income(request):
         
         completed_appointments = Appointment.objects.filter(
             doctor=current_doctor,
-            status__in=['confirmed', 'completed'],  # Both confirmed and completed count as "done"
+            status='completed',  # Only completed appointments generate income
             value__gt=0,
             appointment_date__lte=today  # Only today or past appointments
         ).exclude(
@@ -2371,6 +2450,509 @@ def select_doctor(request):
         return JsonResponse({
             'success': False,
             'error': f'Erro ao selecionar médico: {str(e)}'
+        })
+
+
+@login_required
+@require_http_methods(["GET"])
+def api_quick_stats(request):
+    """API endpoint to get quick stats for reports"""
+    try:
+        # Get current doctor (from selection for admins, or user's doctor)
+        current_doctor = get_selected_doctor(request)
+        
+        # Get date range (optional, defaults to current month)
+        start_date = request.GET.get('start_date')
+        end_date = request.GET.get('end_date')
+        
+        if not start_date:
+            start_date = timezone.now().date().replace(day=1)
+        else:
+            start_date = datetime.strptime(start_date, '%Y-%m-%d').date()
+            
+        if not end_date:
+            end_date = timezone.now().date()
+        else:
+            end_date = datetime.strptime(end_date, '%Y-%m-%d').date()
+        
+        # Get stats
+        if current_doctor:
+            completed_appointments = Appointment.objects.filter(
+                doctor=current_doctor,
+                appointment_date__range=[start_date, end_date],
+                status='completed'
+            ).count()
+            
+            total_revenue = Income.objects.filter(
+                doctor=current_doctor,
+                income_date__range=[start_date, end_date]
+            ).aggregate(total=models.Sum('amount'))['total'] or 0
+            
+            unique_patients = Appointment.objects.filter(
+                doctor=current_doctor,
+                appointment_date__range=[start_date, end_date],
+                status='completed'
+            ).values('patient').distinct().count()
+        else:
+            # For admins without doctor selection, show aggregated stats
+            completed_appointments = Appointment.objects.filter(
+                appointment_date__range=[start_date, end_date],
+                status='completed'
+            ).count()
+            
+            total_revenue = Income.objects.filter(
+                income_date__range=[start_date, end_date]
+            ).aggregate(total=models.Sum('amount'))['total'] or 0
+            
+            unique_patients = Appointment.objects.filter(
+                appointment_date__range=[start_date, end_date],
+                status='completed'
+            ).values('patient').distinct().count()
+        
+        return JsonResponse({
+            'success': True,
+            'stats': {
+                'completed_appointments': completed_appointments,
+                'total_revenue': float(total_revenue),
+                'unique_patients': unique_patients,
+            }
+        })
+        
+    except Exception as e:
+        return JsonResponse({
+            'success': False,
+            'error': f'Erro ao buscar estatísticas: {str(e)}'
+        })
+
+
+@login_required
+@require_http_methods(["GET"])
+def api_generate_report(request):
+    """API endpoint to generate report data"""
+    try:
+        # Get current doctor (from selection for admins, or user's doctor)
+        current_doctor = get_selected_doctor(request)
+        
+        # Get report parameters
+        report_type = request.GET.get('report_type')
+        start_date = request.GET.get('start_date')
+        end_date = request.GET.get('end_date')
+        
+        if not all([report_type, start_date, end_date]):
+            return JsonResponse({
+                'success': False,
+                'error': 'Parâmetros obrigatórios: report_type, start_date, end_date'
+            })
+        
+        # Parse dates
+        try:
+            start_date = datetime.strptime(start_date, '%Y-%m-%d').date()
+            end_date = datetime.strptime(end_date, '%Y-%m-%d').date()
+        except ValueError:
+            return JsonResponse({
+                'success': False,
+                'error': 'Formato de data inválido (use YYYY-MM-DD)'
+            })
+        
+        # Build base query
+        base_filter = {
+            'appointment_date__range': [start_date, end_date],
+            'status': 'completed'
+        }
+        
+        if current_doctor:
+            base_filter['doctor'] = current_doctor
+        
+        # Generate report based on type
+        if report_type == 'appointments':
+            # Appointments report
+            appointments = Appointment.objects.filter(**base_filter).select_related('patient', 'doctor')
+            
+            data = []
+            for apt in appointments:
+                data.append({
+                    'date': apt.appointment_date.strftime('%d/%m/%Y'),
+                    'time': apt.appointment_time.strftime('%H:%M'),
+                    'patient': apt.patient.full_name,
+                    'doctor': apt.doctor.full_name,
+                    'type': apt.get_appointment_type_display(),
+                    'payment': apt.get_payment_type_display(),
+                    'value': float(apt.value) if apt.value else 0,
+                    'status': apt.get_status_display(),
+                })
+            
+            return JsonResponse({
+                'success': True,
+                'report_type': 'appointments',
+                'data': data,
+                'summary': {
+                    'total_appointments': len(data),
+                    'total_revenue': sum(item['value'] for item in data),
+                    'start_date': start_date.strftime('%d/%m/%Y'),
+                    'end_date': end_date.strftime('%d/%m/%Y'),
+                }
+            })
+            
+        elif report_type == 'payment_methods':
+            # Payment methods report
+            appointments = Appointment.objects.filter(**base_filter).values('payment_type')
+            payment_methods = {}
+            
+            for apt in appointments:
+                payment_type = apt['payment_type']
+                payment_methods[payment_type] = payment_methods.get(payment_type, 0) + 1
+            
+            data = []
+            for method, count in payment_methods.items():
+                data.append({
+                    'payment_method': method,
+                    'count': count,
+                })
+            
+            return JsonResponse({
+                'success': True,
+                'report_type': 'payment_methods',
+                'data': data,
+                'summary': {
+                    'total_appointments': sum(item['count'] for item in data),
+                    'start_date': start_date.strftime('%d/%m/%Y'),
+                    'end_date': end_date.strftime('%d/%m/%Y'),
+                }
+            })
+            
+        elif report_type == 'patient_summary':
+            # Patient summary report
+            appointments = Appointment.objects.filter(**base_filter).values('patient', 'patient__first_name', 'patient__last_name')
+            patient_counts = {}
+            
+            for apt in appointments:
+                patient_id = apt['patient']
+                patient_name = f"{apt['patient__first_name']} {apt['patient__last_name']}"
+                patient_counts[patient_id] = {
+                    'name': patient_name,
+                    'count': patient_counts.get(patient_id, {}).get('count', 0) + 1
+                }
+            
+            data = []
+            for patient_id, info in patient_counts.items():
+                data.append({
+                    'patient_name': info['name'],
+                    'total_appointments': info['count'],
+                })
+            
+            # Sort by appointment count (descending)
+            data.sort(key=lambda x: x['total_appointments'], reverse=True)
+            
+            return JsonResponse({
+                'success': True,
+                'report_type': 'patient_summary',
+                'data': data[:20],  # Limit to top 20
+                'summary': {
+                    'total_patients': len(patient_counts),
+                    'start_date': start_date.strftime('%d/%m/%Y'),
+                    'end_date': end_date.strftime('%d/%m/%Y'),
+                }
+            })
+            
+        elif report_type == 'financial_summary':
+            # Financial summary report
+            appointments = Appointment.objects.filter(**base_filter)
+            
+            income_by_category = {}
+            income_by_method = {}
+            total_revenue = 0
+            
+            for apt in appointments:
+                if apt.value:
+                    category = apt.appointment_type
+                    method = apt.payment_type
+                    
+                    income_by_category[category] = income_by_category.get(category, 0) + float(apt.value)
+                    income_by_method[method] = income_by_method.get(method, 0) + float(apt.value)
+                    total_revenue += float(apt.value)
+            
+            data = {
+                'by_category': [{'category': k, 'amount': v} for k, v in income_by_category.items()],
+                'by_method': [{'method': k, 'amount': v} for k, v in income_by_method.items()],
+                'total_revenue': total_revenue,
+            }
+            
+            return JsonResponse({
+                'success': True,
+                'report_type': 'financial_summary',
+                'data': data,
+                'summary': {
+                    'total_revenue': total_revenue,
+                    'start_date': start_date.strftime('%d/%m/%Y'),
+                    'end_date': end_date.strftime('%d/%m/%Y'),
+                }
+            })
+            
+        elif report_type == 'monthly_appointments':
+            # Monthly appointments report
+            monthly_data = {}
+            
+            # Get all completed appointments in the date range
+            appointments = Appointment.objects.filter(**base_filter)
+            
+            for apt in appointments:
+                month_key = apt.appointment_date.strftime('%Y-%m')
+                if month_key not in monthly_data:
+                    monthly_data[month_key] = {
+                        'month': apt.appointment_date.strftime('%m/%Y'),
+                        'count': 0
+                    }
+                monthly_data[month_key]['count'] += 1
+            
+            data = sorted(monthly_data.values(), key=lambda x: x['month'])
+            
+            return JsonResponse({
+                'success': True,
+                'report_type': 'monthly_appointments',
+                'data': data,
+                'summary': {
+                    'total_appointments': sum(item['count'] for item in data),
+                    'start_date': start_date.strftime('%d/%m/%Y'),
+                    'end_date': end_date.strftime('%d/%m/%Y'),
+                }
+            })
+        
+        return JsonResponse({
+            'success': False,
+            'error': f'Tipo de relatório inválido: {report_type}'
+        })
+        
+    except Exception as e:
+        return JsonResponse({
+            'success': False,
+            'error': f'Erro ao gerar relatório: {str(e)}'
+        })
+
+
+@login_required
+@require_http_methods(["GET"])
+def api_generate_pdf_report(request):
+    """API endpoint to generate a PDF report"""
+    try:
+        from reportlab.lib.pagesizes import letter, A4
+        from reportlab.lib import colors
+        from reportlab.lib.units import inch
+        from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer, PageBreak
+        from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+        from reportlab.lib.enums import TA_CENTER, TA_LEFT, TA_RIGHT
+        from io import BytesIO
+        
+        # Get current doctor (from selection for admins, or user's doctor)
+        current_doctor = get_selected_doctor(request)
+        
+        # Get report parameters
+        report_type = request.GET.get('report_type')
+        start_date = request.GET.get('start_date')
+        end_date = request.GET.get('end_date')
+        
+        if not all([report_type, start_date, end_date]):
+            return JsonResponse({
+                'success': False,
+                'error': 'Parâmetros obrigatórios: report_type, start_date, end_date'
+            })
+        
+        # Parse dates
+        try:
+            start_date = datetime.strptime(start_date, '%Y-%m-%d').date()
+            end_date = datetime.strptime(end_date, '%Y-%m-%d').date()
+        except ValueError:
+            return JsonResponse({
+                'success': False,
+                'error': 'Formato de data inválido (use YYYY-MM-DD)'
+            })
+        
+        # Build base query
+        base_filter = {
+            'appointment_date__range': [start_date, end_date],
+            'status': 'completed'
+        }
+        
+        if current_doctor:
+            base_filter['doctor'] = current_doctor
+        
+        # Create PDF buffer
+        buffer = BytesIO()
+        doc = SimpleDocTemplate(buffer, pagesize=letter, 
+                               rightMargin=72, leftMargin=72,
+                               topMargin=72, bottomMargin=18)
+        
+        # Container for the PDF elements
+        story = []
+        styles = getSampleStyleSheet()
+        
+        # Title style
+        title_style = ParagraphStyle(
+            'CustomTitle',
+            parent=styles['Heading1'],
+            fontSize=24,
+            textColor=colors.HexColor('#1a1a1a'),
+            spaceAfter=30,
+            alignment=TA_CENTER
+        )
+        
+        # Header style
+        header_style = ParagraphStyle(
+            'CustomHeader',
+            parent=styles['Heading2'],
+            fontSize=14,
+            textColor=colors.HexColor('#2c3e50'),
+            spaceAfter=12
+        )
+        
+        # Title
+        title_text = "RELATÓRIO DE CONSULTAS" if report_type == 'appointments' else "RELATÓRIO"
+        story.append(Paragraph(title_text, title_style))
+        story.append(Spacer(1, 0.2*inch))
+        
+        # Doctor information
+        if current_doctor:
+            story.append(Paragraph(f"<b>Médico:</b> {current_doctor.full_name}", styles['Normal']))
+            if hasattr(current_doctor, 'specialization') and current_doctor.specialization:
+                story.append(Paragraph(f"<b>Especialização:</b> {current_doctor.specialization}", styles['Normal']))
+            if hasattr(current_doctor, 'medical_license') and current_doctor.medical_license:
+                story.append(Paragraph(f"<b>CRM:</b> {current_doctor.medical_license}", styles['Normal']))
+            story.append(Spacer(1, 0.2*inch))
+        
+        # Period information
+        story.append(Paragraph(f"<b>Período:</b> {start_date.strftime('%d/%m/%Y')} a {end_date.strftime('%d/%m/%Y')}", styles['Normal']))
+        story.append(Spacer(1, 0.3*inch))
+        
+        # Get report data and generate content
+        if report_type == 'appointments':
+            appointments = Appointment.objects.filter(**base_filter).select_related('patient', 'doctor').order_by('appointment_date', 'appointment_time')
+            
+            story.append(Paragraph("Lista de Consultas Realizadas", header_style))
+            story.append(Spacer(1, 0.1*inch))
+            
+            # Table data
+            table_data = [['Data', 'Horário', 'Paciente', 'Tipo', 'Pagamento', 'Valor']]
+            
+            for apt in appointments:
+                date_str = apt.appointment_date.strftime('%d/%m/%Y')
+                time_str = apt.appointment_time.strftime('%H:%M')
+                value_str = f"R$ {apt.value:.2f}" if apt.value else "-"
+                table_data.append([
+                    date_str,
+                    time_str,
+                    apt.patient.full_name,
+                    apt.get_appointment_type_display(),
+                    apt.get_payment_type_display(),
+                    value_str
+                ])
+            
+            # Create table
+            table = Table(table_data, colWidths=[1*inch, 0.8*inch, 2*inch, 1*inch, 1*inch, 1*inch])
+            table.setStyle(TableStyle([
+                ('BACKGROUND', (0, 0), (-1, 0), colors.grey),
+                ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
+                ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
+                ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+                ('FONTSIZE', (0, 0), (-1, 0), 10),
+                ('BOTTOMPADDING', (0, 0), (-1, 0), 12),
+                ('BACKGROUND', (0, 1), (-1, -1), colors.beige),
+                ('GRID', (0, 0), (-1, -1), 1, colors.black),
+                ('FONTSIZE', (0, 1), (-1, -1), 8),
+            ]))
+            
+            story.append(table)
+            story.append(Spacer(1, 0.2*inch))
+            
+            # Summary
+            total_appointments = len(table_data) - 1
+            total_revenue = sum(float(apt.value) if apt.value else 0 for apt in appointments)
+            story.append(Paragraph(f"<b>Total de Consultas:</b> {total_appointments}", styles['Normal']))
+            story.append(Paragraph(f"<b>Receita Total:</b> R$ {total_revenue:.2f}", styles['Normal']))
+            
+        elif report_type == 'financial_summary':
+            appointments = Appointment.objects.filter(**base_filter)
+            
+            story.append(Paragraph("Resumo Financeiro", header_style))
+            story.append(Spacer(1, 0.1*inch))
+            
+            # Calculate totals
+            income_by_category = {}
+            income_by_method = {}
+            total_revenue = 0
+            
+            for apt in appointments:
+                if apt.value:
+                    category = apt.get_appointment_type_display()
+                    method = apt.get_payment_type_display()
+                    
+                    income_by_category[category] = income_by_category.get(category, 0) + float(apt.value)
+                    income_by_method[method] = income_by_method.get(method, 0) + float(apt.value)
+                    total_revenue += float(apt.value)
+            
+            # Revenue by category table
+            if income_by_category:
+                story.append(Paragraph("Receita por Categoria", styles['Heading3']))
+                table_data = [['Categoria', 'Valor']]
+                for category, amount in sorted(income_by_category.items(), key=lambda x: x[1], reverse=True):
+                    table_data.append([category, f"R$ {amount:.2f}"])
+                
+                table = Table(table_data, colWidths=[3*inch, 2*inch])
+                table.setStyle(TableStyle([
+                    ('BACKGROUND', (0, 0), (-1, 0), colors.grey),
+                    ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
+                    ('ALIGN', (0, 0), (-1, -1), 'LEFT'),
+                    ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+                    ('BOTTOMPADDING', (0, 0), (-1, 0), 12),
+                    ('BACKGROUND', (0, 1), (-1, -1), colors.beige),
+                    ('GRID', (0, 0), (-1, -1), 1, colors.black),
+                ]))
+                story.append(table)
+                story.append(Spacer(1, 0.2*inch))
+            
+            # Revenue by payment method table
+            if income_by_method:
+                story.append(Paragraph("Receita por Método de Pagamento", styles['Heading3']))
+                table_data = [['Método', 'Valor']]
+                for method, amount in sorted(income_by_method.items(), key=lambda x: x[1], reverse=True):
+                    table_data.append([method, f"R$ {amount:.2f}"])
+                
+                table = Table(table_data, colWidths=[3*inch, 2*inch])
+                table.setStyle(TableStyle([
+                    ('BACKGROUND', (0, 0), (-1, 0), colors.grey),
+                    ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
+                    ('ALIGN', (0, 0), (-1, -1), 'LEFT'),
+                    ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+                    ('BOTTOMPADDING', (0, 0), (-1, 0), 12),
+                    ('BACKGROUND', (0, 1), (-1, -1), colors.beige),
+                    ('GRID', (0, 0), (-1, -1), 1, colors.black),
+                ]))
+                story.append(table)
+                story.append(Spacer(1, 0.2*inch))
+            
+            # Total
+            story.append(Paragraph(f"<b>Receita Total:</b> R$ {total_revenue:.2f}", styles['Heading2']))
+        
+        # Build PDF
+        doc.build(story)
+        
+        # Get PDF data
+        buffer.seek(0)
+        pdf_data = buffer.getvalue()
+        buffer.close()
+        
+        # Create HTTP response
+        response = HttpResponse(pdf_data, content_type='application/pdf')
+        response['Content-Disposition'] = f'attachment; filename="relatorio_{report_type}_{start_date}_{end_date}.pdf"'
+        return response
+        
+    except ImportError:
+        return JsonResponse({
+            'success': False,
+            'error': 'Biblioteca reportlab não instalada. Execute: pip install reportlab'
+        })
+    except Exception as e:
+        return JsonResponse({
+            'success': False,
+            'error': f'Erro ao gerar PDF: {str(e)}'
         })
 
 

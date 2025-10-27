@@ -11,6 +11,7 @@ urlpatterns = [
     path('patients/', views.patients, name='patients'),
     path('indicadores/', views.indicadores, name='indicadores'),
     path('finance/', views.finance, name='finance'),
+    path('relatorios/', views.relatorios, name='relatorios'),
     path('settings/', views.settings, name='settings'),
     
     # API endpoints for appointment modal
@@ -22,6 +23,7 @@ urlpatterns = [
     path('api/week-appointments/', views.api_week_appointments, name='api_week_appointments'),
     path('api/appointments/cancel/', views.api_cancel_appointment, name='api_cancel_appointment'),
     path('api/appointments/confirm-attendance/', views.api_confirm_attendance, name='api_confirm_attendance'),
+    path('api/appointments/complete/', views.api_complete_appointment, name='api_complete_appointment'),
     path('api/appointments/sync-income/', views.api_sync_appointment_income, name='api_sync_appointment_income'),
     path('api/appointments/update/', views.api_update_appointment, name='api_update_appointment'),
     path('api/next-appointment/', views.api_next_appointment, name='api_next_appointment'),
@@ -52,4 +54,9 @@ urlpatterns = [
     
     # API endpoint for admin doctor selection
     path('select-doctor/', views.select_doctor, name='select_doctor'),
+    
+    # API endpoints for reports
+    path('api/reports/generate/', views.api_generate_report, name='api_generate_report'),
+    path('api/reports/generate-pdf/', views.api_generate_pdf_report, name='api_generate_pdf_report'),
+    path('api/reports/quick-stats/', views.api_quick_stats, name='api_quick_stats'),
 ]

@@ -609,6 +609,9 @@ document.addEventListener('DOMContentLoaded', function() {
     
     // Refresh agenda stats on page load
     refreshAgendaStats();
+    
+    // Initialize reports tab with default dates
+    initializeReportsTab();
 });
 
 // Appointment Modal Functions
@@ -1626,4 +1629,298 @@ function printPrescriptionWindow(prescription) {
     
     printWindow.document.close();
     printWindow.print();
+}
+
+// Reports Functions
+let currentReportData = null;
+
+function initializeReportsTab() {
+    // Set default dates to current month
+    const today = new Date();
+    const firstDay = new Date(today.getFullYear(), today.getMonth(), 1);
+    const lastDay = new Date(today.getFullYear(), today.getMonth() + 1, 0);
+    
+    const startDateInput = document.getElementById('report-start-date');
+    const endDateInput = document.getElementById('report-end-date');
+    
+    if (startDateInput) {
+        startDateInput.value = firstDay.toISOString().split('T')[0];
+    }
+    if (endDateInput) {
+        endDateInput.value = lastDay.toISOString().split('T')[0];
+    }
+}
+
+function handleReportTypeChange() {
+    const reportType = document.getElementById('report-type');
+    if (reportType && reportType.value) {
+        loadQuickStats();
+    }
+}
+
+function loadQuickStats() {
+    const startDate = document.getElementById('report-start-date');
+    const endDate = document.getElementById('report-end-date');
+    
+    if (!startDate || !startDate.value || !endDate || !endDate.value) {
+        return;
+    }
+    
+    fetch(`/dashboard/api/reports/quick-stats/?start_date=${startDate.value}&end_date=${endDate.value}`)
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                const completedEl = document.getElementById('quick-stats-completed');
+                const revenueEl = document.getElementById('quick-stats-revenue');
+                const patientsEl = document.getElementById('quick-stats-patients');
+                
+                if (completedEl) completedEl.textContent = data.stats.completed_appointments;
+                if (revenueEl) revenueEl.textContent = `R$ ${data.stats.total_revenue.toFixed(2)}`;
+                if (patientsEl) patientsEl.textContent = data.stats.unique_patients;
+            }
+        })
+        .catch(error => {
+            console.error('Error loading quick stats:', error);
+        });
+}
+
+function generateReport() {
+    const reportType = document.getElementById('report-type');
+    const startDate = document.getElementById('report-start-date');
+    const endDate = document.getElementById('report-end-date');
+    
+    if (!reportType || !reportType.value) {
+        showNotification('Por favor, selecione um tipo de relatório', 'warning');
+        return;
+    }
+    
+    if (!startDate || !startDate.value || !endDate || !endDate.value) {
+        showNotification('Por favor, selecione as datas de início e fim', 'warning');
+        return;
+    }
+    
+    if (new Date(startDate.value) > new Date(endDate.value)) {
+        showNotification('A data de início deve ser anterior à data de fim', 'warning');
+        return;
+    }
+    
+    // Show loading
+    showNotification('Gerando relatório...', 'info');
+    
+    fetch(`/dashboard/api/reports/generate/?report_type=${reportType.value}&start_date=${startDate.value}&end_date=${endDate.value}`)
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                currentReportData = data;
+                displayReport(data);
+                const exportBtn = document.getElementById('export-btn');
+                if (exportBtn) exportBtn.style.display = 'inline-block';
+                showNotification('Relatório gerado com sucesso!', 'success');
+            } else {
+                showNotification('Erro ao gerar relatório: ' + data.error, 'error');
+            }
+        })
+        .catch(error => {
+            console.error('Error generating report:', error);
+            showNotification('Erro ao gerar relatório', 'error');
+        });
+}
+
+function displayReport(data) {
+    const resultsContainer = document.getElementById('report-results-container');
+    const resultsDiv = document.getElementById('report-results');
+    
+    if (!resultsContainer || !resultsDiv) return;
+    
+    resultsContainer.style.display = 'block';
+    
+    let html = '';
+    
+    // Summary
+    html += `<div class="alert alert-info">
+        <h6>Resumo do Relatório</h6>
+        <p><strong>Período:</strong> ${data.summary.start_date} a ${data.summary.end_date}</p>
+    </div>`;
+    
+    // Report-specific content
+    if (data.report_type === 'appointments') {
+        html += generateAppointmentsTable(data);
+    } else if (data.report_type === 'payment_methods') {
+        html += generatePaymentMethodsTable(data);
+    } else if (data.report_type === 'patient_summary') {
+        html += generatePatientSummaryTable(data);
+    } else if (data.report_type === 'financial_summary') {
+        html += generateFinancialSummaryTable(data);
+    } else if (data.report_type === 'monthly_appointments') {
+        html += generateMonthlyAppointmentsTable(data);
+    }
+    
+    resultsDiv.innerHTML = html;
+}
+
+function generateAppointmentsTable(data) {
+    let html = `<table class="table table-striped">
+        <thead>
+            <tr>
+                <th>Data</th>
+                <th>Hora</th>
+                <th>Paciente</th>
+                <th>Tipo</th>
+                <th>Pagamento</th>
+                <th>Valor</th>
+            </tr>
+        </thead>
+        <tbody>`;
+    
+    data.data.forEach(item => {
+        html += `<tr>
+            <td>${item.date}</td>
+            <td>${item.time}</td>
+            <td>${item.patient}</td>
+            <td>${item.type}</td>
+            <td>${item.payment}</td>
+            <td>R$ ${item.value.toFixed(2)}</td>
+        </tr>`;
+    });
+    
+    html += `</tbody></table>`;
+    html += `<p><strong>Total de consultas:</strong> ${data.summary.total_appointments}</p>`;
+    html += `<p><strong>Receita total:</strong> R$ ${data.summary.total_revenue.toFixed(2)}</p>`;
+    
+    return html;
+}
+
+function generatePaymentMethodsTable(data) {
+    let html = `<table class="table table-striped">
+        <thead>
+            <tr>
+                <th>Método de Pagamento</th>
+                <th>Quantidade</th>
+            </tr>
+        </thead>
+        <tbody>`;
+    
+    data.data.forEach(item => {
+        html += `<tr>
+            <td>${item.payment_method}</td>
+            <td>${item.count}</td>
+        </tr>`;
+    });
+    
+    html += `</tbody></table>`;
+    html += `<p><strong>Total de consultas:</strong> ${data.summary.total_appointments}</p>`;
+    
+    return html;
+}
+
+function generatePatientSummaryTable(data) {
+    let html = `<table class="table table-striped">
+        <thead>
+            <tr>
+                <th>Paciente</th>
+                <th>Total de Consultas</th>
+            </tr>
+        </thead>
+        <tbody>`;
+    
+    data.data.forEach(item => {
+        html += `<tr>
+            <td>${item.patient_name}</td>
+            <td>${item.total_appointments}</td>
+        </tr>`;
+    });
+    
+    html += `</tbody></table>`;
+    html += `<p><strong>Total de pacientes:</strong> ${data.summary.total_patients}</p>`;
+    
+    return html;
+}
+
+function generateFinancialSummaryTable(data) {
+    let html = `<h6>Receita por Categoria</h6>
+        <table class="table table-striped mb-4">
+            <thead>
+                <tr>
+                    <th>Categoria</th>
+                    <th>Valor</th>
+                </tr>
+            </thead>
+            <tbody>`;
+    
+    data.data.by_category.forEach(item => {
+        html += `<tr>
+            <td>${item.category}</td>
+            <td>R$ ${item.amount.toFixed(2)}</td>
+        </tr>`;
+    });
+    
+    html += `</tbody></table>`;
+    
+    html += `<h6>Receita por Método de Pagamento</h6>
+        <table class="table table-striped">
+            <thead>
+                <tr>
+                    <th>Método</th>
+                    <th>Valor</th>
+                </tr>
+            </thead>
+            <tbody>`;
+    
+    data.data.by_method.forEach(item => {
+        html += `<tr>
+            <td>${item.method}</td>
+            <td>R$ ${item.amount.toFixed(2)}</td>
+        </tr>`;
+    });
+    
+    html += `</tbody></table>`;
+    html += `<p class="mt-3"><strong>Receita total:</strong> R$ ${data.data.total_revenue.toFixed(2)}</p>`;
+    
+    return html;
+}
+
+function generateMonthlyAppointmentsTable(data) {
+    let html = `<table class="table table-striped">
+        <thead>
+            <tr>
+                <th>Mês</th>
+                <th>Quantidade de Consultas</th>
+            </tr>
+        </thead>
+        <tbody>`;
+    
+    data.data.forEach(item => {
+        html += `<tr>
+            <td>${item.month}</td>
+            <td>${item.count}</td>
+        </tr>`;
+    });
+    
+    html += `</tbody></table>`;
+    html += `<p><strong>Total de consultas:</strong> ${data.summary.total_appointments}</p>`;
+    
+    return html;
+}
+
+function exportReport() {
+    if (!currentReportData) {
+        showNotification('Nenhum relatório gerado para exportar', 'warning');
+        return;
+    }
+    
+    // Get the date inputs
+    const startDate = document.getElementById('report-start-date').value;
+    const endDate = document.getElementById('report-end-date').value;
+    const reportType = document.getElementById('report-type').value;
+    
+    if (!startDate || !endDate || !reportType) {
+        showNotification('Por favor, selecione todas as informações do relatório', 'warning');
+        return;
+    }
+    
+    // Show loading notification
+    showNotification('Gerando PDF...', 'info');
+    
+    // Generate PDF using the API
+    window.location.href = `/dashboard/api/reports/generate-pdf/?report_type=${reportType}&start_date=${startDate}&end_date=${endDate}`;
 }
