@@ -49,4 +49,7 @@ urlpatterns = [
     path('api/patients/update/', views.api_update_patient, name='api_update_patient'),
     path('api/patients/deactivate/<int:patient_id>/', views.api_deactivate_patient, name='api_deactivate_patient'),
     path('api/patients/activate/<int:patient_id>/', views.api_activate_patient, name='api_activate_patient'),
+    
+    # API endpoint for admin doctor selection
+    path('select-doctor/', views.select_doctor, name='select_doctor'),
 ]

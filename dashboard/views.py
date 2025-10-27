@@ -8,23 +8,25 @@ from django.views.decorators.http import require_http_methods
 from datetime import date, timedelta, datetime
 from decimal import Decimal, InvalidOperation
 from .models import Appointment, Patient, Doctor, MedicalRecord, Prescription, PrescriptionItem, PrescriptionTemplate, Expense, Income
+from accounts.utils import get_accessible_patients, get_user_role, has_access_to_patient, get_accessible_doctors, can_access_doctor
 
 @login_required
 def home(request):
     """Main medical dashboard view with agenda tab"""
     today = timezone.now().date()
     
-    # Get current user's doctor profile
-    try:
-        current_doctor = Doctor.objects.get(user=request.user)
-    except Doctor.DoesNotExist:
-        current_doctor = None
+    # Get current doctor (from selection for admins, or user's doctor)
+    current_doctor = get_selected_doctor(request)
     
     # Get today's appointments
-    today_appointments = []
     if current_doctor:
         today_appointments = Appointment.objects.filter(
             doctor=current_doctor,
+            appointment_date=today
+        ).order_by('appointment_time')
+    else:
+        # For admins without doctor selection, show all appointments
+        today_appointments = Appointment.objects.filter(
             appointment_date=today
         ).order_by('appointment_time')
     
@@ -32,10 +34,14 @@ def home(request):
     start_of_week = today - timedelta(days=today.weekday())
     end_of_week = start_of_week + timedelta(days=6)
     
-    week_appointments = []
     if current_doctor:
         week_appointments = Appointment.objects.filter(
             doctor=current_doctor,
+            appointment_date__range=[start_of_week, end_of_week]
+        ).exclude(status='cancelled').order_by('appointment_date', 'appointment_time')
+    else:
+        # For admins without doctor selection, show all appointments
+        week_appointments = Appointment.objects.filter(
             appointment_date__range=[start_of_week, end_of_week]
         ).exclude(status='cancelled').order_by('appointment_date', 'appointment_time')
     
@@ -94,13 +100,55 @@ def home(request):
             else:
                 next_appointment_time = 'N/A'
     else:
-        total_today = 0
-        completed_today = 0
-        pending_today = 0
-        next_appointment_time = 'N/A'
+        # For admins without doctor selection, show aggregated stats for all doctors
+        total_today = Appointment.objects.filter(
+            appointment_date=today
+        ).count()
+        
+        completed_today = Appointment.objects.filter(
+            appointment_date=today,
+            status='completed'
+        ).count()
+        
+        pending_today = Appointment.objects.filter(
+            appointment_date=today,
+            status__in=['scheduled', 'confirmed']
+        ).count()
+        
+        # Get next appointment from all doctors
+        now = timezone.now()
+        current_time = now.time()
+        
+        today_future_appointments = Appointment.objects.filter(
+            appointment_date=today,
+            appointment_time__gt=current_time,
+            status__in=['scheduled', 'confirmed']
+        ).exclude(
+            status='cancelled'
+        ).order_by('appointment_time').first()
+        
+        if today_future_appointments:
+            next_appointment_time = f"Hoje às {today_future_appointments.appointment_time.strftime('%H:%M')}"
+        else:
+            tomorrow = today + timedelta(days=1)
+            next_appointment = Appointment.objects.filter(
+                appointment_date__gte=tomorrow,
+                status__in=['scheduled', 'confirmed']
+            ).exclude(
+                status='cancelled'
+            ).order_by('appointment_date', 'appointment_time').first()
+            
+            if next_appointment:
+                if next_appointment.appointment_date == tomorrow:
+                    next_appointment_time = f"Amanhã às {next_appointment.appointment_time.strftime('%H:%M')}"
+                else:
+                    next_appointment_time = f"{next_appointment.appointment_date.strftime('%d/%m')} às {next_appointment.appointment_time.strftime('%H:%M')}"
+            else:
+                next_appointment_time = 'N/A'
     
     # Get all patients for the patients tab (will be filtered by JavaScript)
-    all_patients = Patient.objects.all().order_by('last_name', 'first_name')
+    # Use utility function to filter by user role
+    all_patients = get_accessible_patients(request.user).order_by('last_name', 'first_name')
     patients = all_patients.filter(is_active=True)  # Default view shows only active
     
     # Calculate patient statistics
@@ -115,11 +163,15 @@ def home(request):
     start_of_month = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
     new_this_month = patients.filter(created_at__gte=start_of_month).count()
     
-    # Pending appointments (if doctor exists)
-    pending_appointments = 0
+    # Pending appointments
     if current_doctor:
         pending_appointments = Appointment.objects.filter(
             doctor=current_doctor,
+            status__in=['scheduled', 'confirmed']
+        ).count()
+    else:
+        # For admins without doctor selection, show aggregated count for all doctors
+        pending_appointments = Appointment.objects.filter(
             status__in=['scheduled', 'confirmed']
         ).count()
     
@@ -263,14 +315,11 @@ def indicadores(request):
 @login_required
 def patients(request):
     """Patients management view"""
-    # Get current user's doctor profile
-    try:
-        current_doctor = Doctor.objects.get(user=request.user)
-    except Doctor.DoesNotExist:
-        current_doctor = None
+    # Get current doctor (from selection for admins, or user's doctor)
+    current_doctor = get_selected_doctor(request)
     
-    # Get all patients
-    patients = Patient.objects.all().order_by('last_name', 'first_name')
+    # Get accessible patients (filtered by user role)
+    patients = get_accessible_patients(request.user).order_by('last_name', 'first_name')
     
     # Calculate statistics
     from datetime import date, timedelta
@@ -356,7 +405,17 @@ def add_medical_record(request):
 def api_patients(request):
     """API endpoint to get all patients for the appointment modal"""
     try:
-        patients = Patient.objects.all().order_by('last_name', 'first_name')
+        # Get current doctor (from selection for admins, or user's doctor)
+        current_doctor = get_selected_doctor(request)
+        
+        # Get patients based on role and doctor selection
+        if current_doctor:
+            # If doctor is selected (or user is a doctor/secretary), show their patients
+            patients = Patient.objects.filter(doctor=current_doctor, is_active=True).order_by('last_name', 'first_name')
+        else:
+            # For admins without doctor selection, show all accessible patients
+            patients = get_accessible_patients(request.user).filter(is_active=True).order_by('last_name', 'first_name')
+        
         patients_data = []
         
         for patient in patients:
@@ -369,14 +428,26 @@ def api_patients(request):
                 'full_name': patient.full_name
             })
         
-        return JsonResponse({
+        response_data = {
             'success': True,
-            'patients': patients_data
-        })
+            'patients': patients_data,
+            'count': len(patients_data),
+            'debug': {
+                'current_doctor': str(current_doctor) if current_doctor else 'None',
+                'role': get_user_role(request.user),
+                'total_patients_in_db': Patient.objects.filter(is_active=True).count(),
+                'patients_with_doctors': Patient.objects.filter(doctor__isnull=False, is_active=True).count(),
+                'patients_without_doctors': Patient.objects.filter(doctor__isnull=True, is_active=True).count()
+            }
+        }
+        
+        return JsonResponse(response_data)
     except Exception as e:
+        import traceback
         return JsonResponse({
             'success': False,
-            'error': str(e)
+            'error': str(e),
+            'traceback': traceback.format_exc()
         })
 
 @login_required
@@ -385,6 +456,13 @@ def api_patient_detail(request, patient_id):
     """API endpoint to get a specific patient's details"""
     try:
         patient = Patient.objects.get(id=patient_id)
+        
+        # Check if user has access to this patient
+        if not has_access_to_patient(request.user, patient):
+            return JsonResponse({
+                'success': False,
+                'error': 'Você não tem acesso a este paciente'
+            })
         
         patient_data = {
             'id': patient.id,
@@ -564,14 +642,8 @@ def api_appointments(request):
 def api_week_appointments(request):
     """API endpoint to get appointments for a specific week"""
     try:
-        # Get current user's doctor profile
-        try:
-            current_doctor = Doctor.objects.get(user=request.user)
-        except Doctor.DoesNotExist:
-            return JsonResponse({
-                'success': False,
-                'error': 'Usuário não é um médico válido'
-            })
+        # Get current doctor (from selection for admins, or user's doctor)
+        current_doctor = get_selected_doctor(request)
         
         # Get week parameter
         week_start = request.GET.get('week_start')
@@ -594,10 +666,17 @@ def api_week_appointments(request):
         end_date = start_date + timedelta(days=6)
         
         # Get appointments for the week (excluding cancelled)
-        appointments = Appointment.objects.filter(
-            doctor=current_doctor,
-            appointment_date__range=[start_date, end_date]
-        ).exclude(status='cancelled').order_by('appointment_date', 'appointment_time')
+        # If current_doctor is set, filter by doctor; otherwise show all appointments for admins
+        if current_doctor:
+            appointments = Appointment.objects.filter(
+                doctor=current_doctor,
+                appointment_date__range=[start_date, end_date]
+            ).exclude(status='cancelled').order_by('appointment_date', 'appointment_time')
+        else:
+            # For admins without doctor selection, show all appointments
+            appointments = Appointment.objects.filter(
+                appointment_date__range=[start_date, end_date]
+            ).exclude(status='cancelled').order_by('appointment_date', 'appointment_time')
         
         # Format appointments for frontend
         appointments_data = []
@@ -666,8 +745,19 @@ def api_create_patient(request):
                 'error': 'Já existe um paciente com estes dados'
             })
         
-        # Create the patient
+        # Get the current doctor for the user
+        from accounts.utils import get_doctor_for_user
+        doctor = get_doctor_for_user(request.user)
+        
+        if not doctor:
+            return JsonResponse({
+                'success': False,
+                'error': 'Usuário não tem um perfil de médico associado'
+            })
+        
+        # Create the patient assigned to the current doctor
         patient = Patient.objects.create(
+            doctor=doctor,
             first_name=first_name,
             last_name=last_name,
             email=email if email else None,
@@ -1057,68 +1147,105 @@ def api_next_appointment(request):
 def api_agenda_stats(request):
     """API endpoint to get current agenda stats"""
     try:
-        # Get current user's doctor profile
-        try:
-            current_doctor = Doctor.objects.get(user=request.user)
-        except Doctor.DoesNotExist:
-            return JsonResponse({
-                'success': False,
-                'error': 'Usuário não é um médico válido'
-            })
+        # Get current doctor (from selection for admins, or user's doctor)
+        current_doctor = get_selected_doctor(request)
         
         today = timezone.now().date()
         now = timezone.now()
         current_time = now.time()
 
-        # Calculate stats using the same logic as in home view
-        total_today = Appointment.objects.filter(
-            doctor=current_doctor,
-            appointment_date=today
-        ).count()
-        completed_today = Appointment.objects.filter(
-            doctor=current_doctor,
-            appointment_date=today,
-            status='completed'
-        ).count()
-        
-        pending_today = Appointment.objects.filter(
-            doctor=current_doctor,
-            appointment_date=today,
-            status__in=['scheduled', 'confirmed']
-        ).count()
-        
-        # Get next appointment (from today onwards, including future appointments today)
-        # First, try to find appointments today that haven't happened yet
-        today_future_appointments = Appointment.objects.filter(
-            doctor=current_doctor,
-            appointment_date=today,
-            appointment_time__gt=current_time,
-            status__in=['scheduled', 'confirmed']
-        ).exclude(
-            status='cancelled'
-        ).order_by('appointment_time').first()
-        
-        if today_future_appointments:
-            # Next appointment is today
-            next_appointment_time = f"Hoje às {today_future_appointments.appointment_time.strftime('%H:%M')}"
-        else:
-            # Look for appointments from tomorrow onwards
-            tomorrow = today + timedelta(days=1)
-            next_appointment = Appointment.objects.filter(
+        # Calculate stats - if no doctor selected, show aggregated stats for all doctors
+        if current_doctor:
+            total_today = Appointment.objects.filter(
                 doctor=current_doctor,
-                appointment_date__gte=tomorrow,
+                appointment_date=today
+            ).count()
+            completed_today = Appointment.objects.filter(
+                doctor=current_doctor,
+                appointment_date=today,
+                status='completed'
+            ).count()
+            
+            pending_today = Appointment.objects.filter(
+                doctor=current_doctor,
+                appointment_date=today,
+                status__in=['scheduled', 'confirmed']
+            ).count()
+            
+            # Get next appointment (from today onwards, including future appointments today)
+            # First, try to find appointments today that haven't happened yet
+            today_future_appointments = Appointment.objects.filter(
+                doctor=current_doctor,
+                appointment_date=today,
+                appointment_time__gt=current_time,
                 status__in=['scheduled', 'confirmed']
             ).exclude(
                 status='cancelled'
-            ).order_by('appointment_date', 'appointment_time').first()
+            ).order_by('appointment_time').first()
             
-            if next_appointment:
-                if next_appointment.appointment_date == tomorrow:
-                    next_appointment_time = f"Amanhã às {next_appointment.appointment_time.strftime('%H:%M')}"
-                else:
-                    next_appointment_time = f"{next_appointment.appointment_date.strftime('%d/%m')} às {next_appointment.appointment_time.strftime('%H:%M')}"
+            if today_future_appointments:
+                # Next appointment is today
+                next_appointment_time = f"Hoje às {today_future_appointments.appointment_time.strftime('%H:%M')}"
             else:
-                next_appointment_time = 'N/A'
+                # Look for appointments from tomorrow onwards
+                tomorrow = today + timedelta(days=1)
+                next_appointment = Appointment.objects.filter(
+                    doctor=current_doctor,
+                    appointment_date__gte=tomorrow,
+                    status__in=['scheduled', 'confirmed']
+                ).exclude(
+                    status='cancelled'
+                ).order_by('appointment_date', 'appointment_time').first()
+                
+                if next_appointment:
+                    if next_appointment.appointment_date == tomorrow:
+                        next_appointment_time = f"Amanhã às {next_appointment.appointment_time.strftime('%H:%M')}"
+                    else:
+                        next_appointment_time = f"{next_appointment.appointment_date.strftime('%d/%m')} às {next_appointment.appointment_time.strftime('%H:%M')}"
+                else:
+                    next_appointment_time = 'N/A'
+        else:
+            # For admins without doctor selection, show aggregated stats
+            total_today = Appointment.objects.filter(
+                appointment_date=today
+            ).count()
+            completed_today = Appointment.objects.filter(
+                appointment_date=today,
+                status='completed'
+            ).count()
+            
+            pending_today = Appointment.objects.filter(
+                appointment_date=today,
+                status__in=['scheduled', 'confirmed']
+            ).count()
+            
+            # Get next appointment from all doctors
+            today_future_appointments = Appointment.objects.filter(
+                appointment_date=today,
+                appointment_time__gt=current_time,
+                status__in=['scheduled', 'confirmed']
+            ).exclude(
+                status='cancelled'
+            ).order_by('appointment_time').first()
+            
+            if today_future_appointments:
+                next_appointment_time = f"Hoje às {today_future_appointments.appointment_time.strftime('%H:%M')}"
+            else:
+                tomorrow = today + timedelta(days=1)
+                next_appointment = Appointment.objects.filter(
+                    appointment_date__gte=tomorrow,
+                    status__in=['scheduled', 'confirmed']
+                ).exclude(
+                    status='cancelled'
+                ).order_by('appointment_date', 'appointment_time').first()
+                
+                if next_appointment:
+                    if next_appointment.appointment_date == tomorrow:
+                        next_appointment_time = f"Amanhã às {next_appointment.appointment_time.strftime('%H:%M')}"
+                    else:
+                        next_appointment_time = f"{next_appointment.appointment_date.strftime('%d/%m')} às {next_appointment.appointment_time.strftime('%H:%M')}"
+                else:
+                    next_appointment_time = 'N/A'
         
         return JsonResponse({
             'success': True,
@@ -2053,8 +2180,19 @@ def api_create_patient(request):
                 'error': 'Nome, sobrenome, data de nascimento e sexo são obrigatórios'
             })
         
-        # Create the patient
+        # Get the current doctor for the user
+        from accounts.utils import get_doctor_for_user
+        doctor = get_doctor_for_user(request.user)
+        
+        if not doctor:
+            return JsonResponse({
+                'success': False,
+                'error': 'Usuário não tem um perfil de médico associado'
+            })
+        
+        # Create the patient assigned to the current doctor
         patient = Patient.objects.create(
+            doctor=doctor,
             first_name=first_name,
             last_name=last_name,
             email=email if email else None,
@@ -2178,3 +2316,87 @@ def api_update_patient(request):
             'success': False,
             'error': f'Erro ao atualizar paciente: {str(e)}'
         })
+
+
+@login_required
+@require_POST
+def select_doctor(request):
+    """API endpoint for admin to select a doctor to view as"""
+    try:
+        # Check if user is admin
+        role = get_user_role(request.user)
+        if role != 'admin':
+            return JsonResponse({
+                'success': False,
+                'error': 'Apenas administradores podem selecionar médicos'
+            })
+        
+        # Get doctor ID from request
+        doctor_id = request.POST.get('doctor_id', '').strip()
+        
+        if not doctor_id:
+            # Clear the selection to show all doctors
+            request.session.pop('selected_doctor_id', None)
+            
+            return JsonResponse({
+                'success': True,
+                'message': 'Visualizando todos os médicos'
+            })
+        
+        # Get the doctor
+        try:
+            doctor = Doctor.objects.get(id=doctor_id)
+        except Doctor.DoesNotExist:
+            return JsonResponse({
+                'success': False,
+                'error': 'Médico não encontrado'
+            })
+        
+        # Check if admin can access this doctor
+        if not can_access_doctor(request.user, doctor):
+            return JsonResponse({
+                'success': False,
+                'error': 'Você não tem acesso a este médico'
+            })
+        
+        # Store selected doctor in session
+        request.session['selected_doctor_id'] = doctor.id
+        
+        return JsonResponse({
+            'success': True,
+            'message': f'Visualizando como Dr. {doctor.full_name}'
+        })
+        
+    except Exception as e:
+        return JsonResponse({
+            'success': False,
+            'error': f'Erro ao selecionar médico: {str(e)}'
+        })
+
+
+def get_selected_doctor(request):
+    """Helper function to get the selected doctor from session"""
+    role = get_user_role(request.user)
+    
+    if role == 'admin':
+        # Admins can select a doctor to view as
+        selected_doctor_id = request.session.get('selected_doctor_id')
+        if selected_doctor_id:
+            try:
+                doctor = Doctor.objects.get(id=selected_doctor_id)
+                # Verify admin still has access to this doctor
+                if can_access_doctor(request.user, doctor):
+                    return doctor
+            except Doctor.DoesNotExist:
+                pass
+    elif role == 'doctor':
+        # Doctors see their own data
+        return getattr(request.user, 'doctor_profile', None)
+    elif role == 'secretary':
+        # Secretaries see their assigned doctor's data
+        secretary_profile = getattr(request.user, 'secretary_profile', None)
+        if secretary_profile:
+            return secretary_profile.doctor
+        return None
+    
+    return None

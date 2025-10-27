@@ -42,6 +42,17 @@
             <h1 class="h3 mb-0">
                 
             </h1>
+            {% if is_admin and accessible_doctors|length > 0 %}
+            <div class="me-3">
+                <label for="doctor-selector" class="form-label mb-1">Ver como:</label>
+                <select id="doctor-selector" class="form-select form-select-sm" onchange="selectDoctor()">
+                    <option value="" {% if not selected_doctor_id %}selected{% endif %}>Todos</option>
+                    {% for doctor in accessible_doctors %}
+                    <option value="{{ doctor.id }}" {% if selected_doctor_id == doctor.id %}selected{% endif %}>{{ doctor.full_name }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            {% endif %}
             <div class="btn-group" role="group">
                 <button type="button" class="btn btn-primary" onclick="switchTab('agenda')">
                     <i class="fas fa-calendar-alt me-1"></i>Agenda

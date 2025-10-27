@@ -8,6 +8,16 @@ class Patient(models.Model):
     """
     Patient model to store patient information
     """
+    # Link to Doctor (who manages this patient)
+    doctor = models.ForeignKey(
+        'Doctor',
+        on_delete=models.CASCADE,
+        related_name='patients',
+        null=True,
+        blank=True,
+        help_text="Doctor who manages this patient"
+    )
+    
     # Basic Information
     first_name = models.CharField(max_length=100, help_text="Patient's first name")
     last_name = models.CharField(max_length=100, help_text="Patient's last name")
@@ -63,6 +73,7 @@ class Patient(models.Model):
         verbose_name_plural = "Patients"
         ordering = ['last_name', 'first_name']
         indexes = [
+            models.Index(fields=['doctor']),
             models.Index(fields=['last_name', 'first_name']),
             models.Index(fields=['email']),
             models.Index(fields=['phone']),
@@ -95,6 +106,79 @@ class Patient(models.Model):
         return today.year - birth_date.year - ((today.month, today.day) < (birth_date.month, birth_date.day))
 
 
+class Admin(models.Model):
+    """
+    Admin model to store admin information
+    Admins can manage multiple doctors
+    """
+    # Link to Django User
+    user = models.OneToOneField(
+        User,
+        on_delete=models.CASCADE,
+        related_name='admin_profile',
+        help_text="Django User object for the admin"
+    )
+    
+    # Contact Information
+    phone = models.CharField(
+        max_length=20,
+        blank=True,
+        null=True,
+        validators=[RegexValidator(
+            regex=r'^\+?1?\d{9,15}$',
+            message="Phone number must be entered in the format: '+999999999'. Up to 15 digits allowed."
+        )],
+        help_text="Admin's phone number"
+    )
+    
+    # Status
+    is_active = models.BooleanField(
+        default=True,
+        help_text="Whether the admin is currently active"
+    )
+    
+    # Timestamps
+    created_at = models.DateTimeField(auto_now_add=True, help_text="When this admin profile was created")
+    updated_at = models.DateTimeField(auto_now=True, help_text="When this admin profile was last updated")
+    
+    class Meta:
+        verbose_name = "Admin"
+        verbose_name_plural = "Admins"
+        ordering = ['user__last_name', 'user__first_name']
+        indexes = [
+            models.Index(fields=['is_active']),
+        ]
+    
+    def __str__(self):
+        return f"Admin: {self.user.get_full_name() or self.user.username}"
+    
+    @property
+    def full_name(self):
+        return f"{self.user.get_full_name() or self.user.username}"
+    
+    @property
+    def email(self):
+        return self.user.email
+    
+    @property
+    def doctors_count(self):
+        """Get the number of doctors managed by this admin"""
+        return self.doctors.filter(is_active=True).count()
+    
+    @property
+    def active_doctors(self):
+        """Get all active doctors managed by this admin"""
+        return self.doctors.filter(is_active=True)
+    
+    def get_doctors(self):
+        """Get all doctors (active and inactive) managed by this admin"""
+        return self.doctors.all()
+    
+    def get_active_doctors(self):
+        """Get only active doctors"""
+        return self.doctors.filter(is_active=True)
+
+
 class Doctor(models.Model):
     """
     Doctor model to store doctor information
@@ -105,6 +189,16 @@ class Doctor(models.Model):
         on_delete=models.CASCADE,
         related_name='doctor_profile',
         help_text="Django User object for the doctor"
+    )
+    
+    # Link to Admin (who manages this doctor)
+    admin = models.ForeignKey(
+        Admin,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='doctors',
+        help_text="Admin who manages this doctor"
     )
     
     # Professional Information
@@ -160,6 +254,7 @@ class Doctor(models.Model):
             models.Index(fields=['medical_license']),
             models.Index(fields=['specialization']),
             models.Index(fields=['is_active']),
+            models.Index(fields=['admin']),
         ]
     
     def __str__(self):
@@ -172,6 +267,111 @@ class Doctor(models.Model):
     @property
     def email(self):
         return self.user.email
+    
+    @property
+    def active_secretaries_count(self):
+        """Get the number of active secretaries for this doctor"""
+        return self.secretaries.filter(is_active=True).count()
+    
+    @property
+    def active_secretaries(self):
+        """Get all active secretaries for this doctor"""
+        return self.secretaries.filter(is_active=True)
+    
+    def get_secretaries(self):
+        """Get all secretaries (active and inactive)"""
+        return self.secretaries.all()
+    
+    def get_active_secretaries(self):
+        """Get only active secretaries"""
+        return self.secretaries.filter(is_active=True)
+    
+    @property
+    def patients_count(self):
+        """Get the number of patients for this doctor"""
+        return self.patients.filter(is_active=True).count()
+    
+    @property
+    def active_patients(self):
+        """Get all active patients for this doctor"""
+        return self.patients.filter(is_active=True)
+    
+    def get_patients(self):
+        """Get all patients for this doctor"""
+        return self.patients.all()
+    
+    def get_active_patients(self):
+        """Get only active patients"""
+        return self.patients.filter(is_active=True)
+
+
+class Secretary(models.Model):
+    """
+    Secretary model to store secretary information
+    Each secretary works for one doctor
+    """
+    # Link to Django User
+    user = models.OneToOneField(
+        User,
+        on_delete=models.CASCADE,
+        related_name='secretary_profile',
+        help_text="Django User object for the secretary"
+    )
+    
+    # Link to Doctor
+    doctor = models.ForeignKey(
+        Doctor,
+        on_delete=models.CASCADE,
+        related_name='secretaries',
+        help_text="Doctor this secretary works for"
+    )
+    
+    # Contact Information
+    phone = models.CharField(
+        max_length=20,
+        blank=True,
+        null=True,
+        validators=[RegexValidator(
+            regex=r'^\+?1?\d{9,15}$',
+            message="Phone number must be entered in the format: '+999999999'. Up to 15 digits allowed."
+        )],
+        help_text="Secretary's phone number"
+    )
+    
+    # Status
+    is_active = models.BooleanField(
+        default=True,
+        help_text="Whether the secretary is currently active"
+    )
+    
+    # Timestamps
+    created_at = models.DateTimeField(auto_now_add=True, help_text="When this secretary profile was created")
+    updated_at = models.DateTimeField(auto_now=True, help_text="When this secretary profile was last updated")
+    
+    class Meta:
+        verbose_name = "Secretary"
+        verbose_name_plural = "Secretaries"
+        ordering = ['user__last_name', 'user__first_name']
+        indexes = [
+            models.Index(fields=['doctor']),
+            models.Index(fields=['is_active']),
+        ]
+    
+    def __str__(self):
+        return f"Secretary: {self.user.get_full_name() or self.user.username} - Dr. {self.doctor.user.get_full_name()}"
+    
+    @property
+    def full_name(self):
+        return f"{self.user.get_full_name() or self.user.username}"
+    
+    @property
+    def email(self):
+        return self.user.email
+    
+    @property
+    def doctor_name(self):
+        """Get the doctor's name"""
+        return self.doctor.full_name
 
 
 class MedicalRecord(models.Model):

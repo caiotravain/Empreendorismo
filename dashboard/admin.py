@@ -1,20 +1,24 @@
 from django.contrib import admin
-from .models import Patient, Doctor, MedicalRecord, Appointment, Expense, Income
+from .models import Admin, Patient, Doctor, Secretary, MedicalRecord, Appointment, Expense, Income
 
 
 @admin.register(Patient)
 class PatientAdmin(admin.ModelAdmin):
     list_display = [
-        'full_name', 
+        'full_name',
+        'doctor',
         'email', 
         'phone', 
         'date_of_birth',
         'age',
         'gender',
+        'is_active',
         'created_at'
     ]
     list_filter = [
+        'doctor',
         'gender', 
+        'is_active',
         'created_at', 
         'city',
         'state'
@@ -31,6 +35,9 @@ class PatientAdmin(admin.ModelAdmin):
     ordering = ['last_name', 'first_name']
     
     fieldsets = (
+        ('Doctor Assignment', {
+            'fields': ('doctor',)
+        }),
         ('Personal Information', {
             'fields': ('first_name', 'last_name', 'date_of_birth', 'gender')
         }),
@@ -39,6 +46,9 @@ class PatientAdmin(admin.ModelAdmin):
         }),
         ('Medical Information', {
             'fields': ('emergency_contact_name', 'emergency_contact_phone', 'medical_insurance')
+        }),
+        ('Status', {
+            'fields': ('is_active',)
         }),
         ('Timestamps', {
             'fields': ('created_at', 'updated_at'),
@@ -80,6 +90,9 @@ class DoctorAdmin(admin.ModelAdmin):
         ('User Account', {
             'fields': ('user',)
         }),
+        ('Administration', {
+            'fields': ('admin',)
+        }),
         ('Professional Information', {
             'fields': ('medical_license', 'specialization', 'years_of_experience', 'hospital_affiliation')
         }),
@@ -91,6 +104,48 @@ class DoctorAdmin(admin.ModelAdmin):
         }),
         ('Timestamps', {
             'fields': ('created_at', 'updated_at'),
+            'classes': ('collapse',)
+        }),
+    )
+
+
+@admin.register(Admin)
+class AdminAdmin(admin.ModelAdmin):
+    list_display = [
+        'full_name',
+        'email',
+        'phone',
+        'doctors_count',
+        'is_active',
+        'created_at'
+    ]
+    list_filter = [
+        'is_active',
+        'created_at'
+    ]
+    search_fields = [
+        'user__first_name',
+        'user__last_name',
+        'user__email',
+        'user__username',
+        'phone'
+    ]
+    readonly_fields = ['created_at', 'updated_at', 'doctors_count']
+    date_hierarchy = 'created_at'
+    ordering = ['user__last_name', 'user__first_name']
+    
+    fieldsets = (
+        ('User Account', {
+            'fields': ('user',)
+        }),
+        ('Contact Information', {
+            'fields': ('phone',)
+        }),
+        ('Status', {
+            'fields': ('is_active',)
+        }),
+        ('Timestamps', {
+            'fields': ('created_at', 'updated_at', 'doctors_count'),
             'classes': ('collapse',)
         }),
     )
@@ -373,3 +428,52 @@ class IncomeAdmin(admin.ModelAdmin):
         # This would implement CSV export functionality
         self.message_user(request, f'Export functionality for {queryset.count()} incomes would be implemented here.')
     export_incomes.short_description = "Export selected incomes to CSV"
+
+
+@admin.register(Secretary)
+class SecretaryAdmin(admin.ModelAdmin):
+    list_display = [
+        'full_name',
+        'email',
+        'phone',
+        'doctor',
+        'is_active',
+        'created_at'
+    ]
+    list_filter = [
+        'doctor',
+        'is_active',
+        'created_at'
+    ]
+    search_fields = [
+        'user__first_name',
+        'user__last_name',
+        'user__email',
+        'user__username',
+        'phone',
+        'doctor__user__first_name',
+        'doctor__user__last_name',
+        'doctor__medical_license'
+    ]
+    readonly_fields = ['created_at', 'updated_at']
+    date_hierarchy = 'created_at'
+    ordering = ['user__last_name', 'user__first_name']
+    
+    fieldsets = (
+        ('User Account', {
+            'fields': ('user',)
+        }),
+        ('Work Assignment', {
+            'fields': ('doctor',)
+        }),
+        ('Contact Information', {
+            'fields': ('phone',)
+        }),
+        ('Status', {
+            'fields': ('is_active',)
+        }),
+        ('Timestamps', {
+            'fields': ('created_at', 'updated_at'),
+            'classes': ('collapse',)
+        }),
+    )

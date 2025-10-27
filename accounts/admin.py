@@ -1,3 +1,3 @@
 from django.contrib import admin
 
-# Register your models here.
+# Models are now in dashboard app

@@ -1,4 +1,64 @@
 let selectedPatient = null;
+let selectedDoctorId = null;
+
+// Doctor selection function for admins
+function selectDoctor() {
+    const selectElement = document.getElementById('doctor-selector');
+    if (!selectElement) return;
+    
+    const doctorId = selectElement.value;
+    selectedDoctorId = doctorId;
+    
+    if (doctorId) {
+        // Call API to set selected doctor in session
+        fetch('/dashboard/select-doctor/', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/x-www-form-urlencoded',
+                'X-CSRFToken': getCookie('csrftoken')
+            },
+            body: `doctor_id=${doctorId}`
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                // Reload the page to show the selected doctor's data
+                window.location.reload();
+            } else {
+                console.error('Error selecting doctor:', data.error);
+                alert('Erro ao selecionar médico: ' + data.error);
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            alert('Erro ao selecionar médico');
+        });
+    } else {
+        // Clear doctor selection to show all doctors
+        fetch('/dashboard/select-doctor/', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/x-www-form-urlencoded',
+                'X-CSRFToken': getCookie('csrftoken')
+            },
+            body: `doctor_id=`
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                // Reload the page to show all doctors' data
+                window.location.reload();
+            } else {
+                console.error('Error clearing doctor selection:', data.error);
+                alert('Erro ao limpar seleção: ' + data.error);
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            alert('Erro ao limpar seleção');
+        });
+    }
+}
 
 // switchTab function is now handled by main.js
 
@@ -614,8 +674,8 @@ function loadPatientsAndDoctors() {
 }
 
 function setupPatientSearch() {
-    const searchInput = document.getElementById('patient-search');
-    const dropdown = document.getElementById('patient-dropdown');
+    const searchInput = document.getElementById('appointment-patient-search');
+    const dropdown = document.getElementById('appointment-patient-dropdown');
     const hiddenInput = document.getElementById('appointment-patient');
     
     console.log('Setting up patient search:', {
@@ -656,9 +716,9 @@ function setupPatientSearch() {
 }
 
 function showPatients(patients) {
-    const dropdown = document.getElementById('patient-dropdown');
+    const dropdown = document.getElementById('appointment-patient-dropdown');
     const hiddenInput = document.getElementById('appointment-patient');
-    const searchInput = document.getElementById('patient-search');
+    const searchInput = document.getElementById('appointment-patient-search');
     
     dropdown.innerHTML = '';
     
@@ -672,9 +732,20 @@ function showPatients(patients) {
             item.textContent = `${patient.first_name} ${patient.last_name}`;
             
             item.addEventListener('click', function() {
+                console.log('Clicking patient:', patient);
+                console.log('Before setting - hiddenInput:', hiddenInput.value, 'searchInput:', searchInput.value);
+                
                 hiddenInput.value = patient.id;
                 searchInput.value = `${patient.first_name} ${patient.last_name}`;
+                
+                console.log('After setting - hiddenInput:', hiddenInput.value, 'searchInput:', searchInput.value);
+                
+                // Force update
+                searchInput.dispatchEvent(new Event('input', { bubbles: true }));
+                
                 dropdown.style.display = 'none';
+                
+                console.log('Final - hiddenInput:', hiddenInput.value, 'searchInput:', searchInput.value);
             });
             
             dropdown.appendChild(item);
@@ -911,7 +982,21 @@ function selectPatientFromPopup(patientId, patientName) {
     const modal = bootstrap.Modal.getInstance(document.getElementById('patientSelectionModal'));
     modal.hide();
     
-    // Use the existing selectPatient function
+    // Set patient in appointment form if it exists
+    const appointmentPatientInput = document.getElementById('appointment-patient');
+    const appointmentPatientSearch = document.getElementById('appointment-patient-search');
+    
+    if (appointmentPatientInput && appointmentPatientSearch) {
+        appointmentPatientInput.value = patientId;
+        appointmentPatientSearch.value = patientName;
+        appointmentPatientSearch.removeAttribute('placeholder');
+        console.log('Set patient in appointment form:', {
+            hidden: patientId,
+            visible: patientName
+        });
+    }
+    
+    // Use the existing selectPatient function for main dashboard
     selectPatient(patientName, patientId);
 }
 

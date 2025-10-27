@@ -1842,3 +1842,16 @@
     box-shadow: 0 0 0 0.2rem rgba(0, 123, 255, 0.25);
 }
 
+/* Ensure input values are always visible in appointment modal */
+#appointment-patient-search {
+    color: #212529 !important;
+}
+
+#appointment-patient-search::placeholder {
+    color: #6c757d;
+}
+
+#appointment-patient-search:not(:placeholder-shown) {
+    color: #212529 !important;
+}
+
