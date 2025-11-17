@@ -1086,3 +1086,31 @@ class Income(models.Model):
     @property
     def formatted_amount(self):
         return f"R$ {self.amount:,.2f}".replace(',', 'X').replace('.', ',').replace('X', '.')
+
+
+class Medication(models.Model):
+    """
+    Medication model to store medication information
+    """
+    name = models.CharField(max_length=200, help_text="Name of the medication")
+    description = models.TextField(blank=True, null=True, help_text="Description of the medication")
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        verbose_name = "Medication"
+        verbose_name_plural = "Medications"
+        ordering = ['name']
+        indexes = [
+            models.Index(fields=['name']),
+        ]
+
+    def __str__(self):
+        return self.name
+
+    @property
+    def formatted_name(self):
+        return self.name.upper()
+
+    @property
+    def formatted_description(self):
+        return self.description.upper()

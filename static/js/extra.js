@@ -457,6 +457,68 @@ function getCookie(name) {
     return cookieValue;
 }
 
+// WhatsApp Test Functions
+function showWhatsAppTestModal() {
+    const modalElement = document.getElementById('whatsappTestModal');
+    if (!modalElement) {
+        console.error('WhatsApp test modal not found');
+        return;
+    }
+    const modal = new bootstrap.Modal(modalElement);
+    modal.show();
+}
+
+function sendWhatsAppTest() {
+    const phoneNumber = document.getElementById('test-phone-number')?.value.trim();
+    const message = document.getElementById('test-message')?.value.trim();
+    
+    if (!phoneNumber) {
+        showNotification('Por favor, digite o número de telefone', 'warning');
+        return;
+    }
+    
+    if (!message) {
+        showNotification('Por favor, digite a mensagem', 'warning');
+        return;
+    }
+    
+    // Show loading notification
+    showNotification('Gerando link do WhatsApp...', 'info');
+    
+    // Send request to API
+    fetch('/dashboard/api/whatsapp/send/', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/x-www-form-urlencoded',
+            'X-CSRFToken': getCookie('csrftoken')
+        },
+        body: `phone_number=${encodeURIComponent(phoneNumber)}&message=${encodeURIComponent(message)}`
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            // Open WhatsApp link in new tab
+            window.open(data.whatsapp_url, '_blank');
+            showNotification('Link do WhatsApp aberto! Complete o envio no WhatsApp Web.', 'success');
+            
+            // Close modal
+            const modalElement = document.getElementById('whatsappTestModal');
+            if (modalElement) {
+                const modal = bootstrap.Modal.getInstance(modalElement);
+                if (modal) {
+                    modal.hide();
+                }
+            }
+        } else {
+            showNotification('Erro: ' + data.error, 'error');
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        showNotification('Erro ao enviar mensagem: ' + error.message, 'error');
+    });
+}
+
 // Global variable to store current record data for printing
 let currentRecordData = null;
 
@@ -1161,6 +1223,9 @@ function initializePrescriptionForm() {
         btn.addEventListener('click', removeMedicationItem);
     });
     
+    // Initialize autocomplete for existing medication inputs
+    initializeMedicationAutocomplete();
+    
     // Update button states based on patient selection
     updatePrescriptionButtonStates();
 }
@@ -1175,7 +1240,8 @@ function addMedicationItem() {
         <div class="row">
             <div class="col-md-6">
                 <label class="form-label fw-bold">Medicamento</label>
-                <input type="text" class="form-control" name="medication_name[]" placeholder="Nome do medicamento">
+                <input type="text" class="form-control medication-autocomplete" name="medication_name[]" placeholder="Nome do medicamento" autocomplete="off">
+                <div class="medication-autocomplete-list" style="display: none;"></div>
             </div>
             <div class="col-md-3">
                 <label class="form-label fw-bold">Quantidade</label>
@@ -1200,6 +1266,9 @@ function addMedicationItem() {
     // Add event listener to the new remove button
     newItem.querySelector('.remove-medication').addEventListener('click', removeMedicationItem);
     
+    // Initialize autocomplete for the new medication input
+    initializeMedicationAutocompleteForInput(newItem.querySelector('.medication-autocomplete'));
+    
     // Show remove buttons if there are more than 1 items
     updateRemoveButtons();
 }
@@ -1219,6 +1288,210 @@ function updateRemoveButtons() {
     removeButtons.forEach(btn => {
         btn.style.display = medicationItems.children.length > 1 ? 'block' : 'none';
     });
+}
+
+// Medication autocomplete functionality
+let autocompleteTimeout = null;
+
+function initializeMedicationAutocomplete() {
+    // Initialize autocomplete for all existing medication inputs
+    document.querySelectorAll('.medication-autocomplete').forEach(input => {
+        initializeMedicationAutocompleteForInput(input);
+    });
+    
+    // Also initialize for inputs without the class (existing ones in HTML)
+    document.querySelectorAll('input[name="medication_name[]"]').forEach(input => {
+        if (!input.classList.contains('medication-autocomplete')) {
+            input.classList.add('medication-autocomplete');
+            // Create autocomplete list container if it doesn't exist
+            if (!input.nextElementSibling || !input.nextElementSibling.classList.contains('medication-autocomplete-list')) {
+                const listDiv = document.createElement('div');
+                listDiv.className = 'medication-autocomplete-list';
+                listDiv.style.display = 'none';
+                listDiv.style.position = 'absolute';
+                listDiv.style.zIndex = '1000';
+                listDiv.style.backgroundColor = 'white';
+                listDiv.style.border = '1px solid #ccc';
+                listDiv.style.borderRadius = '4px';
+                listDiv.style.maxHeight = '200px';
+                listDiv.style.overflowY = 'auto';
+                listDiv.style.width = input.offsetWidth + 'px';
+                input.parentElement.style.position = 'relative';
+                input.parentElement.appendChild(listDiv);
+            }
+            initializeMedicationAutocompleteForInput(input);
+        }
+    });
+}
+
+function initializeMedicationAutocompleteForInput(input) {
+    // Create autocomplete list container if it doesn't exist
+    let listDiv = input.nextElementSibling;
+    if (!listDiv || !listDiv.classList.contains('medication-autocomplete-list')) {
+        listDiv = document.createElement('div');
+        listDiv.className = 'medication-autocomplete-list';
+        listDiv.style.display = 'none';
+        listDiv.style.position = 'absolute';
+        listDiv.style.zIndex = '1000';
+        listDiv.style.backgroundColor = 'white';
+        listDiv.style.border = '1px solid #ccc';
+        listDiv.style.borderRadius = '4px';
+        listDiv.style.maxHeight = '200px';
+        listDiv.style.overflowY = 'auto';
+        listDiv.style.boxShadow = '0 2px 5px rgba(0,0,0,0.2)';
+        input.parentElement.style.position = 'relative';
+        input.parentElement.appendChild(listDiv);
+    }
+    
+    // Set width to match input
+    listDiv.style.width = input.offsetWidth + 'px';
+    
+    // Debounced search function
+    input.addEventListener('input', function(e) {
+        const query = e.target.value.trim();
+        
+        // Clear previous timeout
+        if (autocompleteTimeout) {
+            clearTimeout(autocompleteTimeout);
+        }
+        
+        // Hide list if query is empty
+        if (query.length < 2) {
+            listDiv.style.display = 'none';
+            return;
+        }
+        
+        // Debounce API call
+        autocompleteTimeout = setTimeout(() => {
+            searchMedications(query, input, listDiv);
+        }, 300);
+    });
+    
+    // Hide list when input loses focus (with delay to allow click on list)
+    input.addEventListener('blur', function() {
+        setTimeout(() => {
+            listDiv.style.display = 'none';
+        }, 200);
+    });
+    
+    // Handle keyboard navigation
+    input.addEventListener('keydown', function(e) {
+        const items = listDiv.querySelectorAll('.autocomplete-item');
+        const currentActive = listDiv.querySelector('.autocomplete-item.active');
+        
+        if (e.key === 'ArrowDown') {
+            e.preventDefault();
+            if (currentActive) {
+                currentActive.classList.remove('active');
+                const next = currentActive.nextElementSibling;
+                if (next) {
+                    next.classList.add('active');
+                    next.scrollIntoView({ block: 'nearest' });
+                } else {
+                    items[0]?.classList.add('active');
+                }
+            } else {
+                items[0]?.classList.add('active');
+            }
+        } else if (e.key === 'ArrowUp') {
+            e.preventDefault();
+            if (currentActive) {
+                currentActive.classList.remove('active');
+                const prev = currentActive.previousElementSibling;
+                if (prev) {
+                    prev.classList.add('active');
+                    prev.scrollIntoView({ block: 'nearest' });
+                } else {
+                    items[items.length - 1]?.classList.add('active');
+                }
+            } else {
+                items[items.length - 1]?.classList.add('active');
+            }
+        } else if (e.key === 'Enter') {
+            e.preventDefault();
+            if (currentActive) {
+                const medicationName = currentActive.dataset.name;
+                input.value = medicationName;
+                listDiv.style.display = 'none';
+            }
+        } else if (e.key === 'Escape') {
+            listDiv.style.display = 'none';
+        }
+    });
+}
+
+function searchMedications(query, input, listDiv) {
+    fetch(`/dashboard/api/medications/search/?q=${encodeURIComponent(query)}`)
+        .then(response => response.json())
+        .then(data => {
+            if (data.success && data.medications.length > 0) {
+                displayMedicationSuggestions(data.medications, input, listDiv);
+            } else {
+                listDiv.style.display = 'none';
+            }
+        })
+        .catch(error => {
+            console.error('Error searching medications:', error);
+            listDiv.style.display = 'none';
+        });
+}
+
+function displayMedicationSuggestions(medications, input, listDiv) {
+    listDiv.innerHTML = '';
+    
+    medications.forEach(medication => {
+        const item = document.createElement('div');
+        item.className = 'autocomplete-item';
+        item.style.padding = '4px 8px';
+        item.style.cursor = 'pointer';
+        item.style.borderBottom = '1px solid #eee';
+        item.style.fontSize = '14px';
+        item.style.lineHeight = '1.4';
+        item.dataset.name = medication.name;
+        
+        // Highlight matching text
+        const name = medication.name;
+        const query = input.value.toLowerCase();
+        const nameLower = name.toLowerCase();
+        const index = nameLower.indexOf(query);
+        
+        let html = name;
+        if (index !== -1) {
+            const before = name.substring(0, index);
+            const match = name.substring(index, index + query.length);
+            const after = name.substring(index + query.length);
+            html = `${before}<strong>${match}</strong>${after}`;
+        }
+        
+        item.innerHTML = html;
+        if (medication.description) {
+            item.innerHTML += `<br><small class="text-muted" style="font-size: 11px; line-height: 1.3;">${medication.description}</small>`;
+        }
+        
+        // Hover effect
+        item.addEventListener('mouseenter', function() {
+            listDiv.querySelectorAll('.autocomplete-item').forEach(i => i.classList.remove('active'));
+            item.classList.add('active');
+            item.style.backgroundColor = '#f0f0f0';
+        });
+        
+        item.addEventListener('mouseleave', function() {
+            item.style.backgroundColor = '';
+        });
+        
+        // Click to select
+        item.addEventListener('click', function() {
+            input.value = medication.name;
+            listDiv.style.display = 'none';
+            input.focus();
+        });
+        
+        listDiv.appendChild(item);
+    });
+    
+    // Update width and position
+    listDiv.style.width = input.offsetWidth + 'px';
+    listDiv.style.display = 'block';
 }
 
 function updatePrescriptionButtonStates() {

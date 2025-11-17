@@ -35,6 +35,10 @@ urlpatterns = [
     path('api/prescriptions/send-email/', views.api_send_prescription_email, name='api_send_prescription_email'),
     path('api/prescriptions/send-whatsapp/', views.api_send_prescription_whatsapp, name='api_send_prescription_whatsapp'),
     path('api/prescriptions/print/', views.api_print_prescription, name='api_print_prescription'),
+    path('api/medications/search/', views.api_search_medications, name='api_search_medications'),
+    
+    # API endpoint for generic WhatsApp sending
+    path('api/whatsapp/send/', views.api_send_whatsapp, name='api_send_whatsapp'),
     
     # API endpoints for expenses
     path('api/expenses/', views.api_expenses, name='api_expenses'),

@@ -8,7 +8,7 @@ from django.views.decorators.http import require_http_methods
 from django.db import models
 from datetime import date, timedelta, datetime
 from decimal import Decimal, InvalidOperation
-from .models import Appointment, Patient, Doctor, MedicalRecord, Prescription, PrescriptionItem, PrescriptionTemplate, Expense, Income
+from .models import Appointment, Patient, Doctor, MedicalRecord, Prescription, PrescriptionItem, PrescriptionTemplate, Expense, Income, Medication
 from accounts.utils import get_accessible_patients, get_user_role, has_access_to_patient, get_accessible_doctors, can_access_doctor
 
 @login_required
@@ -1587,6 +1587,69 @@ def api_send_prescription_whatsapp(request):
         })
 
 @login_required
+@require_POST
+def api_send_whatsapp(request):
+    """API endpoint to send WhatsApp message (free integration using WhatsApp Web link)"""
+    try:
+        # Get phone number and message from request
+        phone_number = request.POST.get('phone_number', '').strip()
+        message = request.POST.get('message', '').strip()
+        
+        if not phone_number:
+            return JsonResponse({
+                'success': False,
+                'error': 'Número de telefone é obrigatório'
+            })
+        
+        if not message:
+            return JsonResponse({
+                'success': False,
+                'error': 'Mensagem é obrigatória'
+            })
+        
+        # Format phone number (remove any non-digit characters except +)
+        import re
+        import urllib.parse
+        
+        # Remove all non-digit characters except +
+        cleaned_phone = re.sub(r'[^\d+]', '', phone_number)
+        
+        # If phone doesn't start with +, assume it's Brazilian format and add country code
+        if not cleaned_phone.startswith('+'):
+            # Remove leading 0 if present
+            if cleaned_phone.startswith('0'):
+                cleaned_phone = cleaned_phone[1:]
+            # Add Brazil country code if not present
+            if not cleaned_phone.startswith('55'):
+                cleaned_phone = '55' + cleaned_phone
+            cleaned_phone = '+' + cleaned_phone
+        
+        # Remove the + for WhatsApp link format
+        whatsapp_phone = cleaned_phone.replace('+', '')
+        
+        # URL encode the message
+        encoded_message = urllib.parse.quote(message)
+        
+        # Create WhatsApp Web link
+        whatsapp_url = f"https://wa.me/{whatsapp_phone}?text={encoded_message}"
+        
+        # Return the link - frontend can open it in a new window
+        return JsonResponse({
+            'success': True,
+            'message': 'Link do WhatsApp gerado com sucesso',
+            'whatsapp_url': whatsapp_url,
+            'phone_formatted': cleaned_phone,
+            'note': 'Abra este link para enviar a mensagem via WhatsApp Web'
+        })
+        
+    except Exception as e:
+        return JsonResponse({
+            'success': False,
+            'error': f'Erro ao gerar link WhatsApp: {str(e)}'
+        })
+
+
+@login_required
 @require_http_methods(["GET"])
 def api_print_prescription(request):
     """API endpoint to get prescription data for printing"""
@@ -1640,6 +1703,60 @@ def api_print_prescription(request):
         return JsonResponse({
             'success': False,
             'error': f'Erro ao carregar prescrição para impressão: {str(e)}'
+        })
+
+
+@login_required
+@require_http_methods(["GET"])
+def api_search_medications(request):
+    """API endpoint to search medications (case and accent insensitive)"""
+    import unicodedata
+    
+    try:
+        query = request.GET.get('q', '').strip()
+        
+        if not query:
+            return JsonResponse({
+                'success': True,
+                'medications': [],
+                'count': 0
+            })
+        
+        # Get all medications
+        all_medications = Medication.objects.all().order_by('name')
+        
+        # Normalize the search query (remove accents, convert to lowercase)
+        query_normalized = unicodedata.normalize('NFKD', query.lower())
+        query_normalized = ''.join(c for c in query_normalized if not unicodedata.combining(c))
+        
+        # Filter medications (case and accent insensitive)
+        matching_medications = []
+        for medication in all_medications:
+            # Normalize medication name
+            name_normalized = unicodedata.normalize('NFKD', medication.name.lower())
+            name_normalized = ''.join(c for c in name_normalized if not unicodedata.combining(c))
+            
+            # Check if query matches
+            if query_normalized in name_normalized:
+                matching_medications.append({
+                    'id': medication.id,
+                    'name': medication.name,
+                    'description': medication.description or ''
+                })
+        
+        # Limit results to 50 for performance
+        matching_medications = matching_medications[:50]
+        
+        return JsonResponse({
+            'success': True,
+            'medications': matching_medications,
+            'count': len(matching_medications)
+        })
+        
+    except Exception as e:
+        return JsonResponse({
+            'success': False,
+            'error': f'Erro ao buscar medicamentos: {str(e)}'
         })
 
 

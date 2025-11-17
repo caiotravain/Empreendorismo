@@ -76,6 +76,7 @@
                     <i class="fas fa-file-alt me-1"></i>Relatórios
                 </button>
             </div>
+            
         </div>
     </div>
 </div>
@@ -94,6 +95,43 @@
 {% include 'dashboard/modals/appointment_details_modal.html' %}
 {% include 'dashboard/modals/record_popup_modal.html' %}
 
+<!-- WhatsApp Test Modal -->
+<div class="modal fade" id="whatsappTestModal" tabindex="-1" aria-labelledby="whatsappTestModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header bg-success text-white">
+                <h5 class="modal-title" id="whatsappTestModalLabel">
+                    <i class="fab fa-whatsapp me-2"></i>Testar WhatsApp
+                </h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <form id="whatsapp-test-form">
+                    <div class="mb-3">
+                        <label for="test-phone-number" class="form-label">Número de Telefone</label>
+                        <input type="text" class="form-control" id="test-phone-number" placeholder="Ex: 11987654321 ou +5511987654321" required>
+                        <small class="form-text text-muted">Digite o número com DDD (ex: 11987654321)</small>
+                    </div>
+                    <div class="mb-3">
+                        <label for="test-message" class="form-label">Mensagem</label>
+                        <textarea class="form-control" id="test-message" rows="4" placeholder="Digite sua mensagem aqui..." required>Olá! Esta é uma mensagem de teste do sistema.</textarea>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Fechar</button>
+                <button type="button" class="btn btn-success" onclick="sendWhatsAppTest()">
+                    <i class="fab fa-whatsapp me-1"></i>Enviar via WhatsApp
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+<div class="ms-2">
+    <button type="button" class="btn btn-success btn-sm" onclick="showWhatsAppTestModal()" title="Testar WhatsApp">
+        <i class="fab fa-whatsapp me-1"></i>Testar WhatsApp
+    </button>
+</div>
 {% endblock %}
 
 {% block extra_js %}

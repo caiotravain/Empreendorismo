@@ -30,8 +30,6 @@
                                 <select class="form-select" id="prescription-template" name="template">
                                     <option value="">Selecione</option>
                                     <option value="standard">Prescrição Padrão</option>
-                                    <option value="antibiotic">Antibiótico</option>
-                                    <option value="chronic">Medicação Crônica</option>
                                 </select>
                             </div>
                         </div>
@@ -43,7 +41,8 @@
                                 <div class="row">
                                     <div class="col-md-6">
                                         <label class="form-label fw-bold">Medicamento</label>
-                                        <input type="text" class="form-control" name="medication_name[]" placeholder="Nome do medicamento">
+                                        <input type="text" class="form-control medication-autocomplete" name="medication_name[]" placeholder="Nome do medicamento" autocomplete="off">
+                                        <div class="medication-autocomplete-list" style="display: none;"></div>
                                     </div>
                                     <div class="col-md-3">
                                         <label class="form-label fw-bold">Quantidade</label>
@@ -63,30 +62,7 @@
                                 </div>
                             </div>
 
-                            <!-- Medication Item 2 -->
-                            <div class="medication-item mb-4 p-3 border rounded bg-light">
-                                <div class="row">
-                                    <div class="col-md-6">
-                                        <label class="form-label fw-bold">Medicamento</label>
-                                        <input type="text" class="form-control" name="medication_name[]" placeholder="Nome do medicamento">
-                                    </div>
-                                    <div class="col-md-3">
-                                        <label class="form-label fw-bold">Quantidade</label>
-                                        <input type="text" class="form-control" name="quantity[]" placeholder="Ex: 30 comprimidos">
-                                    </div>
-                                    <div class="col-md-3 d-flex align-items-end">
-                                        <button type="button" class="btn btn-outline-danger btn-sm remove-medication" style="display: none;">
-                                            <i class="fas fa-trash"></i>
-                                        </button>
-                                    </div>
-                                </div>
-                                <div class="row mt-2">
-                                    <div class="col-12">
-                                        <label class="form-label fw-bold">Posologia</label>
-                                        <textarea class="form-control" name="dosage[]" rows="2" placeholder="Ex: 1 comprimido de 8/8 horas"></textarea>
-                                    </div>
-                                </div>
-                            </div>
+                            
                         </div>
 
                         <!-- Add Medication Button -->
