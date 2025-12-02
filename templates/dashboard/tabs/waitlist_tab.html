@@ -1,0 +1,67 @@
+<!-- Waiting List Tab -->
+<div id="waitlist-tab" class="tab-content" style="display: none;">
+    <div class="row">
+        <div class="col-12">
+            <div class="d-flex justify-content-between align-items-center mb-4">
+                <h4 class="mb-0">
+                    <i class="fas fa-clock me-2"></i>Lista de Espera
+                </h4>
+                <div>
+                    <button class="btn btn-outline-secondary me-2" onclick="refreshWaitlist()">
+                        <i class="fas fa-sync-alt me-1"></i>Atualizar
+                    </button>
+                    <button class="btn btn-warning" onclick="showAddToWaitlistModal()">
+                        <i class="fas fa-plus me-1"></i>Adicionar à Lista
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Filter Section -->
+    <div class="row mb-4">
+        <div class="col-md-4">
+            <select class="form-select" id="waitlist-status-filter" onchange="loadWaitlist()">
+                <option value="pending" selected>Pendentes</option>
+                <option value="scheduled">Agendadas</option>
+                <option value="archived">Arquivadas</option>
+                <option value="">Todas</option>
+            </select>
+        </div>
+        <div class="col-md-4">
+            <select class="form-select" id="waitlist-urgency-filter" onchange="loadWaitlist()">
+                <option value="">Todas as Urgências</option>
+                <option value="high">Alta</option>
+                <option value="medium">Média</option>
+                <option value="low">Baixa</option>
+            </select>
+        </div>
+        <div class="col-md-4">
+            <input type="text" class="form-control" id="waitlist-search" placeholder="Buscar por nome, telefone ou email..." onkeyup="filterWaitlist()">
+        </div>
+    </div>
+
+    <!-- Loading State -->
+    <div id="waitlist-loading" class="text-center py-5" style="display: none;">
+        <div class="spinner-border text-primary" role="status">
+            <span class="visually-hidden">Carregando...</span>
+        </div>
+        <p class="mt-3 text-muted">Carregando lista de espera...</p>
+    </div>
+
+    <!-- Empty State -->
+    <div id="waitlist-empty" class="text-center py-5" style="display: none;">
+        <i class="fas fa-clock fa-3x text-muted mb-3"></i>
+        <h5 class="text-muted">Nenhuma entrada na lista de espera</h5>
+        <p class="text-muted">Adicione pacientes à lista de espera para serem notificados quando houver disponibilidade.</p>
+        <button class="btn btn-warning" onclick="showAddToWaitlistModal()">
+            <i class="fas fa-plus me-1"></i>Adicionar à Lista
+        </button>
+    </div>
+
+    <!-- Waitlist Entries -->
+    <div id="waitlist-entries" class="row">
+        <!-- Entries will be loaded here via JavaScript -->
+    </div>
+</div>
+

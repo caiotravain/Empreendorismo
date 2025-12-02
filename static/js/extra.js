@@ -168,7 +168,7 @@ function clearPatientSelection() {
     showNotification('Seleção de paciente limpa. Selecione um paciente na agenda para continuar.', 'info');
     
     // Reset page title
-    document.title = 'Dashboard Médico - MedSaaS';
+    document.title = 'Dashboard Médico - Plena';
     
     // Clear prescription form and update button states
     updatePrescriptionButtonStates();
@@ -523,20 +523,43 @@ function sendWhatsAppTest() {
 let currentRecordData = null;
 
 function showRecordPopup(recordId, date, time, doctor, content) {
+    // Decode Unicode escape sequences in content
+    function decodeUnicode(str) {
+        if (!str) return '';
+        // Replace Unicode escape sequences
+        return str.replace(/\\u([0-9a-fA-F]{4})/g, function(match, hex) {
+            return String.fromCharCode(parseInt(hex, 16));
+        })
+        // Replace common escape sequences
+        .replace(/\\n/g, '\n')
+        .replace(/\\r/g, '\r')
+        .replace(/\\t/g, '\t')
+        .replace(/\\"/g, '"')
+        .replace(/\\'/g, "'")
+        .replace(/\\\\/g, '\\');
+    }
+    
+    // Decode content
+    const decodedContent = decodeUnicode(content);
+    
     // Store record data for printing
     currentRecordData = {
         id: recordId,
         date: date,
         time: time,
         doctor: doctor,
-        content: content
+        content: decodedContent
     };
     
     // Populate modal with record data
     document.getElementById('popup-date').textContent = date;
     document.getElementById('popup-time').textContent = time;
     document.getElementById('popup-doctor').textContent = doctor;
-    document.getElementById('popup-content').textContent = content;
+    
+    // Display content with proper line breaks (preserve whitespace)
+    const contentElement = document.getElementById('popup-content');
+    contentElement.style.whiteSpace = 'pre-wrap'; // Preserve line breaks and wrap text
+    contentElement.textContent = decodedContent;
     
     // Show the modal
     const modal = new bootstrap.Modal(document.getElementById('recordPopupModal'));
@@ -549,7 +572,14 @@ function showRecordPopupFromTimeline(element) {
     const date = element.getAttribute('data-record-date');
     const time = element.getAttribute('data-record-time');
     const doctor = element.getAttribute('data-record-doctor');
-    const content = element.getAttribute('data-record-content');
+    let content = element.getAttribute('data-record-content');
+    
+    // Decode HTML entities that might have been escaped by Django's escapejs
+    if (content) {
+        const textarea = document.createElement('textarea');
+        textarea.innerHTML = content;
+        content = textarea.value;
+    }
     
     // Call the existing function
     showRecordPopup(recordId, date, time, doctor, content);
@@ -645,13 +675,24 @@ function showNotification(message, type = 'info') {
 }
 
 
-// Set default active tab to 'agenda'
+// Set default active tab to 'agenda' or from URL parameter
 document.addEventListener('DOMContentLoaded', function() {
-    // Set the first button (Agenda) as active by default
-    const firstButton = document.querySelector('.btn-group .btn');
-    if (firstButton) {
-        firstButton.classList.remove('btn-outline-primary');
-        firstButton.classList.add('btn-primary');
+    // Check URL parameter for active tab first
+    const urlParams = new URLSearchParams(window.location.search);
+    const tabParam = urlParams.get('tab');
+    
+    if (tabParam && typeof switchTab === 'function') {
+        // Switch to the tab from URL parameter
+        setTimeout(function() {
+            switchTab(tabParam);
+        }, 150);
+    } else {
+        // Set the first button (Agenda) as active by default
+        const firstButton = document.querySelector('.btn-group .btn');
+        if (firstButton) {
+            firstButton.classList.remove('btn-outline-primary');
+            firstButton.classList.add('btn-primary');
+        }
     }
     
     // Initialize patient selection header
@@ -2196,4 +2237,636 @@ function exportReport() {
     
     // Generate PDF using the API
     window.location.href = `/dashboard/api/reports/generate-pdf/?report_type=${reportType}&start_date=${startDate}&end_date=${endDate}`;
+}
+
+// ============================================================================
+// WAITING LIST FUNCTIONS
+// ============================================================================
+
+// Global variable to store waitlist entries
+let waitlistEntries = [];
+
+function showAddToWaitlistModal() {
+    const modal = new bootstrap.Modal(document.getElementById('addToWaitlistModal'));
+    const form = document.getElementById('addToWaitlistForm');
+    
+    // Only reset if not in edit mode
+    if (!form.dataset.entryId) {
+        // Reset form
+        if (form) {
+            form.reset();
+        }
+        
+        // Clear patient selection
+        document.getElementById('waitlist-patient').value = '';
+        document.getElementById('waitlist-patient-search').value = '';
+        
+        // Restore original button text and title
+        const submitBtn = form.querySelector('button[type="submit"]');
+        submitBtn.innerHTML = '<i class="fas fa-clock me-1"></i>Adicionar à Lista de Espera';
+        
+        const modalTitle = document.getElementById('addToWaitlistModalLabel');
+        modalTitle.innerHTML = '<i class="fas fa-clock me-2"></i>Adicionar à Lista de Espera';
+        
+        // Remove entryId to ensure it's treated as a new entry
+        delete form.dataset.entryId;
+    }
+    
+    // Set up patient search if patients are loaded
+    if (window.allPatients && window.allPatients.length > 0) {
+        setupWaitlistPatientSearch();
+    } else {
+        loadPatientsAndDoctors().then(() => {
+            setupWaitlistPatientSearch();
+        });
+    }
+    
+    // Set up patient search when modal is shown
+    const modalElement = document.getElementById('addToWaitlistModal');
+    modalElement.addEventListener('shown.bs.modal', function() {
+        setupWaitlistPatientSearch();
+    }, { once: true });
+    
+    modal.show();
+}
+
+function setupWaitlistPatientSearch() {
+    const searchInput = document.getElementById('waitlist-patient-search');
+    const dropdown = document.getElementById('waitlist-patient-dropdown');
+    const hiddenInput = document.getElementById('waitlist-patient');
+    const nameInput = document.getElementById('waitlist-patient-name');
+    const phoneInput = document.getElementById('waitlist-phone');
+    const emailInput = document.getElementById('waitlist-email');
+    
+    if (!searchInput || !dropdown || !hiddenInput) return;
+    
+    // Show all patients initially
+    showWaitlistPatients(window.allPatients || []);
+    
+    // Handle search input
+    searchInput.addEventListener('input', function() {
+        const searchTerm = this.value.toLowerCase();
+        const filteredPatients = (window.allPatients || []).filter(patient => 
+            `${patient.first_name} ${patient.last_name}`.toLowerCase().includes(searchTerm)
+        );
+        showWaitlistPatients(filteredPatients);
+    });
+    
+    // Handle click outside to close dropdown
+    document.addEventListener('click', function(e) {
+        if (!searchInput.contains(e.target) && !dropdown.contains(e.target)) {
+            dropdown.style.display = 'none';
+        }
+    });
+    
+    // Handle focus to show dropdown
+    searchInput.addEventListener('focus', function() {
+        dropdown.style.display = 'block';
+    });
+}
+
+function showWaitlistPatients(patients) {
+    const dropdown = document.getElementById('waitlist-patient-dropdown');
+    const hiddenInput = document.getElementById('waitlist-patient');
+    const searchInput = document.getElementById('waitlist-patient-search');
+    const nameInput = document.getElementById('waitlist-patient-name');
+    const phoneInput = document.getElementById('waitlist-phone');
+    const emailInput = document.getElementById('waitlist-email');
+    
+    dropdown.innerHTML = '';
+    
+    if (patients.length === 0) {
+        dropdown.innerHTML = '<div class="dropdown-item text-muted">Nenhum paciente encontrado</div>';
+    } else {
+        patients.forEach(patient => {
+            const item = document.createElement('div');
+            item.className = 'dropdown-item';
+            item.style.cursor = 'pointer';
+            item.textContent = `${patient.first_name} ${patient.last_name}`;
+            
+            item.addEventListener('click', function() {
+                hiddenInput.value = patient.id;
+                searchInput.value = `${patient.first_name} ${patient.last_name}`;
+                nameInput.value = `${patient.first_name} ${patient.last_name}`;
+                if (patient.phone) phoneInput.value = patient.phone;
+                if (patient.email) emailInput.value = patient.email;
+                dropdown.style.display = 'none';
+            });
+            
+            dropdown.appendChild(item);
+        });
+    }
+    
+    dropdown.style.display = 'block';
+}
+
+// Handle waitlist form submission
+document.addEventListener('DOMContentLoaded', function() {
+    const waitlistForm = document.getElementById('addToWaitlistForm');
+    if (waitlistForm) {
+        waitlistForm.addEventListener('submit', function(e) {
+            e.preventDefault();
+            e.stopPropagation();
+            
+            // Check if we're in edit mode
+            const entryId = waitlistForm.dataset.entryId;
+            if (entryId) {
+                updateWaitlistEntry(entryId);
+            } else {
+                submitWaitlistEntry();
+            }
+        });
+    }
+});
+
+function submitWaitlistEntry() {
+    const form = document.getElementById('addToWaitlistForm');
+    
+    // Prevent double submission
+    if (form.dataset.submitting === 'true') {
+        return;
+    }
+    
+    form.dataset.submitting = 'true';
+    const formData = new FormData(form);
+    
+    // Show loading state
+    const submitBtn = form.querySelector('button[type="submit"]');
+    const originalText = submitBtn.innerHTML;
+    submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i>Adicionando...';
+    submitBtn.disabled = true;
+    
+    fetch('/dashboard/api/waiting-list/', {
+        method: 'POST',
+        body: formData,
+        headers: {
+            'X-CSRFToken': getCookie('csrftoken')
+        }
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            // Close modal
+            const modal = bootstrap.Modal.getInstance(document.getElementById('addToWaitlistModal'));
+            modal.hide();
+            
+            // Reset form
+            form.reset();
+            delete form.dataset.submitting;
+            delete form.dataset.entryId;
+            
+            // Show success message
+            showNotification(data.message || 'Paciente adicionado à lista de espera com sucesso!', 'success');
+            
+            // Reload waitlist if on waitlist tab
+            const waitlistTab = document.getElementById('waitlist-tab');
+            if (waitlistTab && waitlistTab.style.display !== 'none') {
+                loadWaitlist();
+            }
+        } else {
+            delete form.dataset.submitting;
+            showNotification('Erro ao adicionar à lista de espera: ' + (data.error || 'Erro desconhecido'), 'error');
+        }
+    })
+    .catch(error => {
+        console.error('Error adding to waitlist:', error);
+        delete form.dataset.submitting;
+        showNotification('Erro ao adicionar à lista de espera. Tente novamente.', 'error');
+    })
+    .finally(() => {
+        // Restore button state
+        submitBtn.innerHTML = originalText;
+        submitBtn.disabled = false;
+    });
+}
+
+function loadWaitlist() {
+    const loadingDiv = document.getElementById('waitlist-loading');
+    const entriesDiv = document.getElementById('waitlist-entries');
+    const emptyDiv = document.getElementById('waitlist-empty');
+    
+    // Show loading
+    if (loadingDiv) loadingDiv.style.display = 'block';
+    if (entriesDiv) entriesDiv.innerHTML = '';
+    if (emptyDiv) emptyDiv.style.display = 'none';
+    
+    // Get filter values
+    const statusFilter = document.getElementById('waitlist-status-filter')?.value || 'pending';
+    
+    // Build URL
+    let url = '/dashboard/api/waiting-list/';
+    if (statusFilter) {
+        url += `?status=${statusFilter}`;
+    }
+    
+    fetch(url, {
+        headers: {
+            'X-CSRFToken': getCookie('csrftoken')
+        }
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (loadingDiv) loadingDiv.style.display = 'none';
+        
+        if (data.success && data.entries && data.entries.length > 0) {
+            waitlistEntries = data.entries;
+            displayWaitlistEntries(data.entries);
+            if (emptyDiv) emptyDiv.style.display = 'none';
+        } else {
+            waitlistEntries = [];
+            if (entriesDiv) entriesDiv.innerHTML = '';
+            if (emptyDiv) emptyDiv.style.display = 'block';
+        }
+    })
+    .catch(error => {
+        console.error('Error loading waitlist:', error);
+        if (loadingDiv) loadingDiv.style.display = 'none';
+        showNotification('Erro ao carregar lista de espera.', 'error');
+    });
+}
+
+function displayWaitlistEntries(entries) {
+    const entriesDiv = document.getElementById('waitlist-entries');
+    if (!entriesDiv) return;
+    
+    // Apply urgency filter if set
+    const urgencyFilter = document.getElementById('waitlist-urgency-filter')?.value;
+    let filteredEntries = entries;
+    if (urgencyFilter) {
+        filteredEntries = entries.filter(entry => entry.urgency_level === urgencyFilter);
+    }
+    
+    // Apply search filter if set
+    const searchTerm = document.getElementById('waitlist-search')?.value.toLowerCase();
+    if (searchTerm) {
+        filteredEntries = filteredEntries.filter(entry => 
+            entry.patient_name.toLowerCase().includes(searchTerm) ||
+            (entry.phone && entry.phone.includes(searchTerm)) ||
+            (entry.email && entry.email.toLowerCase().includes(searchTerm))
+        );
+    }
+    
+    if (filteredEntries.length === 0) {
+        entriesDiv.innerHTML = `
+            <div class="col-12">
+                <div class="alert alert-info text-center">
+                    <i class="fas fa-info-circle me-2"></i>
+                    Nenhuma entrada encontrada com os filtros selecionados.
+                </div>
+            </div>
+        `;
+        return;
+    }
+    
+    let html = '';
+    filteredEntries.forEach(entry => {
+        const urgencyClass = getUrgencyClass(entry.urgency_level);
+        const urgencyIcon = getUrgencyIcon(entry.urgency_level);
+        const statusBadge = getStatusBadge(entry.status);
+        
+        html += `
+            <div class="col-md-6 col-lg-4 mb-3">
+                <div class="card waitlist-entry-card h-100">
+                    <div class="card-header ${urgencyClass}">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <div>
+                                <h6 class="mb-0">
+                                    <i class="${urgencyIcon} me-2"></i>
+                                    ${entry.patient_name}
+                                </h6>
+                                <small class="text-white-50">${entry.urgency_display}</small>
+                            </div>
+                            ${statusBadge}
+                        </div>
+                    </div>
+                    <div class="card-body">
+                        <div class="mb-2">
+                            <small class="text-muted d-block">
+                                <i class="fas fa-phone me-1"></i>${entry.phone || 'Não informado'}
+                            </small>
+                            <small class="text-muted d-block">
+                                <i class="fas fa-envelope me-1"></i>${entry.email || 'Não informado'}
+                            </small>
+                        </div>
+                        ${entry.preferred_days_times ? `
+                            <div class="mb-2">
+                                <small class="text-muted">
+                                    <i class="fas fa-calendar-alt me-1"></i>
+                                    <strong>Preferências:</strong> ${entry.preferred_days_times}
+                                </small>
+                            </div>
+                        ` : ''}
+                        ${entry.notes ? `
+                            <div class="mb-2">
+                                <small class="text-muted">
+                                    <i class="fas fa-sticky-note me-1"></i>
+                                    ${entry.notes}
+                                </small>
+                            </div>
+                        ` : ''}
+                        <div class="mb-2">
+                            <small class="text-muted">
+                                <i class="fas fa-clock me-1"></i>
+                                Adicionado em: ${formatDateTime(entry.created_at)}
+                            </small>
+                        </div>
+                    </div>
+                    <div class="card-footer bg-white">
+                        <div class="btn-group w-100" role="group">
+                            <button class="btn btn-sm btn-primary" onclick="convertWaitlistToAppointment(${entry.id})" title="Converter para consulta">
+                                <i class="fas fa-calendar-plus me-1"></i>Agendar
+                            </button>
+                            <button class="btn btn-sm btn-outline-secondary" onclick="editWaitlistEntry(${entry.id})" title="Editar entrada">
+                                <i class="fas fa-edit me-1"></i>Editar
+                            </button>
+                            <button class="btn btn-sm btn-outline-danger" onclick="deleteWaitlistEntry(${entry.id})" title="Remover da lista">
+                                <i class="fas fa-trash me-1"></i>Remover
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        `;
+    });
+    
+    entriesDiv.innerHTML = html;
+}
+
+function getUrgencyClass(urgency) {
+    switch(urgency) {
+        case 'high': return 'bg-danger text-white';
+        case 'medium': return 'bg-warning text-dark';
+        case 'low': return 'bg-info text-white';
+        default: return 'bg-secondary text-white';
+    }
+}
+
+function getUrgencyIcon(urgency) {
+    switch(urgency) {
+        case 'high': return 'fas fa-exclamation-triangle';
+        case 'medium': return 'fas fa-exclamation-circle';
+        case 'low': return 'fas fa-info-circle';
+        default: return 'fas fa-circle';
+    }
+}
+
+function getStatusBadge(status) {
+    const badges = {
+        'pending': '<span class="badge bg-warning">Pendente</span>',
+        'scheduled': '<span class="badge bg-success">Agendada</span>',
+        'archived': '<span class="badge bg-secondary">Arquivada</span>'
+    };
+    return badges[status] || '<span class="badge bg-secondary">' + status + '</span>';
+}
+
+function formatDateTime(dateString) {
+    const date = new Date(dateString);
+    return date.toLocaleDateString('pt-BR') + ' ' + date.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+}
+
+function filterWaitlist() {
+    if (waitlistEntries.length > 0) {
+        displayWaitlistEntries(waitlistEntries);
+    } else {
+        loadWaitlist();
+    }
+}
+
+function refreshWaitlist() {
+    loadWaitlist();
+    showNotification('Lista de espera atualizada', 'success');
+}
+
+function convertWaitlistToAppointment(entryId) {
+    // Show loading
+    showNotification('Carregando dados do paciente...', 'info');
+    
+    fetch(`/dashboard/api/waiting-list/${entryId}/convert/`, {
+        method: 'POST',
+        headers: {
+            'X-CSRFToken': getCookie('csrftoken')
+        }
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success && data.entry) {
+            const entry = data.entry;
+            
+            // Pre-fill appointment form
+            if (entry.patient_id) {
+                document.getElementById('appointment-patient').value = entry.patient_id;
+                // Try to find and set patient name in search
+                if (window.allPatients) {
+                    const patient = window.allPatients.find(p => p.id == entry.patient_id);
+                    if (patient) {
+                        document.getElementById('appointment-patient-search').value = `${patient.first_name} ${patient.last_name}`;
+                    }
+                }
+            }
+            
+            // Pre-fill notes with waitlist notes
+            const notesField = document.getElementById('appointment-notes');
+            if (notesField && entry.notes) {
+                notesField.value = `[Lista de Espera] ${entry.notes}`;
+            }
+            
+            // Pre-fill reason with preferred days/times if available
+            const reasonField = document.getElementById('appointment-reason');
+            if (reasonField && entry.preferred_days_times) {
+                reasonField.value = `Preferências: ${entry.preferred_days_times}`;
+            }
+            
+            // Show appointment modal
+            showNewAppointmentModal();
+            
+            // Update waitlist entry status to scheduled
+            updateWaitlistEntryStatus(entryId, 'scheduled');
+            
+            showNotification(data.message || 'Dados do paciente carregados. Preencha a data e horário.', 'success');
+        } else {
+            showNotification('Erro ao converter entrada: ' + (data.error || 'Erro desconhecido'), 'error');
+        }
+    })
+    .catch(error => {
+        console.error('Error converting waitlist entry:', error);
+        showNotification('Erro ao converter entrada. Tente novamente.', 'error');
+    });
+}
+
+function updateWaitlistEntryStatus(entryId, status) {
+    const formData = new FormData();
+    formData.append('status', status);
+    
+    fetch(`/dashboard/api/waiting-list/${entryId}/`, {
+        method: 'PATCH',
+        body: formData,
+        headers: {
+            'X-CSRFToken': getCookie('csrftoken')
+        }
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            // Reload waitlist
+            loadWaitlist();
+        }
+    })
+    .catch(error => {
+        console.error('Error updating waitlist entry:', error);
+    });
+}
+
+function editWaitlistEntry(entryId) {
+    const entry = waitlistEntries.find(e => e.id === entryId);
+    if (!entry) {
+        showNotification('Entrada não encontrada', 'error');
+        return;
+    }
+    
+    // Store entry ID for update BEFORE showing modal
+    const form = document.getElementById('addToWaitlistForm');
+    form.dataset.entryId = entryId;
+    
+    // Change submit button text and modal title BEFORE showing
+    const submitBtn = form.querySelector('button[type="submit"]');
+    const originalBtnText = submitBtn.innerHTML;
+    submitBtn.innerHTML = '<i class="fas fa-save me-1"></i>Salvar Alterações';
+    
+    const modalTitle = document.getElementById('addToWaitlistModalLabel');
+    const originalTitle = modalTitle.innerHTML;
+    modalTitle.innerHTML = '<i class="fas fa-edit me-2"></i>Editar Entrada da Lista de Espera';
+    
+    // Show modal first
+    const modal = new bootstrap.Modal(document.getElementById('addToWaitlistModal'));
+    
+    // Set up patient search
+    if (window.allPatients && window.allPatients.length > 0) {
+        setupWaitlistPatientSearch();
+    } else {
+        loadPatientsAndDoctors().then(() => {
+            setupWaitlistPatientSearch();
+        });
+    }
+    
+    // Pre-fill modal with entry data AFTER modal is shown
+    const modalElement = document.getElementById('addToWaitlistModal');
+    const fillFormData = function() {
+        // Pre-fill all fields with entry data
+        document.getElementById('waitlist-patient-name').value = entry.patient_name || '';
+        document.getElementById('waitlist-phone').value = entry.phone || '';
+        document.getElementById('waitlist-email').value = entry.email || '';
+        document.getElementById('waitlist-preferred').value = entry.preferred_days_times || '';
+        document.getElementById('waitlist-urgency').value = entry.urgency_level || 'medium';
+        document.getElementById('waitlist-notes').value = entry.notes || '';
+        
+        if (entry.patient_id) {
+            document.getElementById('waitlist-patient').value = entry.patient_id;
+            if (window.allPatients) {
+                const patient = window.allPatients.find(p => p.id == entry.patient_id);
+                if (patient) {
+                    document.getElementById('waitlist-patient-search').value = `${patient.first_name} ${patient.last_name}`;
+                }
+            }
+        } else {
+            document.getElementById('waitlist-patient').value = '';
+            document.getElementById('waitlist-patient-search').value = '';
+        }
+        
+        // The global listener will handle edit mode via dataset.entryId
+        // No need to override onsubmit here
+        
+        // Remove listener after first use
+        modalElement.removeEventListener('shown.bs.modal', fillFormData);
+    };
+    
+    modalElement.addEventListener('shown.bs.modal', fillFormData, { once: true });
+    
+    // Also restore original state when modal is hidden
+    modalElement.addEventListener('hidden.bs.modal', function restoreOriginalState() {
+        form.reset();
+        delete form.dataset.entryId;
+        submitBtn.innerHTML = originalBtnText;
+        modalTitle.innerHTML = originalTitle;
+        // The global listener will handle new entries when entryId is not set
+        modalElement.removeEventListener('hidden.bs.modal', restoreOriginalState);
+    }, { once: true });
+    
+    modal.show();
+}
+
+function updateWaitlistEntry(entryId) {
+    const form = document.getElementById('addToWaitlistForm');
+    const formData = new FormData(form);
+    
+    // Show loading state
+    const submitBtn = form.querySelector('button[type="submit"]');
+    const originalText = submitBtn.innerHTML;
+    submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i>Salvando...';
+    submitBtn.disabled = true;
+    
+    fetch(`/dashboard/api/waiting-list/${entryId}/update/`, {
+        method: 'POST',
+        body: formData,
+        headers: {
+            'X-CSRFToken': getCookie('csrftoken')
+        }
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            // Close modal
+            const modal = bootstrap.Modal.getInstance(document.getElementById('addToWaitlistModal'));
+            modal.hide();
+            
+            // Reset form
+            form.reset();
+            delete form.dataset.entryId;
+            
+            // Restore submit button
+            submitBtn.innerHTML = '<i class="fas fa-clock me-1"></i>Adicionar à Lista de Espera';
+            
+            // Show success message
+            showNotification('Entrada atualizada com sucesso!', 'success');
+            
+            // Reload waitlist
+            loadWaitlist();
+        } else {
+            showNotification('Erro ao atualizar entrada: ' + (data.error || 'Erro desconhecido'), 'error');
+        }
+    })
+    .catch(error => {
+        console.error('Error updating waitlist entry:', error);
+        showNotification('Erro ao atualizar entrada. Tente novamente.', 'error');
+    })
+    .finally(() => {
+        // Restore button state
+        submitBtn.innerHTML = originalText;
+        submitBtn.disabled = false;
+    });
+}
+
+function deleteWaitlistEntry(entryId) {
+    if (!confirm('Tem certeza que deseja remover esta entrada da lista de espera?')) {
+        return;
+    }
+    
+    fetch(`/dashboard/api/waiting-list/${entryId}/`, {
+        method: 'DELETE',
+        headers: {
+            'X-CSRFToken': getCookie('csrftoken')
+        }
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            showNotification('Entrada removida da lista de espera', 'success');
+            loadWaitlist();
+        } else {
+            showNotification('Erro ao remover entrada: ' + (data.error || 'Erro desconhecido'), 'error');
+        }
+    })
+    .catch(error => {
+        console.error('Error deleting waitlist entry:', error);
+        showNotification('Erro ao remover entrada. Tente novamente.', 'error');
+    });
 }

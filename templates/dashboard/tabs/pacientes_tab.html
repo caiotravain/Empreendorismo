@@ -1,31 +1,31 @@
 <!-- Patients Management Tab -->
-<div id="pacientes-tab" class="tab-content" style="display: none;">
-    <div class="row">
-        <div class="col-12">
-            <div class="d-flex justify-content-between align-items-center mb-4">
-                <h4 class="mb-0">
-                    <i class="fas fa-users me-2"></i>Gestão de Pacientes
-                </h4>
-                <button class="btn btn-primary" onclick="showPatientModal()">
-                    <i class="fas fa-plus me-1"></i>Novo Paciente
-                </button>
-            </div>
-        </div>
+<div id="pacientes-tab" class="tab-content patient-management-container" style="display: none;">
+    <!-- Header Section -->
+    <div class="d-flex justify-content-between align-items-center mb-3">
+        <h1 class="text-slate-800 mb-0" style="font-size: 1.5rem; font-weight: 600;">Gestão de Pacientes</h1>
+        <button class="btn btn-slate-900 btn-sm" onclick="showPatientModal()">
+            <svg xmlns="http://www.w3.org/2000/svg" class="icon-sm me-1" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4" />
+            </svg>
+            Novo Paciente
+        </button>
     </div>
 
-    <!-- Search and Filter Section -->
-    <div class="row mb-4">
-        <div class="col-md-4">
+    <!-- Filter & Search Form -->
+    <div class="row g-2 mb-3">
+        <div class="col-md-5">
             <div class="input-group">
-                <span class="input-group-text">
-                    <i class="fas fa-search"></i>
+                <span class="input-group-text bg-white border-end-0">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="icon-sm text-slate-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                    </svg>
                 </span>
-                <input type="text" class="form-control" id="patient-search" placeholder="Buscar pacientes por nome, email ou telefone...">
+                <input type="text" class="form-control border-start-0" id="patient-search" placeholder="Buscar por nome, email ou telefone...">
             </div>
         </div>
-        <div class="col-md-2">
+        <div class="col-md-3">
             <select class="form-select" id="patient-gender-filter">
-                <option value="">Todos os sexos</option>
+                <option value="">Sexo: Todos</option>
                 <option value="M">Masculino</option>
                 <option value="F">Feminino</option>
                 <option value="O">Outro</option>
@@ -33,172 +33,234 @@
         </div>
         <div class="col-md-3">
             <select class="form-select" id="patient-status-filter">
-                <option value="active" selected>Pacientes Ativos</option>
-                <option value="inactive">Pacientes Inativos</option>
-                <option value="all">Todos os Pacientes</option>
+                <option value="active" selected>Status: Ativo</option>
+                <option value="inactive">Status: Inativo</option>
+                <option value="all">Status: Todos</option>
             </select>
         </div>
-        <div class="col-md-3">
+        <div class="col-md-1">
             <button class="btn btn-outline-secondary w-100" onclick="clearPatientFilters()">
-                <i class="fas fa-times me-1"></i>Limpar Filtros
+                Limpar
             </button>
         </div>
     </div>
 
-    <!-- Patients Table -->
-    <div class="row">
-        <div class="col-12">
-            <div class="card">
-                <div class="card-body">
-                    <div class="table-responsive">
-                        <table class="table table-hover" id="patients-table">
-                            <thead class="table-light">
-                                <tr>
-                                    <th>Nome</th>
-                                    <th>Email</th>
-                                    <th>Telefone</th>
-                                    <th>Idade</th>
-                                    <th>Sexo</th>
-                                    <th>Status</th>
-                                    <th>Data de Cadastro</th>
-                                    <th>Ações</th>
-                                </tr>
-                            </thead>
-                            <tbody id="patients-table-body">
-                                {% for patient in all_patients %}
-                                <tr data-patient-id="{{ patient.id }}">
-                                    <td>
-                                        <div class="d-flex align-items-center">
-                                            <div class="avatar-sm bg-primary text-white rounded-circle d-flex align-items-center justify-content-center me-2">
-                                                {{ patient.first_name|first|upper }}{{ patient.last_name|first|upper }}
-                                            </div>
-                                            <div>
-                                                <strong>{{ patient.full_name }}</strong>
-                                                {% if patient.emergency_contact_name %}
-                                                <br><small class="text-muted">Contato: {{ patient.emergency_contact_name }}</small>
-                                                {% endif %}
-                                            </div>
-                                        </div>
-                                    </td>
-                                    <td>
-                                        {% if patient.email %}
-                                            <a href="mailto:{{ patient.email }}" class="text-decoration-none">
-                                                {{ patient.email }}
-                                            </a>
-                                        {% else %}
-                                            <span class="text-muted">-</span>
-                                        {% endif %}
-                                    </td>
-                                    <td>
-                                        {% if patient.phone %}
-                                            <a href="tel:{{ patient.phone }}" class="text-decoration-none">
-                                                {{ patient.phone }}
-                                            </a>
-                                        {% else %}
-                                            <span class="text-muted">-</span>
-                                        {% endif %}
-                                    </td>
-                                    <td>
-                                        <span class="badge bg-info">{{ patient.age }} anos</span>
-                                    </td>
-                                    <td>
-                                        {% if patient.gender == 'M' %}
-                                            <span class="badge bg-primary">Masculino</span>
-                                        {% elif patient.gender == 'F' %}
-                                            <span class="badge bg-pink">Feminino</span>
-                                        {% else %}
-                                            <span class="badge bg-secondary">Outro</span>
-                                        {% endif %}
-                                    </td>
-                                    <td>
-                                        {% if patient.is_active %}
-                                            <span class="badge bg-success">Ativo</span>
-                                        {% else %}
-                                            <span class="badge bg-danger">Inativo</span>
-                                        {% endif %}
-                                    </td>
-                                    <td>
-                                        <small class="text-muted">{{ patient.created_at|date:"d/m/Y" }}</small>
-                                    </td>
-                                    <td>
-                                        <div class="btn-group" role="group">
-                                            <button class="btn btn-sm btn-outline-primary" onclick="viewPatientDetails({{ patient.id }})" title="Ver detalhes">
-                                                <i class="fas fa-eye"></i>
-                                            </button>
-                                            <button class="btn btn-sm btn-outline-warning" onclick="editPatient({{ patient.id }})" title="Editar">
-                                                <i class="fas fa-edit"></i>
-                                            </button>
-                                            {% if patient.is_active %}
-                                                <button class="btn btn-sm btn-outline-danger" onclick="deactivatePatient({{ patient.id }}, '{{ patient.full_name }}')" title="Desativar">
-                                                    <i class="fas fa-user-times"></i>
-                                                </button>
-                                            {% else %}
-                                                <button class="btn btn-sm btn-outline-success" onclick="activatePatient({{ patient.id }}, '{{ patient.full_name }}')" title="Ativar">
-                                                    <i class="fas fa-user-check"></i>
-                                                </button>
-                                            {% endif %}
-                                        </div>
-                                    </td>
-                                </tr>
-                                {% empty %}
-                                <tr>
-                                    <td colspan="7" class="text-center text-muted py-4">
-                                        <i class="fas fa-users fa-3x mb-3"></i>
-                                        <br>Nenhum paciente cadastrado
-                                        <br><small>Clique em "Novo Paciente" para adicionar o primeiro paciente</small>
-                                    </td>
-                                </tr>
-                                {% endfor %}
-                            </tbody>
-                        </table>
-                    </div>
-                </div>
+    <!-- Data Table (Main Card) -->
+    <div class="card shadow-sm rounded-lg mb-3">
+        <div class="card-body p-0">
+            <div class="table-responsive">
+                <table class="table table-hover mb-0" id="patients-table">
+                    <thead class="bg-white border-bottom">
+                        <tr>
+                            <th class="text-slate-800 fw-medium border-0 py-2 px-3" style="font-size: 0.8rem;">Nome</th>
+                            <th class="text-slate-800 fw-medium border-0 py-2 px-3" style="font-size: 0.8rem;">Email</th>
+                            <th class="text-slate-800 fw-medium border-0 py-2 px-3" style="font-size: 0.8rem;">Telefone</th>
+                            <th class="text-slate-800 fw-medium border-0 py-2 px-3" style="font-size: 0.8rem;">Idade</th>
+                            <th class="text-slate-800 fw-medium border-0 py-2 px-3" style="font-size: 0.8rem;">Sexo</th>
+                            <th class="text-slate-800 fw-medium border-0 py-2 px-3" style="font-size: 0.8rem;">Status</th>
+                            <th class="text-slate-800 fw-medium border-0 py-2 px-3" style="font-size: 0.8rem;">
+                                Data de Cadastro
+                                <svg xmlns="http://www.w3.org/2000/svg" class="icon-xs ms-1" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                                    <path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7" />
+                                </svg>
+                            </th>
+                            <th class="text-slate-800 fw-medium border-0 py-2 px-3" style="font-size: 0.8rem;">Ações</th>
+                        </tr>
+                    </thead>
+                    <tbody id="patients-table-body">
+                        {% for patient in all_patients %}
+                        <tr data-patient-id="{{ patient.id }}" data-patient-status="{% if patient.is_active %}active{% else %}inactive{% endif %}" class="border-bottom patient-row patient-row-clickable" style="display: none; cursor: pointer;" onclick="viewPatientDetails({{ patient.id }})">
+                            <td class="py-2 px-3">
+                                <span class="text-slate-900 fw-medium">
+                                    {{ patient.full_name }}
+                                </span>
+                            </td>
+                            <td class="py-2 px-3 text-slate-500" style="font-size: 0.875rem;">
+                                {% if patient.email %}
+                                    <span class="text-slate-500">{{ patient.email }}</span>
+                                {% else %}
+                                    <span class="text-slate-400">-</span>
+                                {% endif %}
+                            </td>
+                            <td class="py-2 px-3 text-slate-500" style="font-size: 0.875rem;">
+                                {% if patient.phone %}
+                                    <span class="text-slate-500">{{ patient.phone }}</span>
+                                {% else %}
+                                    <span class="text-slate-400">-</span>
+                                {% endif %}
+                            </td>
+                            <td class="py-2 px-3 text-slate-500" style="font-size: 0.875rem;">
+                                {{ patient.age|default:"-" }}
+                            </td>
+                            <td class="py-2 px-3 text-slate-500" style="font-size: 0.875rem;">
+                                {% if patient.gender == 'M' %}
+                                    <span class="d-inline-flex align-items-center">
+                                        <svg xmlns="http://www.w3.org/2000/svg" class="icon-xs me-1" fill="currentColor" viewBox="0 0 24 24">
+                                            <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 3c1.66 0 3 1.34 3 3s-1.34 3-3 3-3-1.34-3-3 1.34-3 3-3zm0 14.2c-2.5 0-4.71-1.28-6-3.22.03-1.99 4-3.08 6-3.08 1.99 0 5.97 1.09 6 3.08-1.29 1.94-3.5 3.22-6 3.22z"/>
+                                        </svg>
+                                        Masculino
+                                    </span>
+                                {% elif patient.gender == 'F' %}
+                                    <span class="d-inline-flex align-items-center">
+                                        <svg xmlns="http://www.w3.org/2000/svg" class="icon-xs me-1" fill="currentColor" viewBox="0 0 24 24">
+                                            <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 3c1.66 0 3 1.34 3 3s-1.34 3-3 3-3-1.34-3-3 1.34-3 3-3zm0 14.2c-2.5 0-4.71-1.28-6-3.22.03-1.99 4-3.08 6-3.08 1.99 0 5.97 1.09 6 3.08-1.29 1.94-3.5 3.22-6 3.22z"/>
+                                        </svg>
+                                        Feminino
+                                    </span>
+                                {% else %}
+                                    <span class="text-slate-500">Outro</span>
+                                {% endif %}
+                            </td>
+                            <td class="py-2 px-3" style="font-size: 0.875rem;">
+                                {% if patient.is_active %}
+                                    <span class="d-inline-flex align-items-center">
+                                        <span class="status-dot bg-green-400 me-2"></span>
+                                        Ativo
+                                    </span>
+                                {% else %}
+                                    <span class="d-inline-flex align-items-center">
+                                        <span class="status-dot bg-gray-300 me-2"></span>
+                                        Inativo
+                                    </span>
+                                {% endif %}
+                            </td>
+                            <td class="py-2 px-3 text-slate-500" style="font-size: 0.875rem;">
+                                {{ patient.created_at|date:"d/m/Y" }}
+                            </td>
+                            <td class="py-2 px-3" onclick="event.stopPropagation();">
+                                <div class="d-flex align-items-center gap-2">
+                                    <button class="btn btn-sm btn-link text-slate-500 p-1" onclick="editPatient({{ patient.id }})" title="Editar">
+                                        <svg xmlns="http://www.w3.org/2000/svg" class="icon-sm" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                                            <path stroke-linecap="round" stroke-linejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                                        </svg>
+                                    </button>
+                                    {% if patient.is_active %}
+                                        <button class="btn btn-sm btn-link text-slate-500 p-1" onclick="deactivatePatient({{ patient.id }}, '{{ patient.full_name }}')" title="Desativar">
+                                            <svg xmlns="http://www.w3.org/2000/svg" class="icon-sm" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                                                <path stroke-linecap="round" stroke-linejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                                            </svg>
+                                        </button>
+                                    {% else %}
+                                        <button class="btn btn-sm btn-link text-slate-500 p-1" onclick="activatePatient({{ patient.id }}, '{{ patient.full_name }}')" title="Ativar">
+                                            <svg xmlns="http://www.w3.org/2000/svg" class="icon-sm" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                                                <path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                            </svg>
+                                        </button>
+                                    {% endif %}
+                                </div>
+                            </td>
+                        </tr>
+                        {% empty %}
+                        <tr id="patients-empty-row" style="display: none;">
+                            <td colspan="8" class="text-center text-slate-500 py-5">
+                                <p class="h6 mb-2" style="font-size: 1rem;">Nenhum paciente encontrado.</p>
+                                <p class="text-slate-400" style="font-size: 0.875rem;">Clique em "Novo Paciente" para adicionar o primeiro paciente.</p>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
             </div>
+        </div>
+        <!-- Pagination Controls -->
+        <div class="card-footer bg-white border-top d-flex justify-content-between align-items-center py-2">
+            <div class="text-slate-500" style="font-size: 0.875rem;">
+                Mostrando <span id="patients-showing-start">0</span> - <span id="patients-showing-end">0</span> de <span id="patients-total">0</span> pacientes
+            </div>
+            <nav>
+                <ul class="pagination pagination-sm mb-0" id="patients-pagination">
+                    <li class="page-item">
+                        <a class="page-link text-slate-600" href="#" id="patients-prev" onclick="changePatientsPage(-1); return false;">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="icon-sm" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M15 19l-7-7 7-7" />
+                            </svg>
+                        </a>
+                    </li>
+                    <li class="page-item">
+                        <span class="page-link text-slate-800 bg-white border-0" id="patients-page-info" style="font-size: 0.875rem;">
+                            Página <span id="patients-current-page">1</span> de <span id="patients-total-pages">1</span>
+                        </span>
+                    </li>
+                    <li class="page-item">
+                        <a class="page-link text-slate-600" href="#" id="patients-next" onclick="changePatientsPage(1); return false;">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="icon-sm" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7" />
+                            </svg>
+                        </a>
+                    </li>
+                </ul>
+            </nav>
         </div>
     </div>
 
-    <!-- Patient Statistics -->
-    <div class="row mt-4">
+    <!-- Stats Footer (Bottom Row) -->
+    <div class="row g-3">
         <div class="col-md-4">
-            <div class="card bg-primary text-white">
-                <div class="card-body">
-                    <div class="d-flex justify-content-between">
-                        <div>
-                            <h4 class="mb-0">{{ patient_stats.total_patients|default:0 }}</h4>
-                            <small>Total de Pacientes</small>
+            <div class="card shadow-sm rounded-lg bg-white">
+                <div class="card-body p-3">
+                    <div class="d-flex align-items-center">
+                        <div class="flex-shrink-0 me-2">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="icon-md text-slate-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
+                            </svg>
                         </div>
-                        <div class="align-self-center">
-                            <i class="fas fa-users fa-2x"></i>
+                        <div>
+                            <div class="text-slate-800 fw-bold" style="font-size: 1.25rem;">
+                                {% if patient_stats.total_patients %}
+                                    {{ patient_stats.total_patients }}
+                                {% elif all_patients %}
+                                    {{ all_patients|length }}
+                                {% else %}
+                                    0
+                                {% endif %}
+                            </div>
+                            <div class="text-slate-500" style="font-size: 0.8rem;">Total de Pacientes</div>
                         </div>
                     </div>
                 </div>
             </div>
         </div>
         <div class="col-md-4">
-            <div class="card bg-success text-white">
-                <div class="card-body">
-                    <div class="d-flex justify-content-between">
-                        <div>
-                            <h4 class="mb-0">{{ patient_stats.active_patients|default:0 }}</h4>
-                            <small>Pacientes Ativos</small>
+            <div class="card shadow-sm rounded-lg bg-white">
+                <div class="card-body p-3">
+                    <div class="d-flex align-items-center">
+                        <div class="flex-shrink-0 me-2">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="icon-md text-slate-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                            </svg>
                         </div>
-                        <div class="align-self-center">
-                            <i class="fas fa-user-check fa-2x"></i>
+                        <div>
+                            <div class="text-slate-800 fw-bold" style="font-size: 1.25rem;">
+                                {% if patient_stats.active_patients %}
+                                    {{ patient_stats.active_patients }}
+                                {% else %}
+                                    0
+                                {% endif %}
+                            </div>
+                            <div class="text-slate-500" style="font-size: 0.8rem;">Pacientes Ativos</div>
                         </div>
                     </div>
                 </div>
             </div>
         </div>
         <div class="col-md-4">
-            <div class="card bg-info text-white">
-                <div class="card-body">
-                    <div class="d-flex justify-content-between">
-                        <div>
-                            <h4 class="mb-0">{{ patient_stats.new_this_month|default:0 }}</h4>
-                            <small>Novos Este Mês</small>
+            <div class="card shadow-sm rounded-lg bg-white">
+                <div class="card-body p-3">
+                    <div class="d-flex align-items-center">
+                        <div class="flex-shrink-0 me-2">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="icon-md text-slate-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                            </svg>
                         </div>
-                        <div class="align-self-center">
-                            <i class="fas fa-user-plus fa-2x"></i>
+                        <div>
+                            <div class="text-slate-800 fw-bold" style="font-size: 1.25rem;">
+                                {% if patient_stats.new_this_month %}
+                                    {{ patient_stats.new_this_month }}
+                                {% else %}
+                                    0
+                                {% endif %}
+                            </div>
+                            <div class="text-slate-500" style="font-size: 0.8rem;">Novos Este Mês</div>
                         </div>
                     </div>
                 </div>
@@ -475,6 +537,9 @@
 <script>
 // Patient management functions
 let currentPatientId = null;
+let currentPatientsPage = 1;
+const patientsPerPage = 6;
+let filteredPatients = [];
 
 // Search functionality
 document.getElementById('patient-search').addEventListener('input', function() {
@@ -493,42 +558,127 @@ function filterPatients() {
     const searchTerm = document.getElementById('patient-search').value.toLowerCase();
     const genderFilter = document.getElementById('patient-gender-filter').value;
     const statusFilter = document.getElementById('patient-status-filter').value;
-    const rows = document.querySelectorAll('#patients-table-body tr');
+    const rows = document.querySelectorAll('#patients-table-body tr.patient-row');
+    
+    filteredPatients = [];
     
     rows.forEach((row, index) => {
         const name = row.querySelector('td:first-child').textContent.trim().toLowerCase();
         const email = row.querySelector('td:nth-child(2)').textContent.trim().toLowerCase();
         const phone = row.querySelector('td:nth-child(3)').textContent.trim().toLowerCase();
-        const genderElement = row.querySelector('td:nth-child(5) span');
-        const gender = genderElement ? genderElement.textContent.trim().toLowerCase().replace(/\s+/g, '') : '';
-        const statusElement = row.querySelector('td:nth-child(6) span');
-        const status = statusElement ? statusElement.textContent.trim().toLowerCase().replace(/\s+/g, '') : '';
+        const genderElement = row.querySelector('td:nth-child(5)');
+        const gender = genderElement ? genderElement.textContent.trim().toLowerCase() : '';
+        // Get status from data attribute (more reliable)
+        const patientStatus = row.getAttribute('data-patient-status') || '';
         
-        const matchesSearch = name.includes(searchTerm) || email.includes(searchTerm) || phone.includes(searchTerm);
+        const matchesSearch = !searchTerm || name.includes(searchTerm) || email.includes(searchTerm) || phone.includes(searchTerm);
         
-        // Gender filtering - exact match
+        // Gender filtering
         let matchesGender = true;
         if (genderFilter === 'M') {
-            matchesGender = gender === 'masculino';
+            matchesGender = gender.includes('masculino');
         } else if (genderFilter === 'F') {
-            matchesGender = gender === 'feminino';
+            matchesGender = gender.includes('feminino');
         } else if (genderFilter === 'O') {
-            matchesGender = gender === 'outro';
+            matchesGender = gender.includes('outro');
         }
         
-        // Status filtering
+        // Status filtering - use data attribute for reliable filtering
         let matchesStatus = true;
         if (statusFilter === 'active') {
-            matchesStatus = status === 'ativo';
+            matchesStatus = patientStatus === 'active';
         } else if (statusFilter === 'inactive') {
-            matchesStatus = status === 'inativo';
+            matchesStatus = patientStatus === 'inactive';
         } else if (statusFilter === 'all') {
             matchesStatus = true;
         }
         
         const shouldShow = matchesSearch && matchesGender && matchesStatus;
-        row.style.display = shouldShow ? '' : 'none';
+        
+        if (shouldShow) {
+            filteredPatients.push(row);
+        }
     });
+    
+    // Reset to page 1 when filtering
+    currentPatientsPage = 1;
+    displayPatientsPage();
+}
+
+function displayPatientsPage() {
+    const rows = document.querySelectorAll('#patients-table-body tr.patient-row');
+    const emptyRow = document.getElementById('patients-empty-row');
+    const totalFiltered = filteredPatients.length;
+    const totalPages = Math.ceil(totalFiltered / patientsPerPage) || 1;
+    
+    // Hide all rows first
+    rows.forEach(row => {
+        row.style.display = 'none';
+    });
+    
+    // Hide empty row by default
+    if (emptyRow) {
+        emptyRow.style.display = 'none';
+    }
+    
+    // Show empty state if no patients
+    if (totalFiltered === 0) {
+        if (emptyRow) {
+            emptyRow.style.display = '';
+        }
+    } else {
+        // Calculate range
+        const startIndex = (currentPatientsPage - 1) * patientsPerPage;
+        const endIndex = Math.min(startIndex + patientsPerPage, totalFiltered);
+        
+        // Show rows for current page
+        for (let i = startIndex; i < endIndex; i++) {
+            if (filteredPatients[i]) {
+                filteredPatients[i].style.display = '';
+            }
+        }
+    }
+    
+    // Update pagination info
+    document.getElementById('patients-current-page').textContent = currentPatientsPage;
+    document.getElementById('patients-total-pages').textContent = totalPages;
+    document.getElementById('patients-total').textContent = totalFiltered;
+    document.getElementById('patients-showing-start').textContent = totalFiltered > 0 ? (totalFiltered === 0 ? 0 : (currentPatientsPage - 1) * patientsPerPage + 1) : 0;
+    document.getElementById('patients-showing-end').textContent = totalFiltered > 0 ? Math.min(currentPatientsPage * patientsPerPage, totalFiltered) : 0;
+    
+    // Update prev/next buttons
+    const prevBtn = document.getElementById('patients-prev');
+    const nextBtn = document.getElementById('patients-next');
+    
+    if (currentPatientsPage <= 1 || totalFiltered === 0) {
+        prevBtn.classList.add('disabled');
+        prevBtn.style.pointerEvents = 'none';
+        prevBtn.style.opacity = '0.5';
+    } else {
+        prevBtn.classList.remove('disabled');
+        prevBtn.style.pointerEvents = 'auto';
+        prevBtn.style.opacity = '1';
+    }
+    
+    if (currentPatientsPage >= totalPages || totalFiltered === 0) {
+        nextBtn.classList.add('disabled');
+        nextBtn.style.pointerEvents = 'none';
+        nextBtn.style.opacity = '0.5';
+    } else {
+        nextBtn.classList.remove('disabled');
+        nextBtn.style.pointerEvents = 'auto';
+        nextBtn.style.opacity = '1';
+    }
+}
+
+function changePatientsPage(direction) {
+    const totalPages = Math.ceil(filteredPatients.length / patientsPerPage) || 1;
+    const newPage = currentPatientsPage + direction;
+    
+    if (newPage >= 1 && newPage <= totalPages) {
+        currentPatientsPage = newPage;
+        displayPatientsPage();
+    }
 }
 
 function clearPatientFilters() {
@@ -536,6 +686,32 @@ function clearPatientFilters() {
     document.getElementById('patient-gender-filter').value = '';
     document.getElementById('patient-status-filter').value = 'active';
     filterPatients();
+}
+
+// Initialize pagination on page load and when tab is shown
+function initializePatientsPagination() {
+    if (document.getElementById('pacientes-tab') && document.getElementById('pacientes-tab').style.display !== 'none') {
+        filterPatients();
+    }
+}
+
+document.addEventListener('DOMContentLoaded', function() {
+    initializePatientsPagination();
+});
+
+// Also initialize when tab is shown (in case it's not the default tab)
+const pacientesTab = document.getElementById('pacientes-tab');
+if (pacientesTab) {
+    const observer = new MutationObserver(function(mutations) {
+        mutations.forEach(function(mutation) {
+            if (mutation.type === 'attributes' && mutation.attributeName === 'style') {
+                if (pacientesTab.style.display !== 'none') {
+                    setTimeout(initializePatientsPagination, 50);
+                }
+            }
+        });
+    });
+    observer.observe(pacientesTab, { attributes: true });
 }
 
 function viewPatientDetails(patientId) {
@@ -655,22 +831,8 @@ function displayPatientDetails(patient) {
 function editPatient(patientId) {
     currentPatientId = patientId;
     
-    // Find the patient row and extract basic data
-    const row = document.querySelector(`tr[data-patient-id="${patientId}"]`);
-    if (!row) return;
-    
-    // Get basic data from the table
-    const name = row.querySelector('td:first-child strong').textContent;
-    const nameParts = name.split(' ');
-    const email = row.querySelector('td:nth-child(2) a') ? row.querySelector('td:nth-child(2) a').textContent : '';
-    const phone = row.querySelector('td:nth-child(3) a') ? row.querySelector('td:nth-child(3) a').textContent : '';
-    
-    // Set basic fields
+    // Set patient ID
     document.getElementById('edit-patient-id').value = patientId;
-    document.getElementById('edit-first-name').value = nameParts[0] || '';
-    document.getElementById('edit-last-name').value = nameParts.slice(1).join(' ') || '';
-    document.getElementById('edit-email').value = email;
-    document.getElementById('edit-phone').value = phone;
     
     // Fetch full patient data from server
     fetch(`/dashboard/api/patients/${patientId}/`)
@@ -693,15 +855,17 @@ function editPatient(patientId) {
                 document.getElementById('edit-emergency-contact-name').value = patient.emergency_contact_name || '';
                 document.getElementById('edit-emergency-contact-phone').value = patient.emergency_contact_phone || '';
                 document.getElementById('edit-medical-insurance').value = patient.medical_insurance || '';
+                
+                // Show the modal after data is loaded
+                new bootstrap.Modal(document.getElementById('patientEditModal')).show();
+            } else {
+                showAlert('error', 'Erro ao carregar dados do paciente: ' + (data.error || 'Erro desconhecido'));
             }
         })
         .catch(error => {
             console.error('Error fetching patient data:', error);
-            // Continue with basic data if fetch fails
+            showAlert('error', 'Erro ao carregar dados do paciente.');
         });
-    
-    // Show the modal
-    new bootstrap.Modal(document.getElementById('patientEditModal')).show();
 }
 
 function editPatientFromDetails() {
@@ -730,33 +894,11 @@ function deactivatePatient(patientId, patientName) {
         .then(response => response.json())
         .then(data => {
             if (data.success) {
-                // Update the row status
-                const row = document.querySelector(`tr[data-patient-id="${patientId}"]`);
-                if (row) {
-                    // Update status badge
-                    const statusCell = row.querySelector('td:nth-child(6)');
-                    statusCell.innerHTML = '<span class="badge bg-danger">Inativo</span>';
-                    
-                    // Update action button
-                    const actionCell = row.querySelector('td:last-child .btn-group');
-                    actionCell.innerHTML = `
-                        <button class="btn btn-sm btn-outline-primary" onclick="viewPatientDetails(${patientId})" title="Ver detalhes">
-                            <i class="fas fa-eye"></i>
-                        </button>
-                        <button class="btn btn-sm btn-outline-warning" onclick="editPatient(${patientId})" title="Editar">
-                            <i class="fas fa-edit"></i>
-                        </button>
-                        <button class="btn btn-sm btn-outline-success" onclick="activatePatient(${patientId}, '${patientName}')" title="Ativar">
-                            <i class="fas fa-user-check"></i>
-                        </button>
-                    `;
-                }
-                
                 // Show success message
                 showAlert('success', data.message);
                 
-                // Update statistics
-                updatePatientStats();
+                // Refresh the patient list
+                refreshPatientsList();
             } else {
                 showAlert('error', data.error);
             }
@@ -780,33 +922,11 @@ function activatePatient(patientId, patientName) {
         .then(response => response.json())
         .then(data => {
             if (data.success) {
-                // Update the row status
-                const row = document.querySelector(`tr[data-patient-id="${patientId}"]`);
-                if (row) {
-                    // Update status badge
-                    const statusCell = row.querySelector('td:nth-child(6)');
-                    statusCell.innerHTML = '<span class="badge bg-success">Ativo</span>';
-                    
-                    // Update action button
-                    const actionCell = row.querySelector('td:last-child .btn-group');
-                    actionCell.innerHTML = `
-                        <button class="btn btn-sm btn-outline-primary" onclick="viewPatientDetails(${patientId})" title="Ver detalhes">
-                            <i class="fas fa-eye"></i>
-                        </button>
-                        <button class="btn btn-sm btn-outline-warning" onclick="editPatient(${patientId})" title="Editar">
-                            <i class="fas fa-edit"></i>
-                        </button>
-                        <button class="btn btn-sm btn-outline-danger" onclick="deactivatePatient(${patientId}, '${patientName}')" title="Desativar">
-                            <i class="fas fa-user-times"></i>
-                        </button>
-                    `;
-                }
-                
                 // Show success message
                 showAlert('success', data.message);
                 
-                // Update statistics
-                updatePatientStats();
+                // Refresh the patient list
+                refreshPatientsList();
             } else {
                 showAlert('error', data.error);
             }
@@ -836,8 +956,8 @@ document.getElementById('patientEditForm').addEventListener('submit', function(e
         if (data.success) {
             showAlert('success', data.message);
             bootstrap.Modal.getInstance(document.getElementById('patientEditModal')).hide();
-            // Update the table row with new data instead of reloading
-            updatePatientRow(data.patient);
+            // Refresh the patient list
+            refreshPatientsList();
         } else {
             showAlert('error', data.error);
         }
@@ -866,8 +986,8 @@ document.getElementById('patientCreateForm').addEventListener('submit', function
         if (data.success) {
             showAlert('success', data.message);
             bootstrap.Modal.getInstance(document.getElementById('patientCreateModal')).hide();
-            // Reload the page to show the new patient
-            location.reload();
+            // Refresh the patient list
+            refreshPatientsList();
         } else {
             showAlert('error', data.error);
         }
@@ -878,106 +998,17 @@ document.getElementById('patientCreateForm').addEventListener('submit', function
     });
 });
 
-function updatePatientRow(patient) {
-    // Find the patient row
-    const row = document.querySelector(`tr[data-patient-id="${patient.id}"]`);
-    if (!row) {
-        return;
+function refreshPatientsList() {
+    // Refresh the patient list and maintain the pacientes tab active
+    const pacientesTab = document.getElementById('pacientes-tab');
+    if (!pacientesTab || pacientesTab.style.display === 'none') {
+        return; // Not on pacientes tab, don't refresh
     }
     
-    // Update the name in the first column
-    const nameElement = row.querySelector('td:first-child strong');
-    if (nameElement && patient.full_name) {
-        nameElement.textContent = patient.full_name;
-    }
-    
-    // Update email
-    const emailCell = row.querySelector('td:nth-child(2)');
-    if (emailCell) {
-        if (patient.email) {
-            emailCell.innerHTML = `<a href="mailto:${patient.email}" class="text-decoration-none">${patient.email}</a>`;
-        } else {
-            emailCell.innerHTML = '<span class="text-muted">-</span>';
-        }
-    }
-    
-    // Update phone
-    const phoneCell = row.querySelector('td:nth-child(3)');
-    if (phoneCell) {
-        if (patient.phone) {
-            phoneCell.innerHTML = `<a href="tel:${patient.phone}" class="text-decoration-none">${patient.phone}</a>`;
-        } else {
-            phoneCell.innerHTML = '<span class="text-muted">-</span>';
-        }
-    }
-    
-    // Update age
-    const ageElement = row.querySelector('td:nth-child(4) .badge');
-    if (ageElement && patient.age) {
-        ageElement.textContent = `${patient.age} anos`;
-    }
-    
-    // Update gender
-    const genderElement = row.querySelector('td:nth-child(5) .badge');
-    if (genderElement && patient.gender) {
-        let genderText = '';
-        let genderClass = '';
-        if (patient.gender === 'M') {
-            genderText = 'Masculino';
-            genderClass = 'bg-primary';
-        } else if (patient.gender === 'F') {
-            genderText = 'Feminino';
-            genderClass = 'bg-pink';
-        } else {
-            genderText = 'Outro';
-            genderClass = 'bg-secondary';
-        }
-        genderElement.textContent = genderText;
-        genderElement.className = `badge ${genderClass}`;
-    }
-    
-    // Update status
-    const statusElement = row.querySelector('td:nth-child(6) .badge');
-    if (statusElement) {
-        if (patient.is_active) {
-            statusElement.textContent = 'Ativo';
-            statusElement.className = 'badge bg-success';
-        } else {
-            statusElement.textContent = 'Inativo';
-            statusElement.className = 'badge bg-danger';
-        }
-    }
-    
-    // Update action buttons based on status
-    const actionButtons = row.querySelector('td:last-child .btn-group');
-    if (actionButtons) {
-        const patientName = patient.full_name || 'Paciente';
-        if (patient.is_active) {
-            actionButtons.innerHTML = `
-                <button class="btn btn-sm btn-outline-primary" onclick="viewPatientDetails(${patient.id})" title="Ver detalhes">
-                    <i class="fas fa-eye"></i>
-                </button>
-                <button class="btn btn-sm btn-outline-warning" onclick="editPatient(${patient.id})" title="Editar">
-                    <i class="fas fa-edit"></i>
-                </button>
-                <button class="btn btn-sm btn-outline-danger" onclick="deactivatePatient(${patient.id}, '${patientName}')" title="Desativar">
-                    <i class="fas fa-user-times"></i>
-                </button>
-            `;
-        } else {
-            actionButtons.innerHTML = `
-                <button class="btn btn-sm btn-outline-primary" onclick="viewPatientDetails(${patient.id})" title="Ver detalhes">
-                    <i class="fas fa-eye"></i>
-                </button>
-                <button class="btn btn-sm btn-outline-warning" onclick="editPatient(${patient.id})" title="Editar">
-                    <i class="fas fa-edit"></i>
-                </button>
-                <button class="btn btn-sm btn-outline-success" onclick="activatePatient(${patient.id}, '${patientName}')" title="Ativar">
-                    <i class="fas fa-user-check"></i>
-                </button>
-            `;
-        }
-    }
+    // Reload the page but preserve the tab state via URL parameter
+    const url = new URL(window.location);
+    url.searchParams.set('tab', 'pacientes');
+    window.location.href = url.toString();
 }
 
 function updatePatientStats() {

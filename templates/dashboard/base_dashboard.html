@@ -75,6 +75,9 @@
                 <button type="button" class="btn btn-outline-primary" id="relatorios-btn" onclick="switchTab('relatorios')">
                     <i class="fas fa-file-alt me-1"></i>Relatórios
                 </button>
+                <button type="button" class="btn btn-outline-primary" id="waitlist-btn" onclick="switchTab('waitlist')">
+                    <i class="fas fa-clock me-1"></i>Lista de Espera
+                </button>
             </div>
             
         </div>
@@ -94,6 +97,7 @@
 {% include 'dashboard/modals/patient_selection_modal.html' %}
 {% include 'dashboard/modals/appointment_details_modal.html' %}
 {% include 'dashboard/modals/record_popup_modal.html' %}
+{% include 'dashboard/modals/waitlist_modal.html' %}
 
 <!-- WhatsApp Test Modal -->
 <div class="modal fade" id="whatsappTestModal" tabindex="-1" aria-labelledby="whatsappTestModalLabel" aria-hidden="true">
@@ -127,14 +131,16 @@
         </div>
     </div>
 </div>
-<div class="ms-2">
+<!-- <div class="ms-2">
     <button type="button" class="btn btn-success btn-sm" onclick="showWhatsAppTestModal()" title="Testar WhatsApp">
         <i class="fab fa-whatsapp me-1"></i>Testar WhatsApp
     </button>
-</div>
+</div> -->
 {% endblock %}
 
 {% block extra_js %}
+<!-- Chart.js -->
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
 <!-- FullCalendar JS -->
 <script src="{% static 'fullcalendar-6.1.19/dist/index.global.js' %}"></script>
 <script src="{% static 'js/extra.js' %}"></script>

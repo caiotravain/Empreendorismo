@@ -8,13 +8,15 @@ from django.views.decorators.http import require_http_methods
 from django.db import models
 from datetime import date, timedelta, datetime
 from decimal import Decimal, InvalidOperation
-from .models import Appointment, Patient, Doctor, MedicalRecord, Prescription, PrescriptionItem, PrescriptionTemplate, Expense, Income, Medication
+from .models import Appointment, Patient, Doctor, MedicalRecord, Prescription, PrescriptionItem, PrescriptionTemplate, Expense, Income, Medication, WaitingListEntry
+from .waiting_list_views import api_waiting_list, api_waiting_list_entry, api_update_waiting_list_entry, api_convert_waitlist_to_appointment
 from accounts.utils import get_accessible_patients, get_user_role, has_access_to_patient, get_accessible_doctors, can_access_doctor
 
 @login_required
 def home(request):
     """Main medical dashboard view with agenda tab"""
-    today = timezone.now().date()
+    # Use localtime to get Brazil timezone (America/Sao_Paulo)
+    today = timezone.localtime(timezone.now()).date()
     
     # Get current doctor (from selection for admins, or user's doctor)
     current_doctor = get_selected_doctor(request)
@@ -66,7 +68,8 @@ def home(request):
         ).count()
         
         # Get next appointment (from today onwards, including future appointments today)
-        now = timezone.now()
+        # Use localtime to get Brazil timezone (America/Sao_Paulo)
+        now = timezone.localtime(timezone.now())
         current_time = now.time()
         
         # First, try to find appointments today that haven't happened yet
@@ -117,7 +120,8 @@ def home(request):
         ).count()
         
         # Get next appointment from all doctors
-        now = timezone.now()
+        # Use localtime to get Brazil timezone (America/Sao_Paulo)
+        now = timezone.localtime(timezone.now())
         current_time = now.time()
         
         today_future_appointments = Appointment.objects.filter(
@@ -176,8 +180,11 @@ def home(request):
             status__in=['scheduled', 'confirmed']
         ).count()
     
+    # Get active tab from URL parameter, default to 'agenda'
+    active_tab = request.GET.get('tab', 'agenda')
+    
     context = {
-        'active_tab': 'agenda',
+        'active_tab': active_tab,
         'current_doctor': current_doctor,
         'today_appointments': today_appointments,
         'week_appointments': week_appointments,
@@ -270,6 +277,28 @@ def prontuarios(request):
                         ).count()
                     })
     
+    # Calculate patient statistics for the context
+    from django.utils import timezone as django_timezone
+    all_patients = get_accessible_patients(request.user)
+    total_patients = all_patients.count()
+    active_patients = all_patients.filter(is_active=True).count()
+    
+    # Patients created this month
+    now = django_timezone.now()
+    start_of_month = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+    new_this_month = all_patients.filter(created_at__gte=start_of_month).count()
+    
+    # Pending appointments
+    if current_doctor:
+        pending_appointments = Appointment.objects.filter(
+            doctor=current_doctor,
+            status__in=['scheduled', 'confirmed']
+        ).count()
+    else:
+        pending_appointments = Appointment.objects.filter(
+            status__in=['scheduled', 'confirmed']
+        ).count()
+    
     context = {
         'active_tab': 'prontuarios',
         'current_doctor': current_doctor,
@@ -279,6 +308,12 @@ def prontuarios(request):
         'total_records': total_records if 'total_records' in locals() else 0,
         'has_more_records': has_more_records if 'has_more_records' in locals() else False,
         'next_offset': next_offset if 'next_offset' in locals() else 0,
+        'patient_stats': {
+            'total_patients': total_patients,
+            'active_patients': active_patients,
+            'new_this_month': new_this_month,
+            'pending_appointments': pending_appointments,
+        },
     }
     return render(request, 'dashboard/home.html', context)
 
@@ -1167,8 +1202,9 @@ def api_next_appointment(request):
             })
         
         # Get next appointment using the same logic as in home view
-        today = timezone.now().date()
-        now = timezone.now()
+        # Use localtime to get Brazil timezone (America/Sao_Paulo)
+        now = timezone.localtime(timezone.now())
+        today = now.date()
         current_time = now.time()
         
         # First, try to find appointments today that haven't happened yet
@@ -1229,8 +1265,9 @@ def api_agenda_stats(request):
         # Get current doctor (from selection for admins, or user's doctor)
         current_doctor = get_selected_doctor(request)
         
-        today = timezone.now().date()
-        now = timezone.now()
+        # Use localtime to get Brazil timezone (America/Sao_Paulo)
+        now = timezone.localtime(timezone.now())
+        today = now.date()
         current_time = now.time()
 
         # Calculate stats - if no doctor selected, show aggregated stats for all doctors

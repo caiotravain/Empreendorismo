@@ -1,224 +1,395 @@
 <!-- Indicadores Tab -->
 <div id="indicadores-tab" class="tab-content" style="display: none;">
-    <div class="row">
-        <!-- Monthly Agenda Chart -->
-        <div class="col-lg-6 mb-4">
-            <div class="card shadow-sm border-0 h-100">
-                <div class="card-header py-3 d-flex justify-content-between align-items-center">
-                    <h6 class="m-0 font-weight-bold text-primary">
-                        <i class="fas fa-chart-bar me-2"></i>Agenda Mensal (%)
-                    </h6>
-                    <div class="trend-tabs">
-                        <button class="trend-tab active" onclick="switchChartView('monthly')" id="monthly-chart-btn">Mensal</button>
-                        <button class="trend-tab" onclick="switchChartView('weekly')" id="weekly-chart-btn">Semanal</button>
-                    </div>
-                </div>
-                <div class="card-body">
-                    <!-- Monthly Chart (Default) -->
-                    <div id="monthly-chart" class="monthly-chart">
-                        <div class="chart-bars">
-                            <!-- February -->
-                            <div class="chart-bar">
-                                <div class="bar-label">fev-25</div>
-                                <div class="bar-container">
-                                    <div class="bar-segment ocupacao" style="height: 45%;">
-                                        <span class="segment-percentage">45%</span>
-                                    </div>
-                                    <div class="bar-segment vago" style="height: 35%;">
-                                        <span class="segment-percentage">35%</span>
-                                    </div>
-                                    <div class="bar-segment no-show" style="height: 15%;">
-                                        <span class="segment-percentage">15%</span>
-                                    </div>
-                                    <div class="bar-segment cancelamento" style="height: 5%;">
-                                        <span class="segment-percentage small-percentage">5%</span>
-                                    </div>
-                                </div>
-                            </div>
-                            <!-- March -->
-                            <div class="chart-bar">
-                                <div class="bar-label">mar-25</div>
-                                <div class="bar-container">
-                                    <div class="bar-segment ocupacao" style="height: 50%;">
-                                        <span class="segment-percentage">50%</span>
-                                    </div>
-                                    <div class="bar-segment vago" style="height: 30%;">
-                                        <span class="segment-percentage">30%</span>
-                                    </div>
-                                    <div class="bar-segment no-show" style="height: 12%;">
-                                        <span class="segment-percentage">12%</span>
-                                    </div>
-                                    <div class="bar-segment cancelamento" style="height: 8%;">
-                                        <span class="segment-percentage">8%</span>
-                                    </div>
-                                </div>
-                            </div>
-                            <!-- April -->
-                            <div class="chart-bar">
-                                <div class="bar-label">abr-25</div>
-                                <div class="bar-container">
-                                    <div class="bar-segment ocupacao" style="height: 55%;">
-                                        <span class="segment-percentage">55%</span>
-                                    </div>
-                                    <div class="bar-segment vago" style="height: 25%;">
-                                        <span class="segment-percentage">25%</span>
-                                    </div>
-                                    <div class="bar-segment no-show" style="height: 10%;">
-                                        <span class="segment-percentage">10%</span>
-                                    </div>
-                                    <div class="bar-segment cancelamento" style="height: 10%;">
-                                        <span class="segment-percentage">10%</span>
-                                    </div>
-                                </div>
-                            </div>
-                            <!-- May -->
-                            <div class="chart-bar">
-                                <div class="bar-label">mai-25</div>
-                                <div class="bar-container">
-                                    <div class="bar-segment ocupacao" style="height: 60%;">
-                                        <span class="segment-percentage">60%</span>
-                                    </div>
-                                    <div class="bar-segment vago" style="height: 20%;">
-                                        <span class="segment-percentage">20%</span>
-                                    </div>
-                                    <div class="bar-segment no-show" style="height: 12%;">
-                                        <span class="segment-percentage">12%</span>
-                                    </div>
-                                    <div class="bar-segment cancelamento" style="height: 8%;">
-                                        <span class="segment-percentage">8%</span>
-                                    </div>
-                                </div>
-                            </div>
-                            <!-- June -->
-                            <div class="chart-bar">
-                                <div class="bar-label">jun-25</div>
-                                <div class="bar-container">
-                                    <div class="bar-segment ocupacao" style="height: 65%;">
-                                        <span class="segment-percentage">65%</span>
-                                    </div>
-                                    <div class="bar-segment vago" style="height: 15%;">
-                                        <span class="segment-percentage">15%</span>
-                                    </div>
-                                    <div class="bar-segment no-show" style="height: 10%;">
-                                        <span class="segment-percentage">10%</span>
-                                    </div>
-                                    <div class="bar-segment cancelamento" style="height: 10%;">
-                                        <span class="segment-percentage">10%</span>
-                                    </div>
-                                </div>
-                            </div>
+    <!-- Control Bar -->
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h1 class="text-slate-800 mb-0" style="font-size: 1.5rem; font-weight: 600;">Indicadores de Performance</h1>
+        <div class="position-relative">
+            <select class="form-select bg-white border border-slate-200 rounded-lg px-4 py-2" id="period-filter" style="min-width: 180px; appearance: none; padding-right: 2.5rem;">
+                <option value="30">Últimos 30 Dias</option>
+                <option value="month" selected>Este Mês</option>
+                <option value="quarter">Último Trimestre</option>
+                <option value="year">Este Ano</option>
+            </select>
+            <svg xmlns="http://www.w3.org/2000/svg" class="position-absolute top-50 end-0 translate-middle-y me-3 text-slate-400" style="pointer-events: none; right: 0;" width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7" />
+            </svg>
+        </div>
+    </div>
+
+    <!-- Section 1: The "Pulse" - 4 KPI Cards -->
+    <div class="row mb-4">
+        <!-- Card 1: Show Rate -->
+        <div class="col-md-3 mb-3">
+            <div class="card border border-slate-200 rounded-xl shadow-sm bg-white">
+                <div class="card-body p-4">
+                    <div class="d-flex align-items-center justify-content-between">
+                        <div>
+                            <p class="text-slate-500 mb-1" style="font-size: 0.875rem; font-weight: 500;">Taxa de Comparecimento</p>
+                            <h3 class="mb-0 text-emerald-600 fw-bold" id="show-rate-value">
+                                {{ metrics.show_rate|default:"92" }}%
+                            </h3>
+                            <p class="text-slate-400 mb-0 mt-1" style="font-size: 0.75rem;">Meta: 95%</p>
                         </div>
-                    </div>
-                    <!-- Chart Legend -->
-                    <div class="chart-legend mt-3">
-                        <div class="d-flex justify-content-center gap-4">
-                            <div class="legend-item">
-                                <div class="legend-color ocupacao"></div>
-                                <span class="legend-label">Ocupação</span>
-                            </div>
-                            <div class="legend-item">
-                                <div class="legend-color vago"></div>
-                                <span class="legend-label">Vago</span>
-                            </div>
-                            <div class="legend-item">
-                                <div class="legend-color no-show"></div>
-                                <span class="legend-label">No Show</span>
-                            </div>
-                            <div class="legend-item">
-                                <div class="legend-color cancelamento"></div>
-                                <span class="legend-label">Cancelamento</span>
-                            </div>
-                        </div>
-                    </div>
-                    
-                    <!-- Weekly Chart (Hidden by default) -->
-                    <div id="weekly-chart" class="chart-container" style="display: none;">
-                        <div class="weekly-chart">
-                            <div class="chart-bars">
-                                <!-- Week 1 -->
-                                <div class="chart-bar">
-                                    <div class="bar-label">Sem 1</div>
-                                    <div class="bar-container">
-                                        <div class="bar-segment ocupacao" style="height: 40%;">
-                                            <span class="segment-percentage">40%</span>
-                                        </div>
-                                        <div class="bar-segment vago" style="height: 40%;">
-                                            <span class="segment-percentage">40%</span>
-                                        </div>
-                                        <div class="bar-segment no-show" style="height: 15%;">
-                                            <span class="segment-percentage">15%</span>
-                                        </div>
-                                        <div class="bar-segment cancelamento" style="height: 5%;">
-                                            <span class="segment-percentage small-percentage">5%</span>
-                                        </div>
-                                    </div>
-                                </div>
-                                <!-- Week 2 -->
-                                <div class="chart-bar">
-                                    <div class="bar-label">Sem 2</div>
-                                    <div class="bar-container">
-                                        <div class="bar-segment ocupacao" style="height: 45%;">
-                                            <span class="segment-percentage">45%</span>
-                                        </div>
-                                        <div class="bar-segment vago" style="height: 35%;">
-                                            <span class="segment-percentage">35%</span>
-                                        </div>
-                                        <div class="bar-segment no-show" style="height: 12%;">
-                                            <span class="segment-percentage">12%</span>
-                                        </div>
-                                        <div class="bar-segment cancelamento" style="height: 8%;">
-                                            <span class="segment-percentage">8%</span>
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
+                        <div class="bg-emerald-50 rounded-lg p-3">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="text-emerald-600" width="24" height="24" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                            </svg>
                         </div>
                     </div>
                 </div>
             </div>
         </div>
 
-        <!-- Key Indicators -->
-        <div class="col-lg-6 mb-4">
-            <div class="row">
-                <div class="col-12 mb-4">
-                    <div class="card shadow-sm border-0 h-100">
-                        <div class="card-header py-3">
-                            <h6 class="m-0 font-weight-bold text-primary">
-                                <i class="fas fa-chart-line me-2"></i>Indicadores Principais
-                            </h6>
+        <!-- Card 2: Total Patients -->
+        <div class="col-md-3 mb-3">
+            <div class="card border border-slate-200 rounded-xl shadow-sm bg-white">
+                <div class="card-body p-4">
+                    <div class="d-flex align-items-center justify-content-between">
+                        <div>
+                            <p class="text-slate-500 mb-1" style="font-size: 0.875rem; font-weight: 500;">Total de Pacientes</p>
+                            <h3 class="mb-0 text-slate-900 fw-bold" id="total-patients-value">
+                                {{ metrics.total_patients|default:patient_stats.total_patients|default:"0" }}
+                            </h3>
+                            <p class="text-slate-400 mb-0 mt-1" style="font-size: 0.75rem;">Pacientes cadastrados</p>
                         </div>
-                        <div class="card-body">
-                            <div class="row">
-                                <div class="col-6 mb-3">
-                                    <div class="indicator-card">
-                                        <div class="indicator-number">{{ indicadores.pacientes_ativos }}</div>
-                                        <div class="indicator-label">Pacientes Ativos</div>
-                                    </div>
-                                </div>
-                                <div class="col-6 mb-3">
-                                    <div class="indicator-card">
-                                        <div class="indicator-number">{{ indicadores.consultas_mes }}</div>
-                                        <div class="indicator-label">Consultas/Mês</div>
-                                    </div>
-                                </div>
-                                <div class="col-6 mb-3">
-                                    <div class="indicator-card">
-                                        <div class="indicator-number">{{ indicadores.exames_solicitados }}</div>
-                                        <div class="indicator-label">Exames Solicitados</div>
-                                    </div>
-                                </div>
-                                <div class="col-6 mb-3">
-                                    <div class="indicator-card">
-                                        <div class="indicator-number">{{ indicadores.prescricoes_ativas }}</div>
-                                        <div class="indicator-label">Prescrições Ativas</div>
-                                    </div>
-                                </div>
-                            </div>
+                        <div class="bg-slate-50 rounded-lg p-3">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="text-slate-600" width="24" height="24" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
+                            </svg>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Card 3: Patient Mix -->
+        <div class="col-md-3 mb-3">
+            <div class="card border border-slate-200 rounded-xl shadow-sm bg-white">
+                <div class="card-body p-4">
+                    <div class="d-flex align-items-center justify-content-between">
+                        <div>
+                            <p class="text-slate-500 mb-1" style="font-size: 0.875rem; font-weight: 500;">Mix de Pacientes</p>
+                            <h3 class="mb-0 text-blue-600 fw-bold" id="patient-mix-value">
+                                {{ metrics.private_pct|default:"60" }}% Particular
+                            </h3>
+                            <p class="text-slate-400 mb-0 mt-1" style="font-size: 0.75rem;">{{ metrics.insurance_pct|default:"40" }}% Convênio</p>
+                        </div>
+                        <div class="bg-blue-50 rounded-lg p-3">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="text-blue-600" width="24" height="24" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
+                            </svg>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Card 4: Retention -->
+        <div class="col-md-3 mb-3">
+            <div class="card border border-slate-200 rounded-xl shadow-sm bg-white">
+                <div class="card-body p-4">
+                    <div class="d-flex align-items-center justify-content-between">
+                        <div>
+                            <p class="text-slate-500 mb-1" style="font-size: 0.875rem; font-weight: 500;">Retenção</p>
+                            <h3 class="mb-0 text-amber-600 fw-bold" id="retention-value">
+                                {{ metrics.retention_rate|default:"45" }}%
+                            </h3>
+                            <p class="text-slate-400 mb-0 mt-1" style="font-size: 0.75rem;">Pacientes retornando</p>
+                        </div>
+                        <div class="bg-amber-50 rounded-lg p-3">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="text-amber-600" width="24" height="24" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                            </svg>
                         </div>
                     </div>
                 </div>
             </div>
         </div>
     </div>
+
+    <!-- Section 2: Deep Dive - Charts -->
+    <div class="row mb-4">
+        <!-- Container 1: Attendance Breakdown (Donut Chart) -->
+        <div class="col-lg-6 mb-3">
+            <div class="card border border-slate-200 rounded-xl shadow-sm bg-white">
+                <div class="card-body p-4">
+                    <h6 class="text-slate-800 fw-semibold mb-3" style="font-size: 0.875rem;">Comparecimento vs. Faltas e Cancelamentos</h6>
+                    <div style="height: 300px; position: relative;">
+                        <canvas id="attendanceChart"></canvas>
+                    </div>
+                    <div class="d-flex justify-content-center gap-4 mt-3">
+                        <div class="d-flex align-items-center gap-2">
+                            <span class="rounded-circle d-inline-block" style="width: 12px; height: 12px; background-color: #10b981;"></span>
+                            <span class="text-slate-600" style="font-size: 0.875rem;">Comparecimento</span>
+                        </div>
+                        <div class="d-flex align-items-center gap-2">
+                            <span class="rounded-circle d-inline-block" style="width: 12px; height: 12px; background-color: #f43f5e;"></span>
+                            <span class="text-slate-600" style="font-size: 0.875rem;">Faltas</span>
+                        </div>
+                        <div class="d-flex align-items-center gap-2">
+                            <span class="rounded-circle d-inline-block" style="width: 12px; height: 12px; background-color: #6b7280;"></span>
+                            <span class="text-slate-600" style="font-size: 0.875rem;">Cancelados</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Container 2: Financial Source (Horizontal Bar) -->
+        <div class="col-lg-6 mb-3">
+            <div class="card border border-slate-200 rounded-xl shadow-sm bg-white">
+                <div class="card-body p-4">
+                    <h6 class="text-slate-800 fw-semibold mb-3" style="font-size: 0.875rem;">Volume Particular vs. Convênio</h6>
+                    <div style="height: 300px; position: relative;">
+                        <canvas id="financialSourceChart"></canvas>
+                    </div>
+                    <div class="d-flex justify-content-center gap-4 mt-3">
+                        <div class="d-flex align-items-center gap-2">
+                            <span class="rounded-circle d-inline-block" style="width: 12px; height: 12px; background-color: #3b82f6;"></span>
+                            <span class="text-slate-600" style="font-size: 0.875rem;">Particular</span>
+                        </div>
+                        <div class="d-flex align-items-center gap-2">
+                            <span class="rounded-circle d-inline-block" style="width: 12px; height: 12px; background-color: #64748b;"></span>
+                            <span class="text-slate-600" style="font-size: 0.875rem;">Convênio</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Section 3: Detailed Insights Table -->
+    <div class="card border border-slate-200 rounded-xl shadow-sm bg-white">
+        <div class="card-body p-4">
+            <h6 class="text-slate-800 fw-semibold mb-3" style="font-size: 0.875rem;">Performance por Operadora de Convênio</h6>
+            <div class="table-responsive">
+                <table class="table table-hover mb-0">
+                    <thead class="bg-slate-50 border-bottom">
+                        <tr>
+                            <th class="text-slate-800 fw-medium border-0 py-3 px-4" style="font-size: 0.875rem;">Operadora</th>
+                            <th class="text-slate-800 fw-medium border-0 py-3 px-4 text-center" style="font-size: 0.875rem;">Total de Consultas</th>
+                            <th class="text-slate-800 fw-medium border-0 py-3 px-4 text-end" style="font-size: 0.875rem;">Receita Gerada</th>
+                            <th class="text-slate-800 fw-medium border-0 py-3 px-4 text-end" style="font-size: 0.875rem;">Ticket Médio</th>
+                        </tr>
+                    </thead>
+                    <tbody id="insurance-providers-table">
+                        {% if metrics.providers %}
+                            {% for provider in metrics.providers %}
+                            <tr class="border-bottom">
+                                <td class="py-3 px-4">
+                                    <span class="text-slate-900 fw-medium">{{ provider.name }}</span>
+                                </td>
+                                <td class="py-3 px-4 text-center text-slate-600">{{ provider.total_appointments }}</td>
+                                <td class="py-3 px-4 text-end">
+                                    <span class="text-slate-900 fw-medium">R$ {{ provider.revenue|floatformat:2|default:"0.00" }}</span>
+                                </td>
+                                <td class="py-3 px-4 text-end">
+                                    <span class="text-slate-600">R$ {{ provider.avg_ticket|floatformat:2|default:"0.00" }}</span>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        {% else %}
+                            <!-- Default data -->
+                            <tr class="border-bottom">
+                                <td class="py-3 px-4">
+                                    <span class="text-slate-900 fw-medium">Unimed</span>
+                                </td>
+                                <td class="py-3 px-4 text-center text-slate-600">45</td>
+                                <td class="py-3 px-4 text-end">
+                                    <span class="text-slate-900 fw-medium">R$ 11.250,00</span>
+                                </td>
+                                <td class="py-3 px-4 text-end">
+                                    <span class="text-slate-600">R$ 250,00</span>
+                                </td>
+                            </tr>
+                            <tr class="border-bottom">
+                                <td class="py-3 px-4">
+                                    <span class="text-slate-900 fw-medium">Bradesco Saúde</span>
+                                </td>
+                                <td class="py-3 px-4 text-center text-slate-600">32</td>
+                                <td class="py-3 px-4 text-end">
+                                    <span class="text-slate-900 fw-medium">R$ 8.000,00</span>
+                                </td>
+                                <td class="py-3 px-4 text-end">
+                                    <span class="text-slate-600">R$ 250,00</span>
+                                </td>
+                            </tr>
+                            <tr class="border-bottom">
+                                <td class="py-3 px-4">
+                                    <span class="text-slate-900 fw-medium">Particular</span>
+                                </td>
+                                <td class="py-3 px-4 text-center text-slate-600">78</td>
+                                <td class="py-3 px-4 text-end">
+                                    <span class="text-slate-900 fw-medium">R$ 19.500,00</span>
+                                </td>
+                                <td class="py-3 px-4 text-end">
+                                    <span class="text-slate-600">R$ 250,00</span>
+                                </td>
+                            </tr>
+                            <tr class="border-bottom">
+                                <td class="py-3 px-4">
+                                    <span class="text-slate-900 fw-medium">SulAmérica</span>
+                                </td>
+                                <td class="py-3 px-4 text-center text-slate-600">18</td>
+                                <td class="py-3 px-4 text-end">
+                                    <span class="text-slate-900 fw-medium">R$ 4.500,00</span>
+                                </td>
+                                <td class="py-3 px-4 text-end">
+                                    <span class="text-slate-600">R$ 250,00</span>
+                                </td>
+                            </tr>
+                        {% endif %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
 </div>
+
+<script>
+// Initialize charts when indicadores tab is shown
+let attendanceChart = null;
+let financialSourceChart = null;
+
+function initializeIndicadoresCharts() {
+    // Attendance Breakdown Donut Chart
+    const attendanceCtx = document.getElementById('attendanceChart');
+    if (attendanceCtx && !attendanceChart) {
+        const showRate = {{ metrics.show_rate|default:"92" }};
+        const noShowRate = {{ metrics.no_show_rate|default:"8" }};
+        const cancelledRate = {{ metrics.cancelled_rate|default:"0" }};
+        
+        attendanceChart = new Chart(attendanceCtx, {
+            type: 'doughnut',
+            data: {
+                labels: ['Comparecimento', 'Faltas', 'Cancelados'],
+                datasets: [{
+                    data: [showRate, noShowRate, cancelledRate],
+                    backgroundColor: [
+                        '#10b981', // Emerald for Show
+                        '#f43f5e', // Rose for No-Show
+                        '#6b7280'  // Gray for Cancelled
+                    ],
+                    borderWidth: 0
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: {
+                        display: false
+                    },
+                    tooltip: {
+                        callbacks: {
+                            label: function(context) {
+                                const label = context.label || '';
+                                const value = context.parsed || 0;
+                                return label + ': ' + value + '%';
+                            }
+                        }
+                    }
+                },
+                cutout: '60%'
+            }
+        });
+    }
+
+    // Financial Source Horizontal Bar Chart
+    const financialCtx = document.getElementById('financialSourceChart');
+    if (financialCtx && !financialSourceChart) {
+        const privatePct = {{ metrics.private_pct|default:"60" }};
+        const insurancePct = {{ metrics.insurance_pct|default:"40" }};
+        
+        financialSourceChart = new Chart(financialCtx, {
+            type: 'bar',
+            data: {
+                labels: ['Volume'],
+                datasets: [
+                    {
+                        label: 'Particular',
+                        data: [privatePct],
+                        backgroundColor: '#3b82f6',
+                        borderWidth: 0
+                    },
+                    {
+                        label: 'Convênio',
+                        data: [insurancePct],
+                        backgroundColor: '#64748b',
+                        borderWidth: 0
+                    }
+                ]
+            },
+            options: {
+                indexAxis: 'y',
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: {
+                        display: false
+                    },
+                    tooltip: {
+                        callbacks: {
+                            label: function(context) {
+                                const label = context.dataset.label || '';
+                                const value = context.parsed.x || 0;
+                                return label + ': ' + value + '%';
+                            }
+                        }
+                    }
+                },
+                scales: {
+                    x: {
+                        stacked: true,
+                        max: 100,
+                        ticks: {
+                            callback: function(value) {
+                                return value + '%';
+                            },
+                            font: {
+                                size: 11
+                            }
+                        },
+                        grid: {
+                            display: false
+                        }
+                    },
+                    y: {
+                        stacked: true,
+                        ticks: {
+                            display: false
+                        },
+                        grid: {
+                            display: false
+                        }
+                    }
+                }
+            }
+        });
+    }
+}
+
+// Initialize charts when tab becomes visible
+document.addEventListener('DOMContentLoaded', function() {
+    const indicadoresTab = document.getElementById('indicadores-tab');
+    if (indicadoresTab) {
+        const observer = new MutationObserver(function(mutations) {
+            if (indicadoresTab.style.display !== 'none') {
+                setTimeout(initializeIndicadoresCharts, 100);
+            }
+        });
+        observer.observe(indicadoresTab, { attributes: true, attributeFilter: ['style'] });
+        
+        // Also check on tab switch
+        const originalSwitchTab = window.switchTab;
+        if (originalSwitchTab) {
+            window.switchTab = function(tabName) {
+                originalSwitchTab(tabName);
+                if (tabName === 'indicadores') {
+                    setTimeout(initializeIndicadoresCharts, 200);
+                }
+            };
+        }
+    }
+});
+</script>

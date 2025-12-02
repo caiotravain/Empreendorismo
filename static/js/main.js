@@ -41,7 +41,7 @@ function initializeTabs() {
 
 function switchTab(tabName) {
     // Check if trying to access other tabs without selecting a patient
-    // Allow access to 'agenda', 'pacientes', 'indicadores', and 'finance' without patient selection
+    // Allow access to 'agenda', 'pacientes', 'indicadores', 'finance', and 'waitlist' without patient selection
     // Only require patient selection for 'prontuarios' and 'prescricao' tabs
     if (tabName === 'prontuarios' || tabName === 'prescricao') {
         // Check if selectedPatient is available and not null
@@ -50,6 +50,16 @@ function switchTab(tabName) {
             return;
         }
     }
+    
+    // Update URL parameter without reloading the page
+    const url = new URL(window.location);
+    if (tabName === 'agenda') {
+        // Remove tab parameter for default tab
+        url.searchParams.delete('tab');
+    } else {
+        url.searchParams.set('tab', tabName);
+    }
+    window.history.pushState({}, '', url);
     
     // Hide all tab contents
     const tabContents = document.querySelectorAll('.tab-content');
@@ -110,6 +120,13 @@ function switchTab(tabName) {
     if (tabName === 'prescricao') {
         if (typeof initializePrescriptionForm === 'function') {
             setTimeout(initializePrescriptionForm, 100);
+        }
+    }
+    
+    // Load waiting list when waitlist tab is shown
+    if (tabName === 'waitlist') {
+        if (typeof loadWaitlist === 'function') {
+            loadWaitlist();
         }
     }
 }

@@ -1,131 +1,157 @@
 <!-- Finance Tab Content -->
 <div id="finance-tab" class="tab-content" style="display: none;">
-    <div class="row">
-        <!-- Filter and Summary Cards -->
-        <div class="col-12">
-            <div class="row mb-4">
-                <!-- Filter Controls -->
-                <div class="col-md-6">
-                    <div class="card border-0 shadow-sm">
-                        <div class="card-body">
-                            <h6 class="card-title mb-3">
-                                <i class="fas fa-filter me-2"></i>Filtros
-                            </h6>
-                            <div class="row">
-                                <div class="col-md-6">
-                                    <label for="year-filter" class="form-label">Ano</label>
-                                    <select class="form-select" id="year-filter">
-                                        <option value="">Carregando...</option>
-                                    </select>
-                                </div>
-                                <div class="col-md-6">
-                                    <label for="month-filter" class="form-label">Mês</label>
-                                    <select class="form-select" id="month-filter">
-                                        <option value="">Todos os meses</option>
-                                    </select>
-                                </div>
-                            </div>
+    <!-- KPI Summary Cards -->
+    <div class="row mb-4">
+        <div class="col-md-4 mb-3">
+            <div class="card border border-slate-200 rounded-xl shadow-sm bg-white">
+                <div class="card-body p-4">
+                    <div class="d-flex align-items-center justify-content-between">
+                        <div>
+                            <p class="text-slate-500 mb-1" style="font-size: 0.875rem; font-weight: 500;">Total de Receitas</p>
+                            <h3 class="mb-0 text-emerald-600 fw-bold" id="total-income-amount">
+                                <i class="fas fa-spinner fa-spin"></i>
+                            </h3>
+                        </div>
+                        <div class="bg-emerald-50 rounded-lg p-3">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="text-emerald-600" width="24" height="24" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4" />
+                            </svg>
                         </div>
                     </div>
                 </div>
-                
-                <!-- Summary Cards -->
-                <div class="col-md-6">
-                    <div class="row">
-                        <div class="col-4">
-                            <div class="card border-0 shadow-sm bg-success text-white">
-                                <div class="card-body text-center">
-                                    <h4 class="card-title mb-1" id="total-income-amount">
-                                        <i class="fas fa-spinner fa-spin"></i>
-                                    </h4>
-                                    <small class="card-text">Total de Receitas</small>
-                                </div>
-                            </div>
+            </div>
+        </div>
+        <div class="col-md-4 mb-3">
+            <div class="card border border-slate-200 rounded-xl shadow-sm bg-white">
+                <div class="card-body p-4">
+                    <div class="d-flex align-items-center justify-content-between">
+                        <div>
+                            <p class="text-slate-500 mb-1" style="font-size: 0.875rem; font-weight: 500;">Total de Despesas</p>
+                            <h3 class="mb-0 text-rose-600 fw-bold" id="total-expenses-amount">
+                                <i class="fas fa-spinner fa-spin"></i>
+                            </h3>
                         </div>
-                        <div class="col-4">
-                            <div class="card border-0 shadow-sm bg-danger text-white">
-                                <div class="card-body text-center">
-                                    <h4 class="card-title mb-1" id="total-expenses-amount">
-                                        <i class="fas fa-spinner fa-spin"></i>
-                                    </h4>
-                                    <small class="card-text">Total de Despesas</small>
-                                </div>
-                            </div>
-                        </div>
-                        <div class="col-4">
-                            <div class="card border-0 shadow-sm bg-primary text-white">
-                                <div class="card-body text-center">
-                                    <h4 class="card-title mb-1" id="net-income-amount">
-                                        <i class="fas fa-spinner fa-spin"></i>
-                                    </h4>
-                                    <small class="card-text">Lucro</small>
-                                </div>
-                            </div>
+                        <div class="bg-rose-50 rounded-lg p-3">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="text-rose-600" width="24" height="24" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M20 12H4" />
+                            </svg>
                         </div>
                     </div>
                 </div>
+            </div>
+        </div>
+        <div class="col-md-4 mb-3">
+            <div class="card border border-slate-200 rounded-xl shadow-sm bg-white">
+                <div class="card-body p-4">
+                    <div class="d-flex align-items-center justify-content-between">
+                        <div>
+                            <p class="text-slate-500 mb-1" style="font-size: 0.875rem; font-weight: 500;">Saldo Líquido</p>
+                            <h3 class="mb-0 text-slate-900 fw-bold" id="net-income-amount">
+                                <i class="fas fa-spinner fa-spin"></i>
+                            </h3>
+                        </div>
+                        <div class="bg-slate-50 rounded-lg p-3">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="text-slate-600" width="24" height="24" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M3 6l3 1m0 0l-3 9a5.002 5.002 0 006.001 0M6 7l3 9M6 7l6-2m6 2l3-1m-3 1l-3 9a5.002 5.002 0 006.001 0M18 7l3 9m-3-9l-6-2m0-2v2m0 16V5m0 16H9m3 0h3" />
+                            </svg>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Charts Section -->
+    <div class="row mb-4">
+        <!-- Cash Flow Chart -->
+        <div class="col-lg-7 mb-3">
+            <div class="card border border-slate-200 rounded-xl shadow-sm bg-white">
+                <div class="card-body p-3">
+                    <h6 class="text-slate-800 fw-semibold mb-2" style="font-size: 0.875rem;">Fluxo de Caixa - Últimos 6 Meses</h6>
+                    <div style="height: 250px; position: relative; width: 100%;">
+                        <canvas id="cashFlowChart"></canvas>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Expenses by Category Chart -->
+        <div class="col-lg-5 mb-3">
+            <div class="card border border-slate-200 rounded-xl shadow-sm bg-white">
+                <div class="card-body p-3">
+                    <h6 class="text-slate-800 fw-semibold mb-2" style="font-size: 0.875rem;">Despesas por Categoria</h6>
+                    <div style="height: 250px; position: relative; width: 100%;">
+                        <canvas id="expensesCategoryChart"></canvas>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Control Bar -->
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <!-- Filter Dropdowns -->
+        <div class="d-flex gap-2">
+            <div class="position-relative">
+                <select class="form-select bg-white border border-slate-200 rounded-lg px-4 py-2" id="year-filter" style="min-width: 150px; appearance: none; padding-right: 2.5rem;">
+                    <option value="">Carregando...</option>
+                </select>
+                <svg xmlns="http://www.w3.org/2000/svg" class="position-absolute top-50 end-0 translate-middle-y me-3 text-slate-400" style="pointer-events: none; right: 0;" width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7" />
+                </svg>
+            </div>
+            <div class="position-relative">
+                <select class="form-select bg-white border border-slate-200 rounded-lg px-4 py-2" id="month-filter" style="min-width: 150px; appearance: none; padding-right: 2.5rem;">
+                    <option value="">Todos os meses</option>
+                </select>
+                <svg xmlns="http://www.w3.org/2000/svg" class="position-absolute top-50 end-0 translate-middle-y me-3 text-slate-400" style="pointer-events: none; right: 0;" width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7" />
+                </svg>
             </div>
         </div>
         
         <!-- Action Buttons -->
-        <div class="col-12 mb-4">
-            <div class="d-flex justify-content-between align-items-center">
-                <h5 class="mb-0">
-                    <i class="fas fa-chart-line me-2"></i>Receitas e Despesas
-                </h5>
-                <div>
-                    <button class="btn btn-warning me-2" onclick="syncAppointmentIncome()">
-                        <i class="fas fa-sync me-1"></i>Sincronizar Receitas
-                    </button>
-                    <button class="btn btn-success me-2" onclick="showIncomeModal()">
-                        <i class="fas fa-plus me-1"></i>Nova Receita
-                    </button>
-                    <button class="btn btn-primary" onclick="showExpenseModal()">
-                        <i class="fas fa-plus me-1"></i>Nova Despesa
-                    </button>
-                </div>
+        <div class="d-flex gap-2">
+            <button class="btn btn-warning btn-sm" onclick="syncAppointmentIncome()">
+                <i class="fas fa-sync me-1"></i>Sincronizar Receitas
+            </button>
+            <button class="btn text-white btn-sm" style="background-color: green;" onclick="showIncomeModal()">
+                <i class="fas fa-plus me-1"></i>Nova Receita
+            </button>
+            <button class="btn text-white btn-sm" style="background-color: red;" onclick="showExpenseModal()">
+                <i class="fas fa-plus me-1"></i>Nova Despesa
+            </button>
+        </div>
+    </div>
+
+    <!-- Unified Transaction Table -->
+    <div class="card border border-slate-200 rounded-xl shadow-sm bg-white">
+        <div class="card-body p-0">
+            <div class="table-responsive">
+                <table class="table table-hover mb-0" id="transactions-table">
+                    <thead class="bg-slate-50 border-bottom">
+                        <tr>
+                            <th class="text-slate-800 fw-medium border-0 py-3 px-4" style="font-size: 0.875rem;">Data</th>
+                            <th class="text-slate-800 fw-medium border-0 py-3 px-4" style="font-size: 0.875rem;">Descrição</th>
+                            <th class="text-slate-800 fw-medium border-0 py-3 px-4" style="font-size: 0.875rem;">Categoria</th>
+                            <th class="text-slate-800 fw-medium border-0 py-3 px-4" style="font-size: 0.875rem;">Tipo</th>
+                            <th class="text-slate-800 fw-medium border-0 py-3 px-4 text-end" style="font-size: 0.875rem;">Valor</th>
+                            <th class="text-slate-800 fw-medium border-0 py-3 px-4 text-center" style="font-size: 0.875rem;">Ações</th>
+                        </tr>
+                    </thead>
+                    <tbody id="transactions-table-body">
+                        <tr>
+                            <td colspan="6" class="text-center py-5">
+                                <div id="loading-transactions">
+                                    <i class="fas fa-spinner fa-spin fa-2x text-slate-400 mb-3"></i>
+                                    <h5 class="text-slate-500">Carregando transações...</h5>
+                                </div>
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
             </div>
         </div>
-        
-        <!-- Income List -->
-        <div class="col-12 mb-4">
-            <div class="card border-0 shadow-sm">
-                <div class="card-header bg-success text-white">
-                    <h6 class="mb-0">
-                        <i class="fas fa-arrow-up me-2"></i>Receitas
-                    </h6>
-                </div>
-                <div class="card-body">
-                    <div id="incomes-list">
-                        <div class="text-center py-5" id="loading-incomes">
-                            <i class="fas fa-spinner fa-spin fa-2x text-success mb-3"></i>
-                            <h5 class="text-muted">Carregando receitas...</h5>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
-        
-        <!-- Expenses List -->
-        <div class="col-12">
-            <div class="card border-0 shadow-sm">
-                <div class="card-header bg-danger text-white">
-                    <h6 class="mb-0">
-                        <i class="fas fa-arrow-down me-2"></i>Despesas
-                    </h6>
-                </div>
-                <div class="card-body">
-                    <div id="expenses-list">
-                        <div class="text-center py-5" id="loading-expenses">
-                            <i class="fas fa-spinner fa-spin fa-2x text-danger mb-3"></i>
-                            <h5 class="text-muted">Carregando despesas...</h5>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
-        
-        <!-- Category Breakdown will be loaded dynamically -->
     </div>
 </div>
 
@@ -137,7 +163,7 @@
                 <h5 class="modal-title" id="expenseModalLabel">
                     <i class="fas fa-plus me-2"></i>Nova Despesa
                 </h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fechar"></button>
             </div>
             <form id="expenseForm">
                 <div class="modal-body">
@@ -226,7 +252,7 @@
                 <h5 class="modal-title" id="incomeModalLabel">
                     <i class="fas fa-plus me-2"></i>Nova Receita
                 </h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fechar"></button>
             </div>
             <form id="incomeForm">
                 <div class="modal-body">
@@ -312,7 +338,7 @@
                 <h5 class="modal-title" id="incomeDetailsModalLabel">
                     <i class="fas fa-chart-line me-2"></i>Detalhes da Receita
                 </h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fechar"></button>
             </div>
             <div class="modal-body" id="income-details-content">
                 <!-- Content will be loaded here -->
@@ -332,7 +358,7 @@
                 <h5 class="modal-title" id="expenseDetailsModalLabel">
                     <i class="fas fa-receipt me-2"></i>Detalhes da Despesa
                 </h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fechar"></button>
             </div>
             <div class="modal-body" id="expense-details-content">
                 <!-- Content will be loaded here -->
@@ -343,3 +369,4 @@
         </div>
     </div>
 </div>
+

@@ -1,5 +1,5 @@
 from django.contrib import admin
-from .models import Admin, Patient, Doctor, Secretary, MedicalRecord, Appointment, Expense, Income
+from .models import Admin, Patient, Doctor, Secretary, MedicalRecord, Appointment, Expense, Income, WaitingListEntry
 
 
 @admin.register(Patient)
@@ -477,3 +477,76 @@ class SecretaryAdmin(admin.ModelAdmin):
             'classes': ('collapse',)
         }),
     )
+
+
+@admin.register(WaitingListEntry)
+class WaitingListEntryAdmin(admin.ModelAdmin):
+    list_display = [
+        'patient_name',
+        'doctor',
+        'urgency_level',
+        'status',
+        'phone',
+        'email',
+        'created_at'
+    ]
+    list_filter = [
+        'doctor',
+        'urgency_level',
+        'status',
+        'created_at'
+    ]
+    search_fields = [
+        'patient_name',
+        'phone',
+        'email',
+        'notes',
+        'patient__first_name',
+        'patient__last_name'
+    ]
+    readonly_fields = ['created_at', 'updated_at', 'contact_info', 'is_active']
+    date_hierarchy = 'created_at'
+    ordering = ['-urgency_level', 'created_at']
+    
+    fieldsets = (
+        ('Basic Information', {
+            'fields': ('doctor', 'patient', 'patient_name')
+        }),
+        ('Contact Information', {
+            'fields': ('phone', 'email', 'contact_info')
+        }),
+        ('Appointment Preferences', {
+            'fields': ('preferred_days_times',)
+        }),
+        ('Priority & Status', {
+            'fields': ('urgency_level', 'status', 'is_active')
+        }),
+        ('Additional Information', {
+            'fields': ('notes',),
+            'classes': ('collapse',)
+        }),
+        ('Timestamps', {
+            'fields': ('created_at', 'updated_at'),
+            'classes': ('collapse',)
+        }),
+    )
+    
+    actions = ['mark_as_scheduled', 'mark_as_archived', 'mark_as_pending']
+    
+    def mark_as_scheduled(self, request, queryset):
+        """Mark selected entries as scheduled"""
+        updated = queryset.update(status='scheduled')
+        self.message_user(request, f'{updated} entries marked as scheduled.')
+    mark_as_scheduled.short_description = "Mark selected entries as scheduled"
+    
+    def mark_as_archived(self, request, queryset):
+        """Mark selected entries as archived"""
+        updated = queryset.update(status='archived')
+        self.message_user(request, f'{updated} entries marked as archived.')
+    mark_as_archived.short_description = "Mark selected entries as archived"
+    
+    def mark_as_pending(self, request, queryset):
+        """Mark selected entries as pending"""
+        updated = queryset.update(status='pending')
+        self.message_user(request, f'{updated} entries marked as pending.')
+    mark_as_pending.short_description = "Mark selected entries as pending"

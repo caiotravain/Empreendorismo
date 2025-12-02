@@ -17,36 +17,55 @@ function loadFinanceData() {
         console.log('Auto-sync failed or no income to sync:', error);
     })
     .finally(() => {
-        // Then load expenses and income data via AJAX
+        // Get current month and year for default filtering
+        const now = new Date();
+        const currentYear = now.getFullYear();
+        const currentMonth = now.getMonth() + 1;
+        
+        // Then load expenses and income data via AJAX with current month filter
         Promise.all([
-            fetch('/dashboard/api/expenses/').then(response => response.json()),
-            fetch('/dashboard/api/incomes/').then(response => response.json())
+            fetch(`/dashboard/api/expenses/?year=${currentYear}&month=${currentMonth}`).then(response => response.json()),
+            fetch(`/dashboard/api/incomes/?year=${currentYear}&month=${currentMonth}`).then(response => response.json())
         ])
         .then(([expensesData, incomesData]) => {
+            const expenses = expensesData.success ? (expensesData.expenses || []) : [];
+            const incomes = incomesData.success ? (incomesData.incomes || []) : [];
+            
             if (expensesData.success) {
-                updateExpensesList(expensesData.expenses);
-                updateExpenseTotals(expensesData.expenses);
+                updateExpensesList(expenses);
+                updateExpenseTotals(expenses);
             } else {
                 console.error('Error loading expenses:', expensesData.error);
                 showAlert('Erro ao carregar despesas: ' + expensesData.error, 'danger');
             }
             
             if (incomesData.success) {
-                updateIncomesList(incomesData.incomes);
-                updateIncomeTotals(incomesData.incomes);
+                updateIncomesList(incomes);
+                updateIncomeTotals(incomes);
             } else {
                 console.error('Error loading incomes:', incomesData.error);
                 showAlert('Erro ao carregar receitas: ' + incomesData.error, 'danger');
             }
             
+            // Update unified transactions table
+            if (typeof updateUnifiedTransactionsTable === 'function') {
+                updateUnifiedTransactionsTable(incomes, expenses);
+            }
+            
+            // Update charts
+            // Cash flow chart always shows last 6 months, not filtered data
+            updateCashFlowChart();
+            // Expenses category chart uses filtered data
+            updateExpensesCategoryChart(expenses);
+            
             // Update filter dropdowns with both expenses and incomes
-            updateFilterDropdowns(expensesData.expenses || [], incomesData.incomes || []);
+            updateFilterDropdowns(expenses, incomes);
             
             // Add event listeners to filter dropdowns
             setupFilterEventListeners();
             
             // Update net income
-            updateNetIncome(expensesData.expenses || [], incomesData.incomes || []);
+            updateNetIncome(expenses, incomes);
         })
         .catch(error => {
             console.error('Error:', error);
@@ -108,11 +127,17 @@ function updateFilterDropdowns(expenses, incomes = []) {
             { value: 12, name: 'Dezembro' }
         ];
         
+        const currentMonth = new Date().getMonth() + 1; // getMonth() returns 0-11
+        
         monthSelect.innerHTML = '<option value="">Todos os meses</option>';
         months.forEach(month => {
             const option = document.createElement('option');
             option.value = month.value;
             option.textContent = month.name;
+            // Select current month by default
+            if (month.value === currentMonth) {
+                option.selected = true;
+            }
             monthSelect.appendChild(option);
         });
     }
@@ -120,6 +145,10 @@ function updateFilterDropdowns(expenses, incomes = []) {
 
 function updateExpensesList(expenses) {
     const expensesList = document.getElementById('expenses-list');
+    // If unified table exists, skip updating old list
+    if (document.getElementById('transactions-table-body')) {
+        return;
+    }
     if (!expensesList) return;
     
     if (expenses.length === 0) {
@@ -212,6 +241,10 @@ function updateExpenseTotals(expenses) {
 
 function updateIncomesList(incomes) {
     const incomesList = document.getElementById('incomes-list');
+    // If unified table exists, skip updating old list
+    if (document.getElementById('transactions-table-body')) {
+        return;
+    }
     const loadingIncomes = document.getElementById('loading-incomes');
     
     if (loadingIncomes) {
@@ -297,18 +330,408 @@ function updateNetIncome(expenses, incomes) {
     const netIncome = totalIncomes - totalExpenses;
     
     const netIncomeElement = document.getElementById('net-income-amount');
+    if (netIncomeElement) {
     netIncomeElement.textContent = `R$ ${netIncome.toFixed(2).replace('.', ',').replace(/\B(?=(\d{3})+(?!\d))/g, '.')}`;
     
-    // Change color based on positive/negative
-    const cardElement = netIncomeElement.closest('.card');
-    if (netIncome >= 0) {
-        cardElement.className = 'card border-0 shadow-sm bg-success text-white';
-    } else {
-        cardElement.className = 'card border-0 shadow-sm bg-danger text-white';
+        // Update color based on positive/negative (keep minimalist design)
+        netIncomeElement.className = `mb-0 text-slate-900 fw-bold`;
+        if (netIncome < 0) {
+            netIncomeElement.className = `mb-0 text-rose-600 fw-bold`;
+        }
     }
 }
 
+// Unified Transactions Table Function
+function updateUnifiedTransactionsTable(incomes, expenses) {
+    const tbody = document.getElementById('transactions-table-body');
+    if (!tbody) return;
+    
+    // Combine and sort transactions by date (newest first)
+    const transactions = [];
+    
+    // Add incomes
+    (incomes || []).forEach(income => {
+        transactions.push({
+            id: income.id,
+            type: 'income',
+            date: income.income_date,
+            description: income.description,
+            category: income.category_display || income.category,
+            amount: parseFloat(income.amount),
+            formatted_amount: income.formatted_amount || formatCurrency(income.amount),
+            notes: income.notes,
+            payment_method: income.payment_method_display || income.payment_method
+        });
+    });
+    
+    // Add expenses
+    (expenses || []).forEach(expense => {
+        transactions.push({
+            id: expense.id,
+            type: 'expense',
+            date: expense.expense_date,
+            description: expense.description,
+            category: expense.category_display || expense.category,
+            amount: parseFloat(expense.amount),
+            formatted_amount: expense.formatted_amount || formatCurrency(expense.amount),
+            notes: expense.notes,
+            vendor: expense.vendor
+        });
+    });
+    
+    // Sort by date (newest first)
+    transactions.sort((a, b) => {
+        try {
+            const dateA = new Date(a.date.split('/').reverse().join('-'));
+            const dateB = new Date(b.date.split('/').reverse().join('-'));
+            return dateB - dateA;
+        } catch (e) {
+            return 0;
+        }
+    });
+    
+    if (transactions.length === 0) {
+        tbody.innerHTML = `
+            <tr>
+                <td colspan="6" class="text-center py-5">
+                    <i class="fas fa-receipt fa-3x text-slate-300 mb-3"></i>
+                    <h5 class="text-slate-500">Nenhuma transação encontrada</h5>
+                    <p class="text-slate-400">Comece adicionando receitas ou despesas.</p>
+                </td>
+            </tr>
+        `;
+        return;
+    }
+    
+    let tableHtml = '';
+    transactions.forEach(transaction => {
+        const isIncome = transaction.type === 'income';
+        let formattedDate = transaction.date;
+        try {
+            const dateObj = new Date(transaction.date.split('/').reverse().join('-'));
+            formattedDate = dateObj.toLocaleDateString('pt-BR', { day: '2-digit', month: 'short', year: 'numeric' });
+        } catch (e) {
+            formattedDate = transaction.date;
+        }
+        
+        tableHtml += `
+            <tr class="border-bottom">
+                <td class="py-3 px-4 text-slate-500" style="font-size: 0.875rem;">
+                    ${formattedDate}
+                </td>
+                <td class="py-3 px-4">
+                    <span class="text-slate-900 fw-medium">${escapeHtml(transaction.description)}</span>
+                </td>
+                <td class="py-3 px-4">
+                    <span class="badge bg-slate-100 text-slate-700 rounded-full px-3 py-1" style="font-size: 0.75rem; font-weight: 500;">
+                        ${escapeHtml(transaction.category)}
+                    </span>
+                </td>
+                <td class="py-3 px-4">
+                    <div class="d-flex align-items-center">
+                        <span class="rounded-circle d-inline-block me-2" style="width: 8px; height: 8px; background-color: ${isIncome ? '#10b981' : '#f43f5e'};"></span>
+                        <span class="text-slate-600" style="font-size: 0.875rem;">${isIncome ? 'Receita' : 'Despesa'}</span>
+                    </div>
+                </td>
+                <td class="py-3 px-4 text-end">
+                    <span class="fw-semibold ${isIncome ? 'text-emerald-600' : 'text-rose-600'}" style="font-size: 0.875rem;">
+                        ${isIncome ? '+' : '-'} ${transaction.formatted_amount}
+                    </span>
+                </td>
+                <td class="py-3 px-4 text-center">
+                    <div class="d-flex align-items-center justify-content-center gap-2">
+                        <button class="btn btn-sm btn-link text-slate-400 p-1" onclick="${isIncome ? 'viewIncome' : 'viewExpense'}(${transaction.id})" title="Editar" style="text-decoration: none;">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                            </svg>
+                        </button>
+                        <button class="btn btn-sm btn-link text-slate-400 p-1" onclick="${isIncome ? 'deleteIncome' : 'deleteExpense'}(${transaction.id})" title="Excluir" style="text-decoration: none;">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                            </svg>
+                        </button>
+                    </div>
+                </td>
+            </tr>
+        `;
+    });
+    
+    tbody.innerHTML = tableHtml;
+}
+
+function formatCurrency(value) {
+    return `R$ ${parseFloat(value).toFixed(2).replace('.', ',').replace(/\B(?=(\d{3})+(?!\d))/g, '.')}`;
+}
+
+function escapeHtml(text) {
+    const div = document.createElement('div');
+    div.textContent = text;
+    return div.innerHTML;
+}
+
+// Make function globally available
+window.updateUnifiedTransactionsTable = updateUnifiedTransactionsTable;
+
+// Chart instances
+let cashFlowChart = null;
+let expensesCategoryChart = null;
+
+// Initialize Cash Flow Chart
+function initializeCashFlowChart() {
+    const ctx = document.getElementById('cashFlowChart');
+    if (!ctx) return;
+    
+    cashFlowChart = new Chart(ctx, {
+        type: 'line',
+        data: {
+            labels: [],
+            datasets: [
+                {
+                    label: 'Receita',
+                    data: [],
+                    borderColor: '#10b981',
+                    backgroundColor: 'rgba(16, 185, 129, 0.1)',
+                    tension: 0.4,
+                    fill: true
+                },
+                {
+                    label: 'Despesa',
+                    data: [],
+                    borderColor: '#f43f5e',
+                    backgroundColor: 'rgba(244, 63, 94, 0.1)',
+                    tension: 0.4,
+                    fill: true
+                }
+            ]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: {
+                    display: true,
+                    position: 'top',
+                    labels: {
+                        usePointStyle: true,
+                        padding: 15,
+                        font: {
+                            size: 12
+                        }
+                    }
+                },
+                tooltip: {
+                    mode: 'index',
+                    intersect: false,
+                    callbacks: {
+                        label: function(context) {
+                            return context.dataset.label + ': R$ ' + context.parsed.y.toFixed(2).replace('.', ',').replace(/\B(?=(\d{3})+(?!\d))/g, '.');
+                        }
+                    }
+                }
+            },
+            scales: {
+                y: {
+                    beginAtZero: true,
+                    ticks: {
+                        callback: function(value) {
+                            return 'R$ ' + value.toFixed(0).replace(/\B(?=(\d{3})+(?!\d))/g, '.');
+                        },
+                        font: {
+                            size: 11
+                        }
+                    },
+                    grid: {
+                        color: 'rgba(0, 0, 0, 0.05)'
+                    }
+                },
+                x: {
+                    ticks: {
+                        font: {
+                            size: 11
+                        }
+                    },
+                    grid: {
+                        display: false
+                    }
+                }
+            }
+        }
+    });
+}
+
+// Initialize Expenses by Category Chart
+function initializeExpensesCategoryChart() {
+    const ctx = document.getElementById('expensesCategoryChart');
+    if (!ctx) return;
+    
+    expensesCategoryChart = new Chart(ctx, {
+        type: 'doughnut',
+        data: {
+            labels: [],
+            datasets: [{
+                data: [],
+                backgroundColor: [
+                    '#ef4444', // Red
+                    '#f97316', // Orange
+                    '#10b981', // Green
+                    '#3b82f6', // Blue
+                    '#8b5cf6', // Purple
+                    '#ec4899', // Pink
+                    '#06b6d4', // Cyan
+                    '#f59e0b', // Amber
+                ],
+                borderWidth: 0
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: {
+                    display: true,
+                    position: 'bottom',
+                    labels: {
+                        usePointStyle: true,
+                        padding: 10,
+                        font: {
+                            size: 11
+                        }
+                    }
+                },
+                tooltip: {
+                    callbacks: {
+                        label: function(context) {
+                            const label = context.label || '';
+                            const value = context.parsed || 0;
+                            const total = context.dataset.data.reduce((a, b) => a + b, 0);
+                            const percentage = ((value / total) * 100).toFixed(1);
+                            return label + ': R$ ' + value.toFixed(2).replace('.', ',').replace(/\B(?=(\d{3})+(?!\d))/g, '.') + ' (' + percentage + '%)';
+                        }
+                    }
+                }
+            },
+            cutout: '60%'
+        }
+    });
+}
+
+// Update Cash Flow Chart with last 6 months data
+// This function always shows the last 6 completed months, regardless of current filter
+function updateCashFlowChart() {
+    if (!cashFlowChart) {
+        initializeCashFlowChart();
+        if (!cashFlowChart) return;
+    }
+    
+    // Always fetch last 6 months of data regardless of current filter
+    fetchCashFlowData();
+}
+
+// Fetch last 6 months of data for cash flow chart
+async function fetchCashFlowData() {
+    const now = new Date();
+    const monthNames = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez'];
+    
+    // Get last 6 months labels
+    const months = [];
+    for (let i = 5; i >= 0; i--) {
+        const date = new Date(now.getFullYear(), now.getMonth() - i, 1);
+        months.push(monthNames[date.getMonth()] + ' ' + date.getFullYear());
+    }
+    
+    // Fetch data for each of the last 6 months
+    const incomeData = [];
+    const expenseData = [];
+    
+    const fetchPromises = [];
+    
+    for (let i = 5; i >= 0; i--) {
+        const targetDate = new Date(now.getFullYear(), now.getMonth() - i, 1);
+        const targetYear = targetDate.getFullYear();
+        const targetMonth = targetDate.getMonth() + 1;
+        
+        // Fetch incomes and expenses for this month
+        fetchPromises.push(
+            Promise.all([
+                fetch(`/dashboard/api/incomes/?year=${targetYear}&month=${targetMonth}`).then(r => r.json()),
+                fetch(`/dashboard/api/expenses/?year=${targetYear}&month=${targetMonth}`).then(r => r.json())
+            ]).then(([incomesData, expensesData]) => {
+                const monthIncomes = incomesData.success ? (incomesData.incomes || []) : [];
+                const monthExpenses = expensesData.success ? (expensesData.expenses || []) : [];
+                
+                const incomeTotal = monthIncomes.reduce((sum, income) => sum + parseFloat(income.amount || 0), 0);
+                const expenseTotal = monthExpenses.reduce((sum, expense) => sum + parseFloat(expense.amount || 0), 0);
+                
+                return { incomeTotal, expenseTotal };
+            })
+        );
+    }
+    
+    try {
+        const results = await Promise.all(fetchPromises);
+        results.forEach(result => {
+            incomeData.push(result.incomeTotal);
+            expenseData.push(result.expenseTotal);
+        });
+        
+        if (cashFlowChart) {
+            cashFlowChart.data.labels = months;
+            cashFlowChart.data.datasets[0].data = incomeData;
+            cashFlowChart.data.datasets[1].data = expenseData;
+            cashFlowChart.update();
+        }
+    } catch (error) {
+        console.error('Error fetching cash flow data:', error);
+    }
+}
+
+// Update Expenses by Category Chart
+function updateExpensesCategoryChart(expenses) {
+    if (!expensesCategoryChart) {
+        initializeExpensesCategoryChart();
+        if (!expensesCategoryChart) return;
+    }
+    
+    // Group expenses by category
+    const categoryTotals = {};
+    (expenses || []).forEach(expense => {
+        const category = expense.category_display || expense.category || 'Outros';
+        if (!categoryTotals[category]) {
+            categoryTotals[category] = 0;
+        }
+        categoryTotals[category] += parseFloat(expense.amount || 0);
+    });
+    
+    // Convert to arrays for chart
+    const labels = Object.keys(categoryTotals);
+    const data = Object.values(categoryTotals);
+    
+    expensesCategoryChart.data.labels = labels;
+    expensesCategoryChart.data.datasets[0].data = data;
+    expensesCategoryChart.update();
+}
+
+// Initialize charts when finance tab is shown
+document.addEventListener('DOMContentLoaded', function() {
+    // Initialize charts when finance tab becomes visible
+    const financeTab = document.getElementById('finance-tab');
+    if (financeTab) {
+        const observer = new MutationObserver(function(mutations) {
+            if (financeTab.style.display !== 'none') {
+                if (!cashFlowChart) initializeCashFlowChart();
+                if (!expensesCategoryChart) initializeExpensesCategoryChart();
+            }
+        });
+        observer.observe(financeTab, { attributes: true, attributeFilter: ['style'] });
+    }
+});
+
 function updateCategoryBreakdown(expenses) {
+    // Skip if using new unified table design
+    if (document.getElementById('transactions-table-body')) {
+        return;
+    }
+    
     const categoryTotals = {};
     expenses.forEach(expense => {
         if (!categoryTotals[expense.category]) {
@@ -321,7 +744,11 @@ function updateCategoryBreakdown(expenses) {
     let categorySection = document.getElementById('category-breakdown')?.closest('.card');
     if (!categorySection) {
         // Create category breakdown section if it doesn't exist
-        const expensesCard = document.querySelector('#expenses-list').closest('.card');
+        const expensesCard = document.querySelector('#expenses-list')?.closest('.card');
+        if (!expensesCard) {
+            // Old expenses list doesn't exist, skip category breakdown
+            return;
+        }
         const categoryHtml = `
             <div class="col-12 mt-4">
                 <div class="card border-0 shadow-sm">
@@ -451,20 +878,26 @@ function filterIncomes() {
 }
 
 function filterFinanceData() {
-    const year = document.getElementById('year-filter').value;
-    const month = document.getElementById('month-filter').value;
+    const yearSelect = document.getElementById('year-filter');
+    const monthSelect = document.getElementById('month-filter');
+    const year = yearSelect ? yearSelect.value : '';
+    const month = monthSelect ? monthSelect.value : '';
+    
+    // If no filters selected, default to current month
+    const now = new Date();
+    const currentYear = now.getFullYear();
+    const currentMonth = now.getMonth() + 1;
+    
+    const filterYear = year || currentYear;
+    const filterMonth = month || currentMonth;
     
     // Build API URLs with parameters
-    let expensesApiUrl = '/dashboard/api/expenses/';
-    let incomesApiUrl = '/dashboard/api/incomes/';
     const params = new URLSearchParams();
-    if (year) params.append('year', year);
-    if (month) params.append('month', month);
+    params.append('year', filterYear);
+    params.append('month', filterMonth);
     
-    if (params.toString()) {
-        expensesApiUrl += '?' + params.toString();
-        incomesApiUrl += '?' + params.toString();
-    }
+    const expensesApiUrl = '/dashboard/api/expenses/?' + params.toString();
+    const incomesApiUrl = '/dashboard/api/incomes/?' + params.toString();
     
     // Load filtered data for both expenses and incomes
     Promise.all([
@@ -472,24 +905,40 @@ function filterFinanceData() {
         fetch(incomesApiUrl).then(response => response.json())
     ])
     .then(([expensesData, incomesData]) => {
+        const expenses = expensesData.success ? (expensesData.expenses || []) : [];
+        const incomes = incomesData.success ? (incomesData.incomes || []) : [];
+        
         if (expensesData.success) {
-            updateExpensesList(expensesData.expenses);
-            updateExpenseTotals(expensesData.expenses);
+            updateExpensesList(expenses);
+            updateExpenseTotals(expenses);
         } else {
             console.error('Error loading filtered expenses:', expensesData.error);
             showAlert('Erro ao carregar despesas filtradas: ' + expensesData.error, 'danger');
         }
         
         if (incomesData.success) {
-            updateIncomesList(incomesData.incomes);
-            updateIncomeTotals(incomesData.incomes);
+            updateIncomesList(incomes);
+            updateIncomeTotals(incomes);
         } else {
             console.error('Error loading filtered incomes:', incomesData.error);
             showAlert('Erro ao carregar receitas filtradas: ' + incomesData.error, 'danger');
         }
         
+        // Update unified transactions table
+        if (typeof updateUnifiedTransactionsTable === 'function') {
+            updateUnifiedTransactionsTable(incomes, expenses);
+        }
+        
+            // Update charts
+            if (typeof Chart !== 'undefined') {
+                // Cash flow chart always shows last 6 months, not filtered data
+                updateCashFlowChart();
+                // Expenses category chart uses filtered data
+                updateExpensesCategoryChart(expenses);
+            }
+        
         // Update net income with filtered data
-        updateNetIncome(expensesData.expenses || [], incomesData.incomes || []);
+        updateNetIncome(expenses, incomes);
     })
     .catch(error => {
         console.error('Error:', error);

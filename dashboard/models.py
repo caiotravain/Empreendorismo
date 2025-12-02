@@ -1114,3 +1114,138 @@ class Medication(models.Model):
     @property
     def formatted_description(self):
         return self.description.upper()
+
+
+class WaitingListEntry(models.Model):
+    """
+    Waiting List Entry model to manage patients waiting for appointment slots
+    """
+    # Urgency level choices
+    URGENCY_CHOICES = [
+        ('low', 'Baixa'),
+        ('medium', 'Média'),
+        ('high', 'Alta'),
+    ]
+    
+    # Status choices
+    STATUS_CHOICES = [
+        ('pending', 'Pendente'),
+        ('scheduled', 'Agendada'),
+        ('archived', 'Arquivada'),
+    ]
+    
+    # Link to Doctor (who manages this waitlist entry)
+    doctor = models.ForeignKey(
+        Doctor,
+        on_delete=models.CASCADE,
+        related_name='waiting_list_entries',
+        help_text="Doctor who manages this waitlist entry"
+    )
+    
+    # Link to Patient (optional - can be None if patient doesn't exist yet)
+    patient = models.ForeignKey(
+        Patient,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='waiting_list_entries',
+        help_text="Patient record if exists in system (optional)"
+    )
+    
+    # Patient Information (required if patient is None)
+    patient_name = models.CharField(
+        max_length=200,
+        help_text="Patient's full name"
+    )
+    
+    # Contact Information
+    phone = models.CharField(
+        max_length=20,
+        blank=True,
+        null=True,
+        validators=[RegexValidator(
+            regex=r'^\+?1?\d{9,15}$',
+            message="Phone number must be entered in the format: '+999999999'. Up to 15 digits allowed."
+        )],
+        help_text="Patient's phone number"
+    )
+    
+    email = models.EmailField(
+        blank=True,
+        null=True,
+        help_text="Patient's email address"
+    )
+    
+    # Preferred Days/Times (flexible text field)
+    preferred_days_times = models.TextField(
+        blank=True,
+        null=True,
+        help_text="Preferred days and times for appointment (e.g., 'Monday mornings, Wednesday afternoons')"
+    )
+    
+    # Urgency Level
+    urgency_level = models.CharField(
+        max_length=10,
+        choices=URGENCY_CHOICES,
+        default='medium',
+        help_text="Urgency level of the appointment request"
+    )
+    
+    # Status
+    status = models.CharField(
+        max_length=20,
+        choices=STATUS_CHOICES,
+        default='pending',
+        help_text="Current status of the waitlist entry"
+    )
+    
+    # Notes
+    notes = models.TextField(
+        blank=True,
+        null=True,
+        help_text="Additional notes about the patient or appointment request"
+    )
+    
+    # Timestamps
+    created_at = models.DateTimeField(
+        auto_now_add=True,
+        help_text="When this entry was added to the waitlist"
+    )
+    updated_at = models.DateTimeField(
+        auto_now=True,
+        help_text="When this entry was last updated"
+    )
+    
+    class Meta:
+        verbose_name = "Waiting List Entry"
+        verbose_name_plural = "Waiting List Entries"
+        ordering = ['-urgency_level', 'created_at']  # High urgency first, then oldest first
+        indexes = [
+            models.Index(fields=['doctor', 'status']),
+            models.Index(fields=['urgency_level', 'created_at']),
+            models.Index(fields=['status']),
+        ]
+    
+    def __str__(self):
+        urgency_display = self.get_urgency_level_display()
+        return f"{self.patient_name} - {urgency_display} - {self.get_status_display()}"
+    
+    @property
+    def contact_info(self):
+        """Get formatted contact information"""
+        contact_parts = []
+        if self.phone:
+            contact_parts.append(f"Tel: {self.phone}")
+        if self.email:
+            contact_parts.append(f"Email: {self.email}")
+        return " | ".join(contact_parts) if contact_parts else "Sem contato"
+    
+    @property
+    def is_active(self):
+        """Check if entry is active (pending status)"""
+        return self.status == 'pending'
+    
+    def get_urgency_priority(self):
+        """Get numeric priority for sorting (higher = more urgent)"""
+        priority_map = {'high': 3, 'medium': 2, 'low': 1}
+        return priority_map.get(self.urgency_level, 0)

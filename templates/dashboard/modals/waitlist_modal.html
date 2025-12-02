@@ -1,0 +1,102 @@
+<!-- Add to Waitlist Modal -->
+<div class="modal fade" id="addToWaitlistModal" tabindex="-1" aria-labelledby="addToWaitlistModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="addToWaitlistModalLabel">
+                    <i class="fas fa-clock me-2"></i>Adicionar à Lista de Espera
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <form id="addToWaitlistForm">
+                <div class="modal-body">
+                    <div class="row">
+                        <!-- Patient Selection (Optional) -->
+                        <div class="col-md-6 mb-3">
+                            <label for="waitlist-patient" class="form-label">
+                                <i class="fas fa-user me-1"></i>Paciente Existente (Opcional)
+                            </label>
+                            <div class="position-relative">
+                                <input type="text" class="form-control" id="waitlist-patient-search" placeholder="Digite para buscar paciente..." autocomplete="off">
+                                <input type="hidden" id="waitlist-patient" name="patient_id">
+                                <div class="dropdown-menu w-100" id="waitlist-patient-dropdown" style="max-height: 200px; overflow-y: auto; display: none;">
+                                    <!-- Patient options will be loaded here -->
+                                </div>
+                            </div>
+                            <div class="form-text">
+                                <i class="fas fa-info-circle me-1"></i>Deixe em branco para adicionar paciente novo
+                            </div>
+                        </div>
+
+                        <!-- Patient Name (Required) -->
+                        <div class="col-md-6 mb-3">
+                            <label for="waitlist-patient-name" class="form-label">
+                                <i class="fas fa-user me-1"></i>Nome do Paciente <span class="text-danger">*</span>
+                            </label>
+                            <input type="text" class="form-control" id="waitlist-patient-name" name="patient_name" required placeholder="Nome completo do paciente">
+                        </div>
+                    </div>
+
+                    <div class="row">
+                        <!-- Phone -->
+                        <div class="col-md-6 mb-3">
+                            <label for="waitlist-phone" class="form-label">
+                                <i class="fas fa-phone me-1"></i>Telefone
+                            </label>
+                            <input type="tel" class="form-control" id="waitlist-phone" name="phone" placeholder="(00) 00000-0000">
+                        </div>
+
+                        <!-- Email -->
+                        <div class="col-md-6 mb-3">
+                            <label for="waitlist-email" class="form-label">
+                                <i class="fas fa-envelope me-1"></i>Email
+                            </label>
+                            <input type="email" class="form-control" id="waitlist-email" name="email" placeholder="email@exemplo.com">
+                        </div>
+                    </div>
+
+                    <div class="row">
+                        <!-- Preferred Days/Times -->
+                        <div class="col-md-6 mb-3">
+                            <label for="waitlist-preferred" class="form-label">
+                                <i class="fas fa-calendar-alt me-1"></i>Dias/Horários Preferidos
+                            </label>
+                            <textarea class="form-control" id="waitlist-preferred" name="preferred_days_times" rows="2" 
+                                      placeholder="Ex: Segundas e quartas pela manhã, ou qualquer horário disponível"></textarea>
+                        </div>
+
+                        <!-- Urgency Level -->
+                        <div class="col-md-6 mb-3">
+                            <label for="waitlist-urgency" class="form-label">
+                                <i class="fas fa-exclamation-triangle me-1"></i>Nível de Urgência <span class="text-danger">*</span>
+                            </label>
+                            <select class="form-select" id="waitlist-urgency" name="urgency_level" required>
+                                <option value="low">Baixa</option>
+                                <option value="medium" selected>Média</option>
+                                <option value="high">Alta</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <!-- Notes -->
+                    <div class="mb-3">
+                        <label for="waitlist-notes" class="form-label">
+                            <i class="fas fa-sticky-note me-1"></i>Observações
+                        </label>
+                        <textarea class="form-control" id="waitlist-notes" name="notes" rows="3" 
+                                  placeholder="Observações adicionais sobre o paciente ou a necessidade de consulta..."></textarea>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                        <i class="fas fa-times me-1"></i>Cancelar
+                    </button>
+                    <button type="submit" class="btn btn-warning">
+                        <i class="fas fa-clock me-1"></i>Adicionar à Lista de Espera
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+

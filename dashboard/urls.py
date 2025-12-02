@@ -63,4 +63,10 @@ urlpatterns = [
     path('api/reports/generate/', views.api_generate_report, name='api_generate_report'),
     path('api/reports/generate-pdf/', views.api_generate_pdf_report, name='api_generate_pdf_report'),
     path('api/reports/quick-stats/', views.api_quick_stats, name='api_quick_stats'),
+    
+    # API endpoints for waiting list
+    path('api/waiting-list/', views.api_waiting_list, name='api_waiting_list'),
+    path('api/waiting-list/<int:entry_id>/', views.api_waiting_list_entry, name='api_waiting_list_entry'),
+    path('api/waiting-list/<int:entry_id>/update/', views.api_update_waiting_list_entry, name='api_update_waiting_list_entry'),
+    path('api/waiting-list/<int:entry_id>/convert/', views.api_convert_waitlist_to_appointment, name='api_convert_waitlist_to_appointment'),
 ]
