@@ -688,30 +688,36 @@ def api_appointments(request):
 @login_required
 @require_http_methods(["GET"])
 def api_week_appointments(request):
-    """API endpoint to get appointments for a specific week"""
+    """API endpoint to get appointments for a date range (week or month)"""
     try:
         # Get current doctor (from selection for admins, or user's doctor)
         current_doctor = get_selected_doctor(request)
         
-        # Get week parameter
+        # Get date parameters - support both week_start (legacy) and start/end (new)
         week_start = request.GET.get('week_start')
-        if not week_start:
-            return JsonResponse({
-                'success': False,
-                'error': 'Data de início da semana é obrigatória'
-            })
+        start_param = request.GET.get('start')
+        end_param = request.GET.get('end')
         
-        # Parse the date
+        # Parse the dates
         try:
-            start_date = datetime.strptime(week_start, '%Y-%m-%d').date()
+            if start_param and end_param:
+                # New format: use start and end dates directly
+                start_date = datetime.strptime(start_param, '%Y-%m-%d').date()
+                end_date = datetime.strptime(end_param, '%Y-%m-%d').date()
+            elif week_start:
+                # Legacy format: calculate end of week
+                start_date = datetime.strptime(week_start, '%Y-%m-%d').date()
+                end_date = start_date + timedelta(days=6)
+            else:
+                return JsonResponse({
+                    'success': False,
+                    'error': 'Parâmetros de data são obrigatórios (use start/end ou week_start)'
+                })
         except ValueError:
             return JsonResponse({
                 'success': False,
                 'error': 'Formato de data inválido'
             })
-        
-        # Calculate end of week
-        end_date = start_date + timedelta(days=6)
         
         # Get appointments for the week (excluding cancelled)
         # If current_doctor is set, filter by doctor; otherwise show all appointments for admins
@@ -749,8 +755,10 @@ def api_week_appointments(request):
         return JsonResponse({
             'success': True,
             'appointments': appointments_data,
-            'week_start': start_date.strftime('%Y-%m-%d'),
-            'week_end': end_date.strftime('%Y-%m-%d')
+            'start_date': start_date.strftime('%Y-%m-%d'),
+            'end_date': end_date.strftime('%Y-%m-%d'),
+            'week_start': start_date.strftime('%Y-%m-%d'),  # Keep for backward compatibility
+            'week_end': end_date.strftime('%Y-%m-%d')  # Keep for backward compatibility
         })
         
     except Exception as e:

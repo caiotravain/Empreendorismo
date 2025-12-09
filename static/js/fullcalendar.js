@@ -165,10 +165,12 @@ function initializeFullCalendar() {
 }
 
 function loadAppointmentsForCalendar(start, end, successCallback, failureCallback) {
-    // Get the start date for the week
+    // Get both start and end dates to support month view
     const startDate = start.toISOString().split('T')[0];
+    const endDate = end.toISOString().split('T')[0];
     
-    fetch(`/dashboard/api/week-appointments/?week_start=${startDate}`)
+    // Use start and end parameters to support both week and month views
+    fetch(`/dashboard/api/week-appointments/?start=${startDate}&end=${endDate}`)
         .then(response => response.json())
         .then(data => {
             if (data.success) {
