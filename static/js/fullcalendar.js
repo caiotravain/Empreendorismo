@@ -31,6 +31,8 @@ function initializeFullCalendar() {
             right: 'dayGridMonth,timeGridWeek'
         },
         locale: 'pt-br',
+        timeZone: 'local', // Use local timezone - ensures ISO strings are interpreted in local time
+        // This makes the time slots and events align perfectly
         firstDay: 1, // Monday
         weekends: false, // Hide weekends
         nowIndicator: true,
@@ -38,7 +40,7 @@ function initializeFullCalendar() {
         selectable: true,
         selectMirror: true,
         dayMaxEvents: true,
-        height: 600,
+        height: 550,
         slotMinTime: '06:00:00',
         slotMaxTime: '20:00:00',
         slotDuration: '00:15:00',
@@ -174,25 +176,33 @@ function loadAppointmentsForCalendar(start, end, successCallback, failureCallbac
         .then(response => response.json())
         .then(data => {
             if (data.success) {
-                const events = data.appointments.map(appointment => ({
-                    id: appointment.id,
-                    title: appointment.patient_name,
-                    start: `${appointment.appointment_date}T${appointment.appointment_time}`,
-                    end: calculateEndTime(appointment.appointment_date, appointment.appointment_time, appointment.duration_minutes),
-                    backgroundColor: getEventColor(appointment.status),
-                    borderColor: getEventColor(appointment.status),
-                    extendedProps: {
-                        patientId: appointment.patient_id,
-                        patientName: appointment.patient_name,
-                        doctorName: appointment.doctor_name,
-                        appointmentType: appointment.appointment_type,
-                        paymentType: appointment.payment_type,
-                        status: appointment.status,
-                        reason: appointment.reason,
-                        notes: appointment.notes,
-                        location: appointment.location
-                    }
-                }));
+                const events = data.appointments.map(appointment => {
+                    // Create Date objects that represent the exact time shown in the left column
+                    // The time slots show local time, so we create dates in local time
+                    const startDate = createDateFromComponents(appointment.appointment_date, appointment.appointment_time);
+                    const endDate = addMinutesToDate(startDate, appointment.duration_minutes);
+                    
+                    return {
+                        id: appointment.id,
+                        title: appointment.patient_name,
+                        start: startDate, // Date object in local time - matches left column times
+                        end: endDate, // Date object in local time
+                        backgroundColor: getEventColor(appointment.status),
+                        borderColor: getEventColor(appointment.status),
+                        extendedProps: {
+                            patientId: appointment.patient_id,
+                            patientName: appointment.patient_name,
+                            doctorName: appointment.doctor_name,
+                            appointmentType: appointment.appointment_type,
+                            paymentType: appointment.payment_type,
+                            status: appointment.status,
+                            value: appointment.value,
+                            reason: appointment.reason,
+                            notes: appointment.notes,
+                            location: appointment.location
+                        }
+                    };
+                });
                 successCallback(events);
             } else {
                 failureCallback(data.error);
@@ -203,10 +213,29 @@ function loadAppointmentsForCalendar(start, end, successCallback, failureCallbac
         });
 }
 
-function calculateEndTime(date, time, durationMinutes) {
-    const startDateTime = new Date(`${date}T${time}`);
-    const endDateTime = new Date(startDateTime.getTime() + (durationMinutes * 60000));
-    return endDateTime.toISOString();
+/**
+ * Create a Date object from date and time components
+ * This creates the date in the browser's local timezone
+ * The time will match exactly what's shown in the left column time slots
+ */
+function createDateFromComponents(dateStr, timeStr) {
+    // Parse date: YYYY-MM-DD
+    const [year, month, day] = dateStr.split('-').map(Number);
+    
+    // Parse time: HH:MM
+    const [hours, minutes] = timeStr.split(':').map(Number);
+    
+    // Create Date object using local time components
+    // new Date(year, month, day, hours, minutes) creates date in local timezone
+    // This matches the time slots which also show local time
+    return new Date(year, month - 1, day, hours || 0, minutes || 0, 0, 0);
+}
+
+/**
+ * Add minutes to a Date object
+ */
+function addMinutesToDate(date, minutes) {
+    return new Date(date.getTime() + (minutes * 60000));
 }
 
 function getEventColor(status) {

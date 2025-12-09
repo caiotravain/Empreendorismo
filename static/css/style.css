@@ -285,7 +285,7 @@ body {
 /* Google Calendar Style Week View */
 .calendar-week-container {
     display: flex;
-    height: 600px;
+    height: 500px;
     border: 1px solid #e0e0e0;
     border-radius: 8px;
     overflow: hidden;
@@ -310,7 +310,7 @@ body {
 }
 
 .time-slots {
-    height: 540px; /* 600px - 60px header = 540px */
+    height: 500px; /* 600px - 60px header = 540px */
     overflow-y: auto;
     scrollbar-width: none;
     -ms-overflow-style: none;
