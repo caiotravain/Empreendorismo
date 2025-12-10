@@ -89,7 +89,7 @@ def api_waiting_list(request):
                     'status': entry.status,
                     'status_display': entry.get_status_display(),
                     'notes': entry.notes or '',
-                    'created_at': entry.created_at.strftime('%Y-%m-%d %H:%M:%S'),
+                    'created_at': entry.created_at.isoformat(),
                     'contact_info': entry.contact_info,
                 })
             
@@ -286,7 +286,7 @@ def api_update_waiting_list_entry(request, entry_id):
                 'status': entry.status,
                 'status_display': entry.get_status_display(),
                 'notes': entry.notes or '',
-                'created_at': entry.created_at.strftime('%Y-%m-%d %H:%M:%S'),
+                'created_at': entry.created_at.isoformat(),
                 'contact_info': entry.contact_info,
             }
         })

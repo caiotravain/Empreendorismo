@@ -2783,13 +2783,25 @@ function formatDateTime(dateString) {
 }
 
 function formatDate(dateString) {
-    const date = new Date(dateString);
+    // Parse the date string (handles both ISO format and legacy format)
+    let date;
+    if (dateString.includes('T') || dateString.includes('+') || dateString.endsWith('Z')) {
+        // ISO format with timezone
+        date = new Date(dateString);
+    } else {
+        // Legacy format without timezone - assume UTC and convert to local
+        // Format: 'YYYY-MM-DD HH:MM:SS'
+        const dateTimeStr = dateString.replace(' ', 'T') + 'Z';
+        date = new Date(dateTimeStr);
+    }
+    
     return date.toLocaleDateString('pt-BR', { 
         day: '2-digit', 
         month: '2-digit', 
         year: 'numeric',
         hour: '2-digit',
-        minute: '2-digit'
+        minute: '2-digit',
+        timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone
     });
 }
 
