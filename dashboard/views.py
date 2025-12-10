@@ -734,11 +734,36 @@ def api_week_appointments(request):
         
         # Format appointments for frontend
         appointments_data = []
-        for appointment in appointments:
+        problematic_appointments = []  # Track appointments with missing patients
+        
+        for appointment in appointments.select_related('patient', 'doctor'):
+            try:
+                # Try to access patient - this will raise DoesNotExist if patient is missing
+                patient_name = appointment.patient.full_name
+                patient_id = appointment.patient.id
+            except (Patient.DoesNotExist, AttributeError) as e:
+                # Track problematic appointments - get patient_id from the FK field directly
+                patient_fk_id = None
+                try:
+                    # Try to get the FK value directly from the model field
+                    patient_fk_id = getattr(appointment, 'patient_id', None)
+                except:
+                    pass
+                
+                problematic_appointments.append({
+                    'appointment_id': appointment.id,
+                    'appointment_date': appointment.appointment_date.strftime('%Y-%m-%d'),
+                    'appointment_time': appointment.appointment_time.strftime('%H:%M'),
+                    'patient_id': patient_fk_id,
+                    'error': str(e)
+                })
+                # Skip this appointment
+                continue
+            
             appointments_data.append({
                 'id': appointment.id,
-                'patient_name': appointment.patient.full_name,
-                'patient_id': appointment.patient.id,
+                'patient_name': patient_name,
+                'patient_id': patient_id,
                 'doctor_name': appointment.doctor.full_name,
                 'appointment_date': appointment.appointment_date.strftime('%Y-%m-%d'),
                 'appointment_time': appointment.appointment_time.strftime('%H:%M'),
@@ -752,14 +777,21 @@ def api_week_appointments(request):
                 'location': appointment.location
             })
         
-        return JsonResponse({
+        response_data = {
             'success': True,
             'appointments': appointments_data,
             'start_date': start_date.strftime('%Y-%m-%d'),
             'end_date': end_date.strftime('%Y-%m-%d'),
             'week_start': start_date.strftime('%Y-%m-%d'),  # Keep for backward compatibility
             'week_end': end_date.strftime('%Y-%m-%d')  # Keep for backward compatibility
-        })
+        }
+        
+        # Include problematic appointments info if any
+        if problematic_appointments:
+            response_data['problematic_appointments'] = problematic_appointments
+            response_data['warning'] = f'Found {len(problematic_appointments)} appointment(s) with missing patients'
+        
+        return JsonResponse(response_data)
         
     except Exception as e:
         return JsonResponse({
