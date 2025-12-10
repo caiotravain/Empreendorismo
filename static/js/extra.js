@@ -2442,31 +2442,37 @@ function submitWaitlistEntry() {
 
 function loadWaitlist() {
     const loadingDiv = document.getElementById('waitlist-loading');
-    const entriesDiv = document.getElementById('waitlist-entries');
+    const tableBody = document.getElementById('waitlist-table-body');
     const emptyDiv = document.getElementById('waitlist-empty');
+    const tableCard = document.getElementById('waitlist-table-card');
     
     // Show loading
     if (loadingDiv) loadingDiv.style.display = 'block';
-    if (entriesDiv) entriesDiv.innerHTML = '';
+    if (tableBody) tableBody.innerHTML = '';
     if (emptyDiv) emptyDiv.style.display = 'none';
+    if (tableCard) tableCard.style.display = 'block'; // Show table card by default
     
-    // Get filter values
-    const statusFilter = document.getElementById('waitlist-status-filter')?.value || 'pending';
-    
-    // Build URL
+    // Build URL - load all entries (no status filter)
     let url = '/dashboard/api/waiting-list/';
-    if (statusFilter) {
-        url += `?status=${statusFilter}`;
-    }
     
     fetch(url, {
         headers: {
             'X-CSRFToken': getCookie('csrftoken')
         }
     })
-    .then(response => response.json())
+    .then(response => {
+        if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        return response.json();
+    })
     .then(data => {
         if (loadingDiv) loadingDiv.style.display = 'none';
+        
+        // Always show table card
+        if (tableCard) {
+            tableCard.style.display = 'block';
+        }
         
         if (data.success && data.entries && data.entries.length > 0) {
             waitlistEntries = data.entries;
@@ -2474,20 +2480,58 @@ function loadWaitlist() {
             if (emptyDiv) emptyDiv.style.display = 'none';
         } else {
             waitlistEntries = [];
-            if (entriesDiv) entriesDiv.innerHTML = '';
-            if (emptyDiv) emptyDiv.style.display = 'block';
+            filteredWaitlistEntries = [];
+            // Show empty state in table
+            if (tableBody) {
+                tableBody.innerHTML = `
+                    <tr id="waitlist-empty-row">
+                        <td colspan="6" class="text-center text-slate-500 py-5">
+                            <p class="h6 mb-2" style="font-size: 1rem;">Nenhuma entrada encontrada.</p>
+                            <p class="text-slate-400" style="font-size: 0.875rem;">Clique em "Adicionar à Lista" para adicionar o primeiro paciente.</p>
+                        </td>
+                    </tr>
+                `;
+            }
+            if (emptyDiv) emptyDiv.style.display = 'none';
+            // Update pagination to show 0
+            if (document.getElementById('waitlist-total')) {
+                document.getElementById('waitlist-total').textContent = '0';
+                document.getElementById('waitlist-showing-start').textContent = '0';
+                document.getElementById('waitlist-showing-end').textContent = '0';
+                document.getElementById('waitlist-current-page').textContent = '1';
+                document.getElementById('waitlist-total-pages').textContent = '1';
+            }
         }
     })
     .catch(error => {
         console.error('Error loading waitlist:', error);
         if (loadingDiv) loadingDiv.style.display = 'none';
+        if (tableCard) tableCard.style.display = 'block';
         showNotification('Erro ao carregar lista de espera.', 'error');
     });
 }
 
+// Waitlist pagination variables
+let currentWaitlistPage = 1;
+const waitlistPerPage = 10;
+let filteredWaitlistEntries = [];
+
 function displayWaitlistEntries(entries) {
-    const entriesDiv = document.getElementById('waitlist-entries');
-    if (!entriesDiv) return;
+    const tableBody = document.getElementById('waitlist-table-body');
+    const tableCard = document.getElementById('waitlist-table-card');
+    
+    if (!tableBody) {
+        console.error('waitlist-table-body not found');
+        return;
+    }
+    
+    // Ensure table card is visible
+    if (tableCard) {
+        tableCard.style.display = 'block';
+    }
+    
+    // Store entries globally for filtering
+    waitlistEntries = entries;
     
     // Apply urgency filter if set
     const urgencyFilter = document.getElementById('waitlist-urgency-filter')?.value;
@@ -2501,95 +2545,148 @@ function displayWaitlistEntries(entries) {
     if (searchTerm) {
         filteredEntries = filteredEntries.filter(entry => 
             entry.patient_name.toLowerCase().includes(searchTerm) ||
-            (entry.phone && entry.phone.includes(searchTerm)) ||
+            (entry.phone && entry.phone.toLowerCase().includes(searchTerm)) ||
             (entry.email && entry.email.toLowerCase().includes(searchTerm))
         );
     }
     
-    if (filteredEntries.length === 0) {
-        entriesDiv.innerHTML = `
-            <div class="col-12">
-                <div class="alert alert-info text-center">
-                    <i class="fas fa-info-circle me-2"></i>
-                    Nenhuma entrada encontrada com os filtros selecionados.
-                </div>
-            </div>
-        `;
-        return;
+    // Store filtered entries for pagination
+    filteredWaitlistEntries = filteredEntries;
+    
+    // Reset to page 1 when filtering
+    currentWaitlistPage = 1;
+    
+    // Display paginated entries
+    displayWaitlistPage();
+}
+
+function displayWaitlistPage() {
+    const tableBody = document.getElementById('waitlist-table-body');
+    const emptyDiv = document.getElementById('waitlist-empty');
+    const tableCard = document.getElementById('waitlist-table-card');
+    
+    if (!tableBody) return;
+    
+    const totalFiltered = filteredWaitlistEntries.length;
+    const totalPages = Math.ceil(totalFiltered / waitlistPerPage) || 1;
+    
+    // Clear table body
+    tableBody.innerHTML = '';
+    
+            // Show empty state if no entries
+            if (totalFiltered === 0) {
+                tableBody.innerHTML = `
+                    <tr id="waitlist-empty-row">
+                        <td colspan="6" class="text-center text-slate-500 py-5">
+                            <p class="h6 mb-2" style="font-size: 1rem;">Nenhuma entrada encontrada.</p>
+                            <p class="text-slate-400" style="font-size: 0.875rem;">Clique em "Adicionar à Lista" para adicionar o primeiro paciente.</p>
+                        </td>
+                    </tr>
+                `;
+        if (tableCard) tableCard.style.display = 'block';
+        if (emptyDiv) emptyDiv.style.display = 'none';
+    } else {
+        if (tableCard) tableCard.style.display = 'block';
+        if (emptyDiv) emptyDiv.style.display = 'none';
+        // Calculate range
+        const startIndex = (currentWaitlistPage - 1) * waitlistPerPage;
+        const endIndex = Math.min(startIndex + waitlistPerPage, totalFiltered);
+        
+        // Create rows for current page
+        for (let i = startIndex; i < endIndex; i++) {
+            const entry = filteredWaitlistEntries[i];
+            const createdDate = formatDate(entry.created_at);
+            
+            const row = document.createElement('tr');
+            row.className = 'border-bottom waitlist-row';
+            row.innerHTML = `
+                <td class="py-2 px-3">
+                    <span class="text-slate-900 fw-medium">
+                        ${entry.patient_name}
+                    </span>
+                </td>
+                <td class="py-2 px-3 text-slate-500" style="font-size: 0.875rem;">
+                    ${entry.email || '<span class="text-slate-400">-</span>'}
+                </td>
+                <td class="py-2 px-3 text-slate-500" style="font-size: 0.875rem;">
+                    ${entry.phone || '<span class="text-slate-400">-</span>'}
+                </td>
+                <td class="py-2 px-3" style="font-size: 0.875rem;">
+                    ${getUrgencyDot(entry.urgency_level, entry.urgency_display)}
+                </td>
+                <td class="py-2 px-3 text-slate-500" style="font-size: 0.875rem;">
+                    ${createdDate}
+                </td>
+                <td class="py-2 px-3" onclick="event.stopPropagation();">
+                    <div class="d-flex align-items-center gap-2">
+                        <button class="btn btn-sm btn-link text-primary p-1" onclick="convertWaitlistToAppointment(${entry.id})" title="Agendar">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="icon-sm" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                            </svg>
+                        </button>
+                        <button class="btn btn-sm btn-link text-slate-500 p-1" onclick="editWaitlistEntry(${entry.id})" title="Editar">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="icon-sm" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                            </svg>
+                        </button>
+                        <button class="btn btn-sm btn-link text-danger p-1" onclick="deleteWaitlistEntry(${entry.id})" title="Remover">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="icon-sm" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                            </svg>
+                        </button>
+                    </div>
+                </td>
+            `;
+            tableBody.appendChild(row);
+        }
     }
     
-    let html = '';
-    filteredEntries.forEach(entry => {
-        const urgencyClass = getUrgencyClass(entry.urgency_level);
-        const urgencyIcon = getUrgencyIcon(entry.urgency_level);
-        const statusBadge = getStatusBadge(entry.status);
-        
-        html += `
-            <div class="col-md-6 col-lg-4 mb-3">
-                <div class="card waitlist-entry-card h-100">
-                    <div class="card-header ${urgencyClass}">
-                        <div class="d-flex justify-content-between align-items-center">
-                            <div>
-                                <h6 class="mb-0">
-                                    <i class="${urgencyIcon} me-2"></i>
-                                    ${entry.patient_name}
-                                </h6>
-                                <small class="text-white-50">${entry.urgency_display}</small>
-                            </div>
-                            ${statusBadge}
-                        </div>
-                    </div>
-                    <div class="card-body">
-                        <div class="mb-2">
-                            <small class="text-muted d-block">
-                                <i class="fas fa-phone me-1"></i>${entry.phone || 'Não informado'}
-                            </small>
-                            <small class="text-muted d-block">
-                                <i class="fas fa-envelope me-1"></i>${entry.email || 'Não informado'}
-                            </small>
-                        </div>
-                        ${entry.preferred_days_times ? `
-                            <div class="mb-2">
-                                <small class="text-muted">
-                                    <i class="fas fa-calendar-alt me-1"></i>
-                                    <strong>Preferências:</strong> ${entry.preferred_days_times}
-                                </small>
-                            </div>
-                        ` : ''}
-                        ${entry.notes ? `
-                            <div class="mb-2">
-                                <small class="text-muted">
-                                    <i class="fas fa-sticky-note me-1"></i>
-                                    ${entry.notes}
-                                </small>
-                            </div>
-                        ` : ''}
-                        <div class="mb-2">
-                            <small class="text-muted">
-                                <i class="fas fa-clock me-1"></i>
-                                Adicionado em: ${formatDateTime(entry.created_at)}
-                            </small>
-                        </div>
-                    </div>
-                    <div class="card-footer bg-white">
-                        <div class="btn-group w-100" role="group">
-                            <button class="btn btn-sm btn-primary" onclick="convertWaitlistToAppointment(${entry.id})" title="Converter para consulta">
-                                <i class="fas fa-calendar-plus me-1"></i>Agendar
-                            </button>
-                            <button class="btn btn-sm btn-outline-secondary" onclick="editWaitlistEntry(${entry.id})" title="Editar entrada">
-                                <i class="fas fa-edit me-1"></i>Editar
-                            </button>
-                            <button class="btn btn-sm btn-outline-danger" onclick="deleteWaitlistEntry(${entry.id})" title="Remover da lista">
-                                <i class="fas fa-trash me-1"></i>Remover
-                            </button>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        `;
-    });
+    // Update pagination info
+    document.getElementById('waitlist-current-page').textContent = currentWaitlistPage;
+    document.getElementById('waitlist-total-pages').textContent = totalPages;
+    document.getElementById('waitlist-total').textContent = totalFiltered;
+    document.getElementById('waitlist-showing-start').textContent = totalFiltered > 0 ? (currentWaitlistPage - 1) * waitlistPerPage + 1 : 0;
+    document.getElementById('waitlist-showing-end').textContent = totalFiltered > 0 ? Math.min(currentWaitlistPage * waitlistPerPage, totalFiltered) : 0;
     
-    entriesDiv.innerHTML = html;
+    // Update prev/next buttons
+    const prevBtn = document.getElementById('waitlist-prev');
+    const nextBtn = document.getElementById('waitlist-next');
+    
+    if (currentWaitlistPage <= 1 || totalFiltered === 0) {
+        prevBtn.classList.add('disabled');
+        prevBtn.style.pointerEvents = 'none';
+        prevBtn.style.opacity = '0.5';
+    } else {
+        prevBtn.classList.remove('disabled');
+        prevBtn.style.pointerEvents = 'auto';
+        prevBtn.style.opacity = '1';
+    }
+    
+    if (currentWaitlistPage >= totalPages || totalFiltered === 0) {
+        nextBtn.classList.add('disabled');
+        nextBtn.style.pointerEvents = 'none';
+        nextBtn.style.opacity = '0.5';
+    } else {
+        nextBtn.classList.remove('disabled');
+        nextBtn.style.pointerEvents = 'auto';
+        nextBtn.style.opacity = '1';
+    }
+}
+
+function changeWaitlistPage(direction) {
+    const totalPages = Math.ceil(filteredWaitlistEntries.length / waitlistPerPage) || 1;
+    const newPage = currentWaitlistPage + direction;
+    
+    if (newPage >= 1 && newPage <= totalPages) {
+        currentWaitlistPage = newPage;
+        displayWaitlistPage();
+    }
+}
+
+function clearWaitlistFilters() {
+    document.getElementById('waitlist-search').value = '';
+    document.getElementById('waitlist-urgency-filter').value = '';
+    filterWaitlist();
 }
 
 function getUrgencyClass(urgency) {
@@ -2619,13 +2716,85 @@ function getStatusBadge(status) {
     return badges[status] || '<span class="badge bg-secondary">' + status + '</span>';
 }
 
+function getStatusBadgeInline(status, display) {
+    const badges = {
+        'pending': '<span class="d-inline-flex align-items-center"><span class="status-dot me-2" style="background-color: #fbbf24;"></span>Pendente</span>',
+        'scheduled': '<span class="d-inline-flex align-items-center"><span class="status-dot bg-green-400 me-2"></span>Agendada</span>',
+        'archived': '<span class="d-inline-flex align-items-center"><span class="status-dot bg-gray-300 me-2"></span>Arquivada</span>'
+    };
+    return badges[status] || '<span class="d-inline-flex align-items-center"><span class="status-dot bg-gray-300 me-2"></span>' + (display || status) + '</span>';
+}
+
+function getUrgencyBadge(urgency, display) {
+    const urgencyIcon = getUrgencyIcon(urgency);
+    let badgeClass = '';
+    let iconColor = '';
+    
+    switch(urgency) {
+        case 'high':
+            badgeClass = 'badge bg-danger';
+            iconColor = 'text-white';
+            break;
+        case 'medium':
+            badgeClass = 'badge bg-warning text-dark';
+            iconColor = 'text-dark';
+            break;
+        case 'low':
+            badgeClass = 'badge bg-info';
+            iconColor = 'text-white';
+            break;
+        default:
+            badgeClass = 'badge bg-secondary';
+            iconColor = 'text-white';
+    }
+    
+    return `<span class="${badgeClass} d-inline-flex align-items-center">
+        <i class="${urgencyIcon} ${iconColor} me-1" style="font-size: 0.75rem;"></i>
+        ${display || urgency}
+    </span>`;
+}
+
+function getUrgencyDot(urgency, display) {
+    let dotColor = '';
+    
+    switch(urgency) {
+        case 'high':
+            dotColor = '#ef4444'; // red-500
+            break;
+        case 'medium':
+            dotColor = '#f59e0b'; // amber-500
+            break;
+        case 'low':
+            dotColor = '#3b82f6'; // blue-500
+            break;
+        default:
+            dotColor = '#6b7280'; // gray-500
+    }
+    
+    return `<span class="d-inline-flex align-items-center">
+        <span class="status-dot me-2" style="background-color: ${dotColor};"></span>
+        ${display || urgency}
+    </span>`;
+}
+
 function formatDateTime(dateString) {
     const date = new Date(dateString);
     return date.toLocaleDateString('pt-BR') + ' ' + date.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
 }
 
+function formatDate(dateString) {
+    const date = new Date(dateString);
+    return date.toLocaleDateString('pt-BR', { 
+        day: '2-digit', 
+        month: '2-digit', 
+        year: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit'
+    });
+}
+
 function filterWaitlist() {
-    if (waitlistEntries.length > 0) {
+    if (waitlistEntries && waitlistEntries.length > 0) {
         displayWaitlistEntries(waitlistEntries);
     } else {
         loadWaitlist();

@@ -126,7 +126,10 @@ function switchTab(tabName) {
     // Load waiting list when waitlist tab is shown
     if (tabName === 'waitlist') {
         if (typeof loadWaitlist === 'function') {
-            loadWaitlist();
+            // Small delay to ensure DOM is ready
+            setTimeout(function() {
+                loadWaitlist();
+            }, 100);
         }
     }
 }
