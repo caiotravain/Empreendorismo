@@ -128,6 +128,11 @@ STATIC_ROOT = BASE_DIR / 'staticfiles'
 # Using CompressedStaticFilesStorage for better compatibility (doesn't require manifest)
 STATICFILES_STORAGE = 'whitenoise.storage.CompressedStaticFilesStorage'
 
+# WhiteNoise additional settings
+WHITENOISE_USE_FINDERS = True  # Allow WhiteNoise to find static files during development
+WHITENOISE_MANIFEST_STRICT = False  # Don't require manifest file
+WHITENOISE_ROOT = BASE_DIR / 'staticfiles'  # Root directory for static files
+
 # Authentication settings
 LOGIN_REDIRECT_URL = '/dashboard/'
 LOGOUT_REDIRECT_URL = '/accounts/login/'
