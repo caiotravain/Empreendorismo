@@ -1,0 +1,135 @@
+<!-- Settings Tab -->
+<div id="settings-tab" class="tab-content" style="display: none;">
+    <div class="container-fluid px-0">
+        <!-- Page Title -->
+        <div class="mb-4">
+            <h2 class="h4 mb-0 fw-bold text-dark">
+                <i class="fas fa-cog me-2 text-primary"></i>Configurações de Consultas
+            </h2>
+        </div>
+
+        <form id="settings-form">
+            <!-- Grid Layout: 3 Cards -->
+            <div class="row g-4">
+                <!-- Card 1: Durações Disponíveis -->
+                <div class="col-lg-4 col-md-6">
+                    <div class="settings-card">
+                        <div class="settings-card-header">
+                            <div class="settings-card-icon">
+                                <i class="fas fa-clock"></i>
+                            </div>
+                            <h5 class="settings-card-title">Durações Disponíveis</h5>
+                            <p class="settings-card-description">Configure as opções de duração disponíveis para as consultas</p>
+                        </div>
+                        <div class="settings-card-body">
+                            <div id="duration-options-container" class="settings-list">
+                                <!-- Duration options will be dynamically added here -->
+                            </div>
+                            <button type="button" class="btn btn-outline-primary w-100 mt-3" onclick="addDurationOption()">
+                                <i class="fas fa-plus me-1"></i>Adicionar Duração
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Card 2: Tipos de Consulta -->
+                <div class="col-lg-4 col-md-6">
+                    <div class="settings-card">
+                        <div class="settings-card-header">
+                            <div class="settings-card-icon">
+                                <i class="fas fa-list"></i>
+                            </div>
+                            <h5 class="settings-card-title">Tipos de Consulta</h5>
+                            <p class="settings-card-description">Configure os nomes dos tipos de consulta disponíveis</p>
+                        </div>
+                        <div class="settings-card-body">
+                            <div id="type-options-container" class="settings-list">
+                                <!-- Type options will be dynamically added here -->
+                            </div>
+                            <button type="button" class="btn btn-outline-primary w-100 mt-3" onclick="addTypeOption()">
+                                <i class="fas fa-plus me-1"></i>Adicionar Tipo
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Card 3: Status de Consultas -->
+                <div class="col-lg-4 col-md-6">
+                    <div class="settings-card">
+                        <div class="settings-card-header">
+                            <div class="settings-card-icon">
+                                <i class="fas fa-info-circle"></i>
+                            </div>
+                            <h5 class="settings-card-title">Status de Consultas</h5>
+                            <p class="settings-card-description">Configure os nomes dos status disponíveis para as consultas</p>
+                        </div>
+                        <div class="settings-card-body">
+                            <div id="status-options-container" class="settings-list">
+                                <!-- Status options will be dynamically added here -->
+                            </div>
+                            <button type="button" class="btn btn-outline-primary w-100 mt-3" onclick="addStatusOption()">
+                                <i class="fas fa-plus me-1"></i>Adicionar Status
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Card 4: Convênios -->
+                <div class="col-lg-4 col-md-6">
+                    <div class="settings-card">
+                        <div class="settings-card-header">
+                            <div class="settings-card-icon">
+                                <i class="fas fa-hospital"></i>
+                            </div>
+                            <h5 class="settings-card-title">Convênios</h5>
+                            <p class="settings-card-description">Configure os convênios disponíveis para seleção nas consultas</p>
+                        </div>
+                        <div class="settings-card-body">
+                            <div id="insurance-operators-container" class="settings-list">
+                                <!-- Insurance operators will be dynamically added here -->
+                            </div>
+                            <button type="button" class="btn btn-outline-primary w-100 mt-3" onclick="addInsuranceOperator()">
+                                <i class="fas fa-plus me-1"></i>Adicionar Convênio
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Card 5: Motivos de Cancelamento -->
+                <div class="col-lg-4 col-md-6">
+                    <div class="settings-card">
+                        <div class="settings-card-header">
+                            <div class="settings-card-icon">
+                                <i class="fas fa-ban"></i>
+                            </div>
+                            <h5 class="settings-card-title">Motivos de Cancelamento</h5>
+                            <p class="settings-card-description">Configure os motivos disponíveis ao cancelar consultas</p>
+                        </div>
+                        <div class="settings-card-body">
+                            <div id="cancellation-reasons-container" class="settings-list">
+                                <!-- Cancellation reasons will be dynamically added here -->
+                            </div>
+                            <button type="button" class="btn btn-outline-primary w-100 mt-3" onclick="addCancellationReason()">
+                                <i class="fas fa-plus me-1"></i>Adicionar Motivo
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Action Buttons -->
+            <div class="row mt-4">
+                <div class="col-12">
+                    <div class="d-flex justify-content-end gap-2">
+                        <button type="button" class="btn btn-secondary" onclick="resetSettings()">
+                            <i class="fas fa-undo me-1"></i>Restaurar Padrões
+                        </button>
+                        <button type="submit" class="btn btn-primary">
+                            <i class="fas fa-save me-1"></i>Salvar Configurações
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </form>
+    </div>
+</div>

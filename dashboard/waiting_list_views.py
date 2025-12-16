@@ -16,7 +16,10 @@ def get_selected_doctor(request):
     role = get_user_role(request.user)
     
     if role == 'admin':
-        # Admins can select a doctor to view as
+        # For admins, first check if they have a doctor_profile (some admins are also doctors)
+        if hasattr(request.user, 'doctor_profile'):
+            return request.user.doctor_profile
+        # Otherwise, admins can select a doctor to view as
         selected_doctor_id = request.session.get('selected_doctor_id')
         if selected_doctor_id:
             try:

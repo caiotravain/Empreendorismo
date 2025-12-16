@@ -69,4 +69,11 @@ urlpatterns = [
     path('api/waiting-list/<int:entry_id>/', views.api_waiting_list_entry, name='api_waiting_list_entry'),
     path('api/waiting-list/<int:entry_id>/update/', views.api_update_waiting_list_entry, name='api_update_waiting_list_entry'),
     path('api/waiting-list/<int:entry_id>/convert/', views.api_convert_waitlist_to_appointment, name='api_convert_waitlist_to_appointment'),
+    
+    # API endpoints for appointment settings
+    path('api/appointment-settings/', views.api_get_appointment_settings, name='api_get_appointment_settings'),
+    path('api/appointment-settings/save/', views.api_save_appointment_settings, name='api_save_appointment_settings'),
+    
+    # API endpoint for indicators
+    path('api/indicators/', views.api_indicators, name='api_indicators'),
 ]

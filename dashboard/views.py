@@ -6,9 +6,10 @@ from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_POST
 from django.views.decorators.http import require_http_methods
 from django.db import models
+from django.db.models import Q
 from datetime import date, timedelta, datetime
 from decimal import Decimal, InvalidOperation
-from .models import Appointment, Patient, Doctor, MedicalRecord, Prescription, PrescriptionItem, PrescriptionTemplate, Expense, Income, Medication, WaitingListEntry
+from .models import Appointment, Patient, Doctor, MedicalRecord, Prescription, PrescriptionItem, PrescriptionTemplate, Expense, Income, Medication, WaitingListEntry, AppointmentSettings
 from .waiting_list_views import api_waiting_list, api_waiting_list_entry, api_update_waiting_list_entry, api_convert_waitlist_to_appointment
 from accounts.utils import get_accessible_patients, get_user_role, has_access_to_patient, get_accessible_doctors, can_access_doctor
 
@@ -339,12 +340,6 @@ def indicadores(request):
     """Medical indicators view"""
     context = {
         'active_tab': 'indicadores',
-        'indicadores': {
-            'pacientes_ativos': 156,
-            'consultas_mes': 89,
-            'exames_solicitados': 23,
-            'prescricoes_ativas': 67,
-        }
     }
     return render(request, 'dashboard/home.html', context)
 
@@ -404,8 +399,40 @@ def patients(request):
 @login_required
 def settings(request):
     """Settings view"""
+    # Get current doctor (from selection for admins, or user's doctor)
+    current_doctor = get_selected_doctor(request)
+    
+    # Get accessible patients for context
+    all_patients = get_accessible_patients(request.user)
+    total_patients = all_patients.count()
+    active_patients = all_patients.filter(is_active=True).count()
+    
+    # Calculate patient statistics
+    from django.utils import timezone as django_timezone
+    now = django_timezone.now()
+    start_of_month = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+    new_this_month = all_patients.filter(created_at__gte=start_of_month).count()
+    
+    # Pending appointments
+    if current_doctor:
+        pending_appointments = Appointment.objects.filter(
+            doctor=current_doctor,
+            status__in=['scheduled', 'confirmed']
+        ).count()
+    else:
+        pending_appointments = Appointment.objects.filter(
+            status__in=['scheduled', 'confirmed']
+        ).count()
+    
     context = {
         'active_tab': 'settings',
+        'current_doctor': current_doctor,
+        'patient_stats': {
+            'total_patients': total_patients,
+            'active_patients': active_patients,
+            'new_this_month': new_this_month,
+            'pending_appointments': pending_appointments,
+        },
     }
     return render(request, 'dashboard/home.html', context)
 
@@ -595,6 +622,7 @@ def api_appointments(request):
         duration_minutes = request.POST.get('duration_minutes', 30)
         appointment_type = request.POST.get('appointment_type', 'consultation')
         payment_type = request.POST.get('payment_type')
+        insurance_operator = request.POST.get('insurance_operator', '')
         status = request.POST.get('status', 'scheduled')
         reason = request.POST.get('reason', '')
         notes = request.POST.get('notes', '')
@@ -650,6 +678,7 @@ def api_appointments(request):
             duration_minutes=int(duration_minutes),
             appointment_type=appointment_type,
             payment_type=payment_type,
+            insurance_operator=insurance_operator if insurance_operator else None,
             status=status,
             reason=reason,
             notes=notes,
@@ -666,6 +695,7 @@ def api_appointments(request):
                 Income.objects.create(
                     doctor=current_doctor,
                     appointment=appointment,
+                    patient=patient,
                     amount=appointment_value,
                     description=f"Consulta - {patient.full_name}",
                     category=appointment_type,
@@ -760,6 +790,17 @@ def api_week_appointments(request):
                 # Skip this appointment
                 continue
             
+            # Check if this is the patient's first appointment with this doctor
+            # Count previous appointments (excluding cancelled) before this appointment date/time
+            previous_appointments_count = Appointment.objects.filter(
+                patient=appointment.patient,
+                doctor=appointment.doctor
+            ).exclude(status='cancelled').filter(
+                Q(appointment_date__lt=appointment.appointment_date) |
+                Q(appointment_date=appointment.appointment_date, appointment_time__lt=appointment.appointment_time)
+            ).count()
+            is_first_appointment = previous_appointments_count == 0
+            
             appointments_data.append({
                 'id': appointment.id,
                 'patient_name': patient_name,
@@ -774,7 +815,8 @@ def api_week_appointments(request):
                 'status': appointment.status,
                 'reason': appointment.reason,
                 'notes': appointment.notes,
-                'location': appointment.location
+                'location': appointment.location,
+                'is_first_appointment': is_first_appointment
             })
         
         response_data = {
@@ -834,13 +876,29 @@ def api_create_patient(request):
             })
         
         # Get the current doctor for the user
+        from accounts.utils import get_user_role
         from accounts.utils import get_doctor_for_user
-        doctor = get_doctor_for_user(request.user)
+        
+        role = get_user_role(request.user)
+        doctor = None
+        
+        if role == 'admin':
+            # For admins, first check if they have a doctor_profile (some admins are also doctors)
+            if hasattr(request.user, 'doctor_profile'):
+                doctor = request.user.doctor_profile
+            else:
+                # Otherwise, use get_selected_doctor which checks session
+                doctor = get_selected_doctor(request)
+        else:
+            doctor = get_doctor_for_user(request.user)
         
         if not doctor:
+            error_msg = 'Usuário não tem um perfil de médico associado'
+            if role == 'admin':
+                error_msg += ' ou nenhum médico foi selecionado'
             return JsonResponse({
                 'success': False,
-                'error': 'Usuário não tem um perfil de médico associado'
+                'error': error_msg
             })
         
         # Create the patient assigned to the current doctor
@@ -909,11 +967,20 @@ def api_cancel_appointment(request):
                 'error': 'Esta consulta já foi cancelada'
             })
         
+        if appointment.status == 'no_show':
+            return JsonResponse({
+                'success': False,
+                'error': 'Esta consulta já foi marcada como falta'
+            })
+        
         if appointment.status == 'completed':
             return JsonResponse({
                 'success': False,
                 'error': 'Não é possível cancelar uma consulta já concluída'
             })
+        
+        # Check if reason contains "falta" to determine status
+        is_no_show = cancellation_reason and 'falta' in cancellation_reason.lower()
         
         # Remove any associated income records before cancelling
         income_deleted_count = 0
@@ -922,10 +989,15 @@ def api_cancel_appointment(request):
             income_deleted_count = associated_incomes.count()
             associated_incomes.delete()
         
-        # Cancel the appointment
+        # Cancel the appointment (will set status to no_show or cancelled based on reason)
         appointment.cancel(cancellation_reason)
         
-        message = f'Consulta de {appointment.patient.full_name} cancelada com sucesso'
+        # Set appropriate message based on status
+        if is_no_show:
+            message = f'Consulta de {appointment.patient.full_name} marcada como falta com sucesso'
+        else:
+            message = f'Consulta de {appointment.patient.full_name} cancelada com sucesso'
+        
         if income_deleted_count > 0:
             message += f' e {income_deleted_count} receita(s) removida(s)'
         
@@ -1081,6 +1153,7 @@ def api_complete_appointment(request):
                 Income.objects.create(
                     doctor=current_doctor,
                     appointment=appointment,
+                    patient=appointment.patient,
                     amount=appointment.value,
                     description=f"Consulta - {appointment.patient.full_name}",
                     category=appointment.appointment_type,
@@ -1145,6 +1218,7 @@ def api_sync_appointment_income(request):
             Income.objects.create(
                 doctor=current_doctor,
                 appointment=appointment,
+                patient=appointment.patient,
                 amount=appointment.value,
                 description=f"Consulta - {appointment.patient.full_name}",
                 category=appointment.appointment_type,
@@ -1838,6 +1912,273 @@ def api_search_medications(request):
 
 
 @login_required
+@require_http_methods(["GET"])
+def api_get_appointment_settings(request):
+    """API endpoint to get appointment settings"""
+    try:
+        settings = AppointmentSettings.get_settings()
+        return JsonResponse({
+            'success': True,
+            'settings': {
+                'duration_options': settings.duration_options,
+                'type_choices': settings.type_choices,
+                'status_choices': settings.status_choices,
+                'status_colors': settings.status_colors if settings.status_colors else {},
+                'location_options': settings.location_options,
+                'insurance_operators': settings.insurance_operators if settings.insurance_operators else [],
+                'cancellation_reasons': settings.cancellation_reasons if settings.cancellation_reasons else [],
+            }
+        })
+    except Exception as e:
+        return JsonResponse({
+            'success': False,
+            'error': f'Erro ao carregar configurações: {str(e)}'
+        })
+
+
+@login_required
+@require_http_methods(["POST"])
+def api_save_appointment_settings(request):
+    """API endpoint to save appointment settings"""
+    try:
+        import json
+        data = json.loads(request.body)
+        
+        settings = AppointmentSettings.get_settings()
+        
+        # Validate and update duration options
+        if 'duration_options' in data:
+            duration_options = [int(d) for d in data['duration_options'] if isinstance(d, (int, str)) and str(d).isdigit()]
+            if duration_options:
+                settings.duration_options = sorted(set(duration_options))  # Remove duplicates and sort
+        
+        # Validate and update type choices (now just display names)
+        if 'type_choices' in data:
+            type_choices = []
+            for choice in data['type_choices']:
+                # Handle both old format [value, label] and new format (just string)
+                if isinstance(choice, list) and len(choice) >= 2:
+                    # Old format: use the label
+                    type_choices.append(str(choice[1]).strip())
+                elif isinstance(choice, str):
+                    # New format: just the display name
+                    type_choices.append(choice.strip())
+            # Remove empty strings and duplicates
+            type_choices = [c for c in type_choices if c]
+            if type_choices:
+                settings.type_choices = list(dict.fromkeys(type_choices))  # Remove duplicates while preserving order
+        
+        # Validate and update status choices (now just display names)
+        if 'status_choices' in data:
+            status_choices = []
+            for choice in data['status_choices']:
+                # Handle both old format [value, label] and new format (just string)
+                if isinstance(choice, list) and len(choice) >= 2:
+                    # Old format: use the label
+                    status_choices.append(str(choice[1]).strip())
+                elif isinstance(choice, str):
+                    # New format: just the display name
+                    status_choices.append(choice.strip())
+            # Remove empty strings and duplicates
+            status_choices = [c for c in status_choices if c]
+            if status_choices:
+                settings.status_choices = list(dict.fromkeys(status_choices))  # Remove duplicates while preserving order
+        
+        # Validate and update status colors
+        if 'status_colors' in data:
+            if isinstance(data['status_colors'], dict):
+                # Clean up colors: remove entries for statuses that no longer exist
+                valid_statuses = set(settings.status_choices)
+                cleaned_colors = {
+                    status: color for status, color in data['status_colors'].items()
+                    if status in valid_statuses and isinstance(color, str) and color.startswith('#')
+                }
+                settings.status_colors = cleaned_colors
+        
+        # Validate and update location options
+        if 'location_options' in data:
+            location_options = [str(loc).strip() for loc in data['location_options'] if str(loc).strip()]
+            settings.location_options = location_options
+        
+        # Validate and update insurance operators
+        if 'insurance_operators' in data:
+            insurance_operators = []
+            for operator in data['insurance_operators']:
+                if isinstance(operator, str) and operator.strip():
+                    insurance_operators.append(operator.strip())
+            # Remove duplicates while preserving order
+            if insurance_operators:
+                settings.insurance_operators = list(dict.fromkeys(insurance_operators))
+        
+        # Validate and update cancellation reasons
+        if 'cancellation_reasons' in data:
+            cancellation_reasons = []
+            for reason in data['cancellation_reasons']:
+                if isinstance(reason, str) and reason.strip():
+                    cancellation_reasons.append(reason.strip())
+            # Remove duplicates while preserving order
+            if cancellation_reasons:
+                settings.cancellation_reasons = list(dict.fromkeys(cancellation_reasons))
+        
+        settings.save()
+        
+        return JsonResponse({
+            'success': True,
+            'message': 'Configurações salvas com sucesso!'
+        })
+    except Exception as e:
+        return JsonResponse({
+            'success': False,
+            'error': f'Erro ao salvar configurações: {str(e)}'
+        })
+
+
+@login_required
+@require_http_methods(["GET"])
+def api_indicators(request):
+    """API endpoint to get real indicators/metrics data"""
+    try:
+        # Get current user's doctor profile
+        try:
+            current_doctor = Doctor.objects.get(user=request.user)
+        except Doctor.DoesNotExist:
+            return JsonResponse({
+                'success': False,
+                'error': 'Usuário não é um médico válido'
+            })
+        
+        # Get period filter
+        period = request.GET.get('period', 'month')
+        
+        # Calculate date range based on period
+        from datetime import date, timedelta
+        from django.utils import timezone
+        
+        today = timezone.now().date()
+        start_date = None
+        end_date = today
+        
+        if period == '30':
+            start_date = today - timedelta(days=30)
+        elif period == 'month':
+            start_date = date(today.year, today.month, 1)
+        elif period == 'quarter':
+            quarter = (today.month - 1) // 3
+            start_date = date(today.year, quarter * 3 + 1, 1)
+        elif period == 'year':
+            start_date = date(today.year, 1, 1)
+        else:
+            start_date = date(today.year, today.month, 1)
+        
+        # Get appointments in the period
+        appointments = Appointment.objects.filter(
+            doctor=current_doctor,
+            appointment_date__gte=start_date,
+            appointment_date__lte=end_date
+        )
+        
+        # Calculate metrics
+        total_appointments = appointments.count()
+        
+        # Attendance metrics
+        completed_count = appointments.filter(status='completed').count()
+        no_show_count = appointments.filter(status='no_show').count()
+        cancelled_count = appointments.filter(status='cancelled').count()
+        attended_count = completed_count  # Completed = attended
+        
+        # Calculate percentages based on total appointments (so they add up to 100%)
+        show_rate = round((attended_count / total_appointments * 100) if total_appointments > 0 else 0, 1)
+        no_show_rate = round((no_show_count / total_appointments * 100) if total_appointments > 0 else 0, 1)
+        cancelled_rate = round((cancelled_count / total_appointments * 100) if total_appointments > 0 else 0, 1)
+        
+        # Total patients
+        total_patients = Patient.objects.filter(doctor=current_doctor, is_active=True).count()
+        
+        # Patient mix (payment type distribution)
+        particular_count = appointments.filter(payment_type='particular').count()
+        convenio_count = appointments.filter(payment_type='convenio').count()
+        total_payment_appointments = particular_count + convenio_count
+        
+        private_pct = round((particular_count / total_payment_appointments * 100) if total_payment_appointments > 0 else 0, 1)
+        insurance_pct = round((convenio_count / total_payment_appointments * 100) if total_payment_appointments > 0 else 0, 1)
+        
+        # Retention rate (patients with more than one appointment in the period)
+        from django.db.models import Count
+        patients_with_multiple = appointments.values('patient').annotate(
+            appointment_count=Count('id')
+        ).filter(appointment_count__gt=1).count()
+        
+        total_unique_patients = appointments.values('patient').distinct().count()
+        retention_rate = round((patients_with_multiple / total_unique_patients * 100) if total_unique_patients > 0 else 0, 1)
+        
+        # Insurance providers breakdown
+        providers_data = []
+        
+        # Get all insurance operators from appointments
+        from django.db.models import Sum, Count, Avg
+        from decimal import Decimal
+        
+        # Group by insurance operator
+        insurance_appointments = appointments.filter(
+            payment_type='convenio',
+            insurance_operator__isnull=False
+        ).exclude(insurance_operator='')
+        
+        operator_stats = insurance_appointments.values('insurance_operator').annotate(
+            total_appointments=Count('id'),
+            total_revenue=Sum('value'),
+            avg_ticket=Avg('value')
+        ).order_by('-total_revenue')
+        
+        for stat in operator_stats:
+            providers_data.append({
+                'name': stat['insurance_operator'],
+                'total_appointments': stat['total_appointments'],
+                'revenue': float(stat['total_revenue'] or 0),
+                'avg_ticket': float(stat['avg_ticket'] or 0)
+            })
+        
+        # Add "Particular" as a provider
+        particular_appointments = appointments.filter(payment_type='particular')
+        particular_revenue = particular_appointments.aggregate(Sum('value'))['value__sum'] or Decimal('0')
+        particular_count_val = particular_appointments.count()
+        particular_avg = float(particular_revenue / particular_count_val) if particular_count_val > 0 else 0
+        
+        if particular_count_val > 0:
+            providers_data.insert(0, {
+                'name': 'Particular',
+                'total_appointments': particular_count_val,
+                'revenue': float(particular_revenue),
+                'avg_ticket': particular_avg
+            })
+        
+        return JsonResponse({
+            'success': True,
+            'metrics': {
+                'show_rate': show_rate,
+                'no_show_rate': no_show_rate,
+                'cancelled_rate': cancelled_rate,
+                'total_patients': total_patients,
+                'private_pct': private_pct,
+                'insurance_pct': insurance_pct,
+                'retention_rate': retention_rate,
+                'providers': providers_data,
+                'attended_count': attended_count,
+                'no_show_count': no_show_count,
+                'cancelled_count': cancelled_count,
+                'particular_count': particular_count,
+                'convenio_count': convenio_count,
+            }
+        })
+        
+    except Exception as e:
+        return JsonResponse({
+            'success': False,
+            'error': f'Erro ao calcular indicadores: {str(e)}'
+        })
+
+
+@login_required
 def finance(request):
     """Finance view with expense tracking and filtering"""
     # Get current user's doctor profile
@@ -2078,6 +2419,71 @@ def api_create_income(request):
         income_date = request.POST.get('income_date')
         payment_method = request.POST.get('payment_method', '')
         notes = request.POST.get('notes', '')
+        appointment_id = request.POST.get('appointment_id', '')
+        patient_id = request.POST.get('patient_id', '')
+        
+        # Check if creating new patient
+        create_patient = request.POST.get('create_patient', 'false') == 'true'
+        patient = None
+        
+        # Handle patient creation or selection
+        if create_patient:
+            # Create new patient
+            patient_first_name = request.POST.get('patient_first_name', '').strip()
+            patient_last_name = request.POST.get('patient_last_name', '').strip()
+            patient_date_of_birth = request.POST.get('patient_date_of_birth')
+            patient_gender = request.POST.get('patient_gender')
+            patient_email = request.POST.get('patient_email', '').strip()
+            patient_phone = request.POST.get('patient_phone', '').strip()
+            
+            # Validate required patient fields
+            if not all([patient_first_name, patient_last_name, patient_date_of_birth, patient_gender]):
+                return JsonResponse({
+                    'success': False,
+                    'error': 'Nome, sobrenome, data de nascimento e sexo são obrigatórios para criar paciente'
+                })
+            
+            # Check if patient already exists
+            existing_patient = Patient.objects.filter(
+                first_name__iexact=patient_first_name,
+                last_name__iexact=patient_last_name,
+                date_of_birth=patient_date_of_birth,
+                doctor=current_doctor
+            ).first()
+            
+            if existing_patient:
+                patient = existing_patient
+            else:
+                # Create new patient
+                patient = Patient.objects.create(
+                    doctor=current_doctor,
+                    first_name=patient_first_name,
+                    last_name=patient_last_name,
+                    date_of_birth=patient_date_of_birth,
+                    gender=patient_gender,
+                    email=patient_email if patient_email else None,
+                    phone=patient_phone if patient_phone else None,
+                    is_active=True
+                )
+        elif patient_id:
+            # Use existing patient
+            try:
+                patient = Patient.objects.get(id=patient_id, doctor=current_doctor)
+            except Patient.DoesNotExist:
+                return JsonResponse({
+                    'success': False,
+                    'error': 'Paciente não encontrado'
+                })
+        elif appointment_id:
+            # Auto-link patient from appointment
+            try:
+                appointment = Appointment.objects.get(id=appointment_id, doctor=current_doctor)
+                patient = appointment.patient
+            except Appointment.DoesNotExist:
+                return JsonResponse({
+                    'success': False,
+                    'error': 'Consulta não encontrada'
+                })
         
         # Validate required fields
         if not all([description, amount, category]):
@@ -2107,6 +2513,14 @@ def api_create_income(request):
         else:
             income_date_obj = timezone.now().date()
         
+        # Get appointment if appointment_id is provided
+        appointment = None
+        if appointment_id:
+            try:
+                appointment = Appointment.objects.get(id=appointment_id, doctor=current_doctor)
+            except Appointment.DoesNotExist:
+                pass  # Appointment not found, but continue without it
+        
         # Create the income
         income = Income.objects.create(
             doctor=current_doctor,
@@ -2115,7 +2529,9 @@ def api_create_income(request):
             category=category,
             income_date=income_date_obj,
             payment_method=payment_method,
-            notes=notes
+            notes=notes,
+            patient=patient,
+            appointment=appointment
         )
         
         return JsonResponse({
@@ -2454,13 +2870,29 @@ def api_create_patient(request):
             })
         
         # Get the current doctor for the user
+        from accounts.utils import get_user_role
         from accounts.utils import get_doctor_for_user
-        doctor = get_doctor_for_user(request.user)
+        
+        role = get_user_role(request.user)
+        doctor = None
+        
+        if role == 'admin':
+            # For admins, first check if they have a doctor_profile (some admins are also doctors)
+            if hasattr(request.user, 'doctor_profile'):
+                doctor = request.user.doctor_profile
+            else:
+                # Otherwise, use get_selected_doctor which checks session
+                doctor = get_selected_doctor(request)
+        else:
+            doctor = get_doctor_for_user(request.user)
         
         if not doctor:
+            error_msg = 'Usuário não tem um perfil de médico associado'
+            if role == 'admin':
+                error_msg += ' ou nenhum médico foi selecionado'
             return JsonResponse({
                 'success': False,
-                'error': 'Usuário não tem um perfil de médico associado'
+                'error': error_msg
             })
         
         # Create the patient assigned to the current doctor

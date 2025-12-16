@@ -799,7 +799,7 @@ function showExpenseModal() {
     modal.show();
 }
 
-function showIncomeModal() {
+function showIncomeModal(appointmentId = null, patientId = null) {
     const modal = new bootstrap.Modal(document.getElementById('incomeModal'));
     
     // Set today's date as default
@@ -809,6 +809,33 @@ function showIncomeModal() {
     // Clear form
     document.getElementById('incomeForm').reset();
     document.getElementById('income-date').value = today;
+    
+    // Hide patient creation form
+    document.getElementById('income-patient-create-form').style.display = 'none';
+    
+    // Load patients
+    loadPatientsForIncome();
+    
+    // Auto-fill appointment and patient if provided
+    if (appointmentId) {
+        document.getElementById('income-appointment-id').value = appointmentId;
+        // Load patient from appointment
+        if (patientId) {
+            document.getElementById('income-patient').value = patientId;
+        } else {
+            // Fetch appointment to get patient
+            fetch(`/dashboard/api/appointments/${appointmentId}/`)
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success && data.appointment.patient_id) {
+                        document.getElementById('income-patient').value = data.appointment.patient_id;
+                    }
+                })
+                .catch(error => console.error('Error loading appointment:', error));
+        }
+    } else {
+        document.getElementById('income-appointment-id').value = '';
+    }
     
     modal.show();
 }
@@ -989,6 +1016,24 @@ document.addEventListener('DOMContentLoaded', function() {
             e.preventDefault();
             createIncome();
         });
+        
+        // Patient creation button
+        const incomeCreatePatientBtn = document.getElementById('income-create-patient-btn');
+        if (incomeCreatePatientBtn) {
+            incomeCreatePatientBtn.addEventListener('click', function(e) {
+                e.preventDefault();
+                showIncomePatientCreateForm();
+            });
+        }
+        
+        // Cancel patient creation button
+        const incomeCancelPatientCreate = document.getElementById('income-cancel-patient-create');
+        if (incomeCancelPatientCreate) {
+            incomeCancelPatientCreate.addEventListener('click', function(e) {
+                e.preventDefault();
+                hideIncomePatientCreateForm();
+            });
+        }
     }
 });
 
@@ -1036,9 +1081,83 @@ function createExpense() {
     });
 }
 
+function loadPatientsForIncome() {
+    const patientSelect = document.getElementById('income-patient');
+    if (!patientSelect) return;
+    
+    // Clear existing options except the first one
+    patientSelect.innerHTML = '<option value="">Selecione um paciente</option>';
+    
+    // Fetch patients
+    fetch('/dashboard/api/patients/')
+        .then(response => response.json())
+        .then(data => {
+            if (data.success && data.patients) {
+                data.patients.forEach(patient => {
+                    const option = document.createElement('option');
+                    option.value = patient.id;
+                    option.textContent = patient.full_name;
+                    patientSelect.appendChild(option);
+                });
+            }
+        })
+        .catch(error => {
+            console.error('Error loading patients:', error);
+        });
+}
+
+function showIncomePatientCreateForm() {
+    const form = document.getElementById('income-patient-create-form');
+    if (form) {
+        form.style.display = 'block';
+        // Clear patient selection
+        document.getElementById('income-patient').value = '';
+    }
+}
+
+function hideIncomePatientCreateForm() {
+    const form = document.getElementById('income-patient-create-form');
+    if (form) {
+        form.style.display = 'none';
+        // Clear form fields
+        form.querySelectorAll('input, select').forEach(field => {
+            field.value = '';
+        });
+    }
+}
+
 function createIncome() {
     const form = document.getElementById('incomeForm');
     const formData = new FormData(form);
+    
+    // Check if creating new patient
+    const createForm = document.getElementById('income-patient-create-form');
+    const isCreatingPatient = createForm && createForm.style.display !== 'none';
+    
+    if (isCreatingPatient) {
+        // Validate patient fields
+        const firstName = document.getElementById('income-patient-first-name').value.trim();
+        const lastName = document.getElementById('income-patient-last-name').value.trim();
+        const dob = document.getElementById('income-patient-dob').value;
+        const gender = document.getElementById('income-patient-gender').value;
+        
+        if (!firstName || !lastName || !dob || !gender) {
+            showAlert('Preencha todos os campos obrigatórios do paciente', 'danger');
+            return;
+        }
+        
+        // Add patient creation flag and data
+        formData.append('create_patient', 'true');
+        formData.append('patient_first_name', firstName);
+        formData.append('patient_last_name', lastName);
+        formData.append('patient_date_of_birth', dob);
+        formData.append('patient_gender', gender);
+        
+        const email = document.getElementById('income-patient-email').value.trim();
+        const phone = document.getElementById('income-patient-phone').value.trim();
+        if (email) formData.append('patient_email', email);
+        if (phone) formData.append('patient_phone', phone);
+    }
     
     // Show loading state
     const submitBtn = form.querySelector('button[type="submit"]');

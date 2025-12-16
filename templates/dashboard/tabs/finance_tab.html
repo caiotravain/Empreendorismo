@@ -312,6 +312,68 @@
                                 </select>
                             </div>
                         </div>
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label for="income-patient" class="form-label">Paciente</label>
+                                <div class="input-group">
+                                    <select class="form-select" id="income-patient" name="patient_id">
+                                        <option value="">Selecione um paciente</option>
+                                    </select>
+                                    <button type="button" class="btn btn-outline-primary" id="income-create-patient-btn" title="Criar novo paciente">
+                                        <i class="fas fa-plus"></i>
+                                    </button>
+                                </div>
+                                <small class="text-muted">Deixe em branco se não houver paciente relacionado</small>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Hidden field for appointment ID (auto-filled when income is from appointment) -->
+                    <input type="hidden" id="income-appointment-id" name="appointment_id" value="">
+                    
+                    <!-- Patient creation form (initially hidden) -->
+                    <div id="income-patient-create-form" style="display: none;" class="border rounded p-3 mb-3 bg-light">
+                        <h6 class="mb-3">
+                            <i class="fas fa-user-plus me-2"></i>Criar Novo Paciente
+                            <button type="button" class="btn btn-sm btn-link float-end" id="income-cancel-patient-create">
+                                <i class="fas fa-times"></i>
+                            </button>
+                        </h6>
+                        <div class="row">
+                            <div class="col-md-6 mb-2">
+                                <label class="form-label small">Nome *</label>
+                                <input type="text" class="form-control form-control-sm" id="income-patient-first-name" name="patient_first_name">
+                            </div>
+                            <div class="col-md-6 mb-2">
+                                <label class="form-label small">Sobrenome *</label>
+                                <input type="text" class="form-control form-control-sm" id="income-patient-last-name" name="patient_last_name">
+                            </div>
+                        </div>
+                        <div class="row">
+                            <div class="col-md-6 mb-2">
+                                <label class="form-label small">Data de Nascimento *</label>
+                                <input type="date" class="form-control form-control-sm" id="income-patient-dob" name="patient_date_of_birth">
+                            </div>
+                            <div class="col-md-6 mb-2">
+                                <label class="form-label small">Sexo *</label>
+                                <select class="form-select form-select-sm" id="income-patient-gender" name="patient_gender">
+                                    <option value="">Selecione...</option>
+                                    <option value="M">Masculino</option>
+                                    <option value="F">Feminino</option>
+                                    <option value="O">Outro</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div class="row">
+                            <div class="col-md-6 mb-2">
+                                <label class="form-label small">Email</label>
+                                <input type="email" class="form-control form-control-sm" id="income-patient-email" name="patient_email">
+                            </div>
+                            <div class="col-md-6 mb-2">
+                                <label class="form-label small">Telefone</label>
+                                <input type="tel" class="form-control form-control-sm" id="income-patient-phone" name="patient_phone">
+                            </div>
+                        </div>
                     </div>
                     
                     <div class="mb-3">

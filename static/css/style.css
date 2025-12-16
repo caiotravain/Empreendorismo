@@ -65,6 +65,25 @@ body {
     color: rgba(255, 255, 255, 0.8) !important;
 }
 
+/* Navbar dropdown active state */
+#navbarDropdown + .dropdown-menu .dropdown-item.active {
+    background-color: #0d6efd;
+    color: white;
+}
+
+#navbarDropdown + .dropdown-menu .dropdown-item.active:hover {
+    background-color: #0b5ed7;
+    color: white;
+}
+
+#navbarDropdown + .dropdown-menu .dropdown-header {
+    font-size: 0.75rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    color: #6c757d;
+    padding: 0.5rem 1rem;
+}
+
 /* Cards */
 .card {
     border: none;
@@ -683,5 +702,265 @@ body {
         flex: 1;
         padding: 6px 8px;
         font-size: 12px;
+    }
+}
+
+/* Settings Page Styles */
+.settings-card {
+    background: #ffffff;
+    border: 1px solid #e5e7eb;
+    border-radius: 12px;
+    box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1), 0 1px 2px 0 rgba(0, 0, 0, 0.06);
+    transition: all 0.2s ease;
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+}
+
+.settings-card:hover {
+    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+}
+
+.settings-card-header {
+    padding: 1.5rem;
+    border-bottom: 1px solid #f3f4f6;
+}
+
+.settings-card-icon {
+    width: 48px;
+    height: 48px;
+    border-radius: 10px;
+    background: linear-gradient(135deg, var(--primary-color), #05052a);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin-bottom: 1rem;
+}
+
+.settings-card-icon i {
+    font-size: 1.25rem;
+    color: #ffffff;
+}
+
+.settings-card-title {
+    font-size: 1.125rem;
+    font-weight: 600;
+    color: #111827;
+    margin-bottom: 0.5rem;
+}
+
+.settings-card-description {
+    font-size: 0.875rem;
+    color: #6b7280;
+    margin-bottom: 0;
+    line-height: 1.5;
+}
+
+.settings-card-body {
+    padding: 1.5rem;
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+}
+
+.settings-list {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+    min-height: 100px;
+    max-height: 400px;
+    overflow-y: auto;
+}
+
+.settings-list::-webkit-scrollbar {
+    width: 6px;
+}
+
+.settings-list::-webkit-scrollbar-track {
+    background: #f3f4f6;
+    border-radius: 3px;
+}
+
+.settings-list::-webkit-scrollbar-thumb {
+    background: #d1d5db;
+    border-radius: 3px;
+}
+
+.settings-list::-webkit-scrollbar-thumb:hover {
+    background: #9ca3af;
+}
+
+.settings-input-group {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    background: #f9fafb;
+    border: 1px solid #e5e7eb;
+    border-radius: 8px;
+    padding: 0.5rem;
+    transition: all 0.2s ease;
+}
+
+.settings-input-group:hover {
+    background: #ffffff;
+    border-color: #d1d5db;
+}
+
+.settings-input-group input {
+    flex: 1;
+    border: none;
+    background: transparent;
+    padding: 0.5rem 0.75rem;
+    font-size: 0.875rem;
+    color: #111827;
+    outline: none;
+}
+
+.settings-input-group input:focus {
+    background: #ffffff;
+}
+
+.settings-input-group .input-badge {
+    background: #e5e7eb;
+    color: #6b7280;
+    padding: 0.375rem 0.75rem;
+    border-radius: 6px;
+    font-size: 0.75rem;
+    font-weight: 500;
+    white-space: nowrap;
+}
+
+.settings-input-group .delete-btn {
+    background: transparent;
+    border: none;
+    color: #9ca3af;
+    padding: 0.5rem;
+    border-radius: 6px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 32px;
+    height: 32px;
+}
+
+.settings-input-group .delete-btn:hover {
+    background: #fee2e2;
+    color: #dc2626;
+}
+
+.settings-input-group .delete-btn i {
+    font-size: 0.875rem;
+}
+
+/* Color picker styling for status options */
+.settings-input-group.status-input-group {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.color-picker-wrapper {
+    display: flex;
+    align-items: center;
+    gap: 0.25rem;
+    position: relative;
+}
+
+.color-picker-wrapper input[type="color"] {
+    width: 40px;
+    height: 38px;
+    padding: 2px;
+    border: 1px solid #dee2e6;
+    border-radius: 4px;
+    cursor: pointer;
+    background: transparent;
+    flex-shrink: 0;
+}
+
+.color-picker-wrapper input[type="color"]::-webkit-color-swatch-wrapper {
+    padding: 0;
+}
+
+.color-picker-wrapper input[type="color"]::-webkit-color-swatch {
+    border: none;
+    border-radius: 3px;
+}
+
+.color-picker-wrapper input[type="color"]::-moz-color-swatch {
+    border: none;
+    border-radius: 3px;
+}
+
+.color-picker-wrapper .form-control-color {
+    width: 40px;
+    height: 38px;
+}
+
+.color-preview {
+    width: 24px;
+    height: 24px;
+    border-radius: 4px;
+    border: 1px solid #dee2e6;
+    display: inline-block;
+    flex-shrink: 0;
+}
+
+/* Responsive adjustments for settings */
+@media (max-width: 991.98px) {
+    .settings-card {
+        margin-bottom: 1.5rem;
+    }
+}
+
+@media (max-width: 767.98px) {
+    .settings-card-header {
+        padding: 1.25rem;
+    }
+    
+    .settings-card-body {
+        padding: 1.25rem;
+    }
+    
+    .settings-card-icon {
+        width: 40px;
+        height: 40px;
+    }
+    
+    .settings-card-icon i {
+        font-size: 1rem;
+    }
+}
+
+/* View Mode Toggle Styles */
+.btn-group.administrator-tabs,
+.btn-group.doctor-tabs {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.25rem;
+}
+
+/* Ensure hidden tab groups don't take up space */
+.btn-group.administrator-tabs[style*="display: none"],
+.btn-group.doctor-tabs[style*="display: none"] {
+    display: none !important;
+    visibility: hidden !important;
+    height: 0 !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    overflow: hidden !important;
+}
+
+@media (max-width: 991.98px) {
+    .btn-group.administrator-tabs,
+    .btn-group.doctor-tabs {
+        width: 100%;
+    }
+    
+    .btn-group.administrator-tabs .btn,
+    .btn-group.doctor-tabs .btn {
+        flex: 1;
+        min-width: 120px;
     }
 }

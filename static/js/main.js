@@ -1,5 +1,8 @@
 // Main JavaScript for SaaS Platform
 
+// Store pending tab to switch to after patient selection (global)
+window.pendingTabSwitch = null;
+
 document.addEventListener('DOMContentLoaded', function() {
     // Initialize tooltips
     var tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'));
@@ -46,10 +49,34 @@ function switchTab(tabName) {
     if (tabName === 'prontuarios' || tabName === 'prescricao') {
         // Check if selectedPatient is available and not null
         if (typeof selectedPatient === 'undefined' || selectedPatient === null) {
-            alert('Por favor, selecione um paciente na agenda primeiro.');
+            // Store the tab name to switch to after patient selection
+            window.pendingTabSwitch = tabName;
+            // Show patient selection modal instead of alert
+            const modalElement = document.getElementById('patientSelectionModal');
+            if (modalElement) {
+                // Show modal directly using Bootstrap
+                const modal = new bootstrap.Modal(modalElement);
+                modal.show();
+                
+                // Load patients and setup search if functions are available
+                if (typeof loadAllPatientsForPopup === 'function') {
+                    loadAllPatientsForPopup();
+                }
+                if (typeof setupPatientPopupSearch === 'function') {
+                    setupPatientPopupSearch();
+                }
+            } else if (typeof showPatientSelectionModal === 'function') {
+                // Fallback to function if modal element not found
+                showPatientSelectionModal();
+            } else {
+                alert('Por favor, selecione um paciente na agenda primeiro.');
+            }
             return;
         }
     }
+    
+    // Clear any pending tab switch since we're switching now
+    window.pendingTabSwitch = null;
     
     // Update URL parameter without reloading the page
     const url = new URL(window.location);
@@ -59,6 +86,16 @@ function switchTab(tabName) {
     } else {
         url.searchParams.set('tab', tabName);
     }
+    
+    // Update view mode in URL if admin
+    if (typeof currentViewMode !== 'undefined') {
+        if (currentViewMode === 'administrator') {
+            url.searchParams.set('view', 'administrator');
+        } else {
+            url.searchParams.delete('view');
+        }
+    }
+    
     window.history.pushState({}, '', url);
     
     // Hide all tab contents
@@ -75,18 +112,24 @@ function switchTab(tabName) {
         selectedTab.classList.add('active');
     }
     
-    // Update button states
-    const buttons = document.querySelectorAll('.btn-group .btn');
-    buttons.forEach(btn => {
-        btn.classList.remove('btn-primary');
-        btn.classList.add('btn-outline-primary');
-    });
+    // Update button states (only in the active tab group)
+    const activeTabGroup = typeof currentViewMode !== 'undefined' && currentViewMode === 'administrator' ? 
+        document.getElementById('administrator-tabs-group') : 
+        document.getElementById('doctor-tabs-group');
     
-    // Highlight active button by finding the button that calls this function
-    const activeButton = document.querySelector(`[onclick*="switchTab('${tabName}')"]`);
-    if (activeButton) {
-        activeButton.classList.remove('btn-outline-primary');
-        activeButton.classList.add('btn-primary');
+    if (activeTabGroup) {
+        const buttons = activeTabGroup.querySelectorAll('.btn');
+        buttons.forEach(btn => {
+            btn.classList.remove('btn-primary');
+            btn.classList.add('btn-outline-primary');
+        });
+        
+        // Highlight active button by finding the button that calls this function
+        const activeButton = activeTabGroup.querySelector(`[onclick*="switchTab('${tabName}')"]`);
+        if (activeButton) {
+            activeButton.classList.remove('btn-outline-primary');
+            activeButton.classList.add('btn-primary');
+        }
     }
     
     // Load data for specific tabs
@@ -129,6 +172,16 @@ function switchTab(tabName) {
             // Small delay to ensure DOM is ready
             setTimeout(function() {
                 loadWaitlist();
+            }, 100);
+        }
+    }
+    
+    // Load settings when settings tab is shown
+    if (tabName === 'settings') {
+        if (typeof loadSettings === 'function') {
+            // Small delay to ensure DOM is ready
+            setTimeout(function() {
+                loadSettings();
             }, 100);
         }
     }

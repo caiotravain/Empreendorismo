@@ -2,8 +2,21 @@
 let calendar;
 let calendarInitialized = false;
 
+// Load settings early so colors are available
+function ensureSettingsLoaded() {
+    if (typeof appointmentSettings === 'undefined' || !appointmentSettings) {
+        // Try to load settings if not already loaded
+        if (typeof loadSettings === 'function') {
+            loadSettings();
+        }
+    }
+}
+
 // Initialize FullCalendar when the page loads
 document.addEventListener('DOMContentLoaded', function() {
+    // Load settings first
+    ensureSettingsLoaded();
+    
     // Check if agenda tab is already active
     const agendaTab = document.getElementById('agenda-tab');
     if (agendaTab && agendaTab.classList.contains('active')) {
@@ -65,27 +78,153 @@ function initializeFullCalendar() {
             loadAppointmentsForCalendar(info.start, info.end, successCallback, failureCallback);
         },
         eventContent: function(arg) {
-            // Custom event content to show dollar symbol for particular appointments
+            // Custom event content to show dollar symbol for particular appointments and NOVO badge for first appointments
             const paymentType = arg.event.extendedProps.paymentType;
+            const isFirstAppointment = !!arg.event.extendedProps.isFirstAppointment;
             const patientName = arg.event.title;
+            const viewType = arg.view.type;
             
-            if (paymentType === 'Particular') {
-                return {
-                    html: `${patientName} <span class="particular-dollar">$</span>`
-                };
+            // For week view, use HTML string as it's more reliable
+            // For month view, use domNodes
+            if (viewType === 'timeGridWeek' || viewType === 'timeGridDay') {
+                // Week view: use HTML string
+                let content = patientName;
+                if (isFirstAppointment) {
+                    content += ' <span class="novo-badge">NOVO</span>';
+                }
+                if (paymentType === 'Particular') {
+                    content += ' <span class="particular-dollar">$</span>';
+                }
+                return { html: content };
             } else {
-                return {
-                    html: patientName
-                };
+                // Month view: use domNodes
+                const fragment = document.createDocumentFragment();
+                const nameText = document.createTextNode(patientName);
+                fragment.appendChild(nameText);
+                
+                if (isFirstAppointment) {
+                    const novoBadge = document.createElement('span');
+                    novoBadge.className = 'novo-badge';
+                    novoBadge.textContent = 'NOVO';
+                    fragment.appendChild(novoBadge);
+                }
+                
+                if (paymentType === 'Particular') {
+                    const dollarSymbol = document.createElement('span');
+                    dollarSymbol.className = 'particular-dollar';
+                    dollarSymbol.textContent = '$';
+                    fragment.appendChild(dollarSymbol);
+                }
+                
+                const nodes = Array.from(fragment.childNodes);
+                return { domNodes: nodes };
             }
         },
         eventDidMount: function(info) {
             // Add appointment type as description below the event
             const appointmentType = info.event.extendedProps.appointmentType;
             const status = info.event.extendedProps.status;
+            const isFirstAppointment = !!info.event.extendedProps.isFirstAppointment;
+            const paymentType = info.event.extendedProps.paymentType;
             
             // Add status data attribute for CSS targeting
             info.el.setAttribute('data-status', status);
+            
+            // Apply custom color from settings (override CSS with inline style using !important)
+            const eventColor = getEventColor(status);
+            if (eventColor) {
+                // Use setProperty with 'important' flag to override CSS !important rules
+                info.el.style.setProperty('background-color', eventColor, 'important');
+                info.el.style.setProperty('border-color', eventColor, 'important');
+            }
+            
+            // Add NOVO badge and dollar symbol after a small delay to ensure DOM is ready
+            // This is especially important when events are re-rendered via refetchEvents
+            // Use a slightly longer delay for week view which has different DOM structure
+            const delay = info.view.type === 'timeGridWeek' ? 10 : 0;
+            setTimeout(() => {
+                // Add NOVO badge for first appointments
+                if (isFirstAppointment) {
+                    // Check if badge already exists (from eventContent or previous render)
+                    const existingBadge = info.el.querySelector('.novo-badge');
+                    if (!existingBadge) {
+                        const novoBadge = document.createElement('span');
+                        novoBadge.className = 'novo-badge';
+                        novoBadge.textContent = 'NOVO';
+                        
+                        // For week view (timeGrid), events have different structure
+                        // Try to find the main content container
+                        let targetElement = null;
+                        
+                        if (info.view.type === 'timeGridWeek' || info.view.type === 'timeGridDay') {
+                            // Week view: look for fc-event-main or fc-event-title-container
+                            targetElement = info.el.querySelector('.fc-event-main') ||
+                                          info.el.querySelector('.fc-event-title-container') ||
+                                          info.el.querySelector('.fc-event-title') ||
+                                          info.el;
+                        } else {
+                            // Month view: look for standard elements
+                            targetElement = info.el.querySelector('.fc-event-title') || 
+                                          info.el.querySelector('.fc-event-title-container') ||
+                                          info.el.querySelector('.fc-event-main') ||
+                                          info.el;
+                        }
+                        
+                        // Append badge to the target element
+                        if (targetElement) {
+                            // Check if there's text content we should append after
+                            const textNodes = Array.from(targetElement.childNodes).filter(n => n.nodeType === Node.TEXT_NODE && n.textContent.trim());
+                            if (textNodes.length > 0) {
+                                // Insert after the last text node
+                                const lastTextNode = textNodes[textNodes.length - 1];
+                                lastTextNode.parentNode.insertBefore(novoBadge, lastTextNode.nextSibling);
+                            } else {
+                                // Append to the end
+                                targetElement.appendChild(novoBadge);
+                            }
+                        }
+                    }
+                }
+                
+                // Add dollar symbol for particular appointments
+                if (paymentType === 'Particular') {
+                    // Check if dollar symbol already exists (from eventContent or previous render)
+                    const existingDollar = info.el.querySelector('.particular-dollar');
+                    if (!existingDollar) {
+                        const dollarSymbol = document.createElement('span');
+                        dollarSymbol.className = 'particular-dollar';
+                        dollarSymbol.textContent = '$';
+                        
+                        // For week view (timeGrid), events have different structure
+                        let targetElement = null;
+                        
+                        if (info.view.type === 'timeGridWeek' || info.view.type === 'timeGridDay') {
+                            // Week view: look for fc-event-main or fc-event-title-container
+                            targetElement = info.el.querySelector('.fc-event-main') ||
+                                          info.el.querySelector('.fc-event-title-container') ||
+                                          info.el.querySelector('.fc-event-title') ||
+                                          info.el;
+                        } else {
+                            // Month view: look for standard elements
+                            targetElement = info.el.querySelector('.fc-event-title') || 
+                                          info.el.querySelector('.fc-event-title-container') ||
+                                          info.el.querySelector('.fc-event-main') ||
+                                          info.el;
+                        }
+                        
+                        // Append dollar symbol to the target element
+                        if (targetElement) {
+                            const textNodes = Array.from(targetElement.childNodes).filter(n => n.nodeType === Node.TEXT_NODE && n.textContent.trim());
+                            if (textNodes.length > 0) {
+                                const lastTextNode = textNodes[textNodes.length - 1];
+                                lastTextNode.parentNode.insertBefore(dollarSymbol, lastTextNode.nextSibling);
+                            } else {
+                                targetElement.appendChild(dollarSymbol);
+                            }
+                        }
+                    }
+                }
+            }, delay);
             
             // Map appointment types to Portuguese
             const typeMap = {
@@ -199,7 +338,8 @@ function loadAppointmentsForCalendar(start, end, successCallback, failureCallbac
                             value: appointment.value,
                             reason: appointment.reason,
                             notes: appointment.notes,
-                            location: appointment.location
+                            location: appointment.location,
+                            isFirstAppointment: !!appointment.is_first_appointment
                         }
                     };
                 });
@@ -238,16 +378,49 @@ function addMinutesToDate(date, minutes) {
     return new Date(date.getTime() + (minutes * 60000));
 }
 
+// Status value to display name mapping (from models.py STATUS_CHOICES)
+const statusValueToDisplay = {
+    'scheduled': 'Agendada',
+    'confirmed': 'Confirmada',
+    'in_progress': 'Em Andamento',
+    'completed': 'Concluída',
+    'cancelled': 'Cancelada',
+    'no_show': 'Não Compareceu',
+    'rescheduled': 'Reagendada'
+};
+
+// Default colors (fallback if settings not loaded)
+const defaultStatusColors = {
+    'Agendada': '#ad0202',
+    'Confirmada': '#007bff',
+    'Em Andamento': '#ffc107',
+    'Concluída': '#28a745',
+    'Cancelada': '#dc3545',
+    'Não Compareceu': '#6c757d',
+    'Reagendada': '#17a2b8'
+};
+
 function getEventColor(status) {
-    const colors = {
-        'scheduled': 'rgb(173 2 2)',    // Custom blue for non-confirmed
-        'confirmed': '#007bff',     // Primary blue
-        'in_progress': '#ffc107',   // Warning yellow
-        'completed': '#28a745',     // Success green
-        'cancelled': '#dc3545',     // Danger red
-        'no_show': '#6c757d'        // Secondary gray
-    };
-    return colors[status] || '#6c757d';
+    // Get status display name from status value
+    const statusDisplay = statusValueToDisplay[status] || status;
+    
+    // Try to get color from settings if available
+    if (typeof appointmentSettings !== 'undefined' && appointmentSettings && appointmentSettings.status_colors) {
+        const customColor = appointmentSettings.status_colors[statusDisplay];
+        if (customColor) {
+            return customColor;
+        }
+    }
+    
+    // Fallback to default colors
+    const defaultColor = defaultStatusColors[statusDisplay];
+    if (defaultColor) {
+        return defaultColor;
+    }
+    
+    // Final fallback - should not reach here for valid statuses
+    console.warn('Unknown status color for:', status, '->', statusDisplay);
+    return '#6c757d';
 }
 
 function showAppointmentDetailsFromCalendar(event) {
@@ -392,38 +565,133 @@ function completeAppointment(appointmentId) {
 }
 
 function cancelAppointment(appointmentId) {
-    const cancellationReason = prompt('Digite o motivo do cancelamento:');
-    if (cancellationReason === null) {
-        return; // User cancelled
+    // Set appointment ID in the cancellation modal
+    document.getElementById('cancel-appointment-id').value = appointmentId;
+    
+    // Load cancellation reasons from settings
+    loadCancellationReasons();
+    
+    // Show cancellation modal
+    const cancelModal = new bootstrap.Modal(document.getElementById('cancelAppointmentModal'));
+    cancelModal.show();
+}
+
+function loadCancellationReasons() {
+    const select = document.getElementById('cancellation-reason-select');
+    if (!select) return;
+    
+    // Clear existing options except the first one
+    select.innerHTML = '<option value="">Selecione um motivo...</option>';
+    
+    // Try to get reasons from settings if available
+    if (typeof appointmentSettings !== 'undefined' && appointmentSettings && appointmentSettings.cancellation_reasons) {
+        appointmentSettings.cancellation_reasons.forEach(reason => {
+            const option = document.createElement('option');
+            option.value = reason;
+            option.textContent = reason;
+            select.appendChild(option);
+        });
+    } else {
+        // Fallback: fetch from API
+        fetch('/dashboard/api/appointment-settings/')
+            .then(response => response.json())
+            .then(data => {
+                if (data.success && data.settings.cancellation_reasons) {
+                    data.settings.cancellation_reasons.forEach(reason => {
+                        const option = document.createElement('option');
+                        option.value = reason;
+                        option.textContent = reason;
+                        select.appendChild(option);
+                    });
+                }
+            })
+            .catch(error => {
+                console.error('Error loading cancellation reasons:', error);
+            });
+    }
+}
+
+// Handle cancellation form submission
+document.addEventListener('DOMContentLoaded', function() {
+    const cancelForm = document.getElementById('cancelAppointmentForm');
+    const cancelModalEl = document.getElementById('cancelAppointmentModal');
+    
+    if (cancelForm) {
+        cancelForm.addEventListener('submit', function(e) {
+            e.preventDefault();
+            
+            const appointmentId = document.getElementById('cancel-appointment-id').value;
+            const reason = document.getElementById('cancellation-reason-select').value;
+            const customReason = document.getElementById('cancellation-reason-custom').value.trim();
+            
+            if (!reason) {
+                showNotification('Por favor, selecione um motivo de cancelamento', 'error');
+                return;
+            }
+            
+            // Combine selected reason with custom notes if provided
+            let fullReason = reason;
+            if (customReason) {
+                fullReason = reason + ' - ' + customReason;
+            }
+            
+            // Show loading state
+            const submitBtn = cancelForm.querySelector('button[type="submit"]');
+            const originalText = submitBtn.innerHTML;
+            submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i>Cancelando...';
+            submitBtn.disabled = true;
+            
+            fetch('/dashboard/api/appointments/cancel/', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/x-www-form-urlencoded',
+                    'X-CSRFToken': getCookie('csrftoken')
+                },
+                body: `appointment_id=${appointmentId}&cancellation_reason=${encodeURIComponent(fullReason)}`
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    // Close both modals
+                    const cancelModal = bootstrap.Modal.getInstance(cancelModalEl);
+                    cancelModal.hide();
+                    const detailsModal = bootstrap.Modal.getInstance(document.getElementById('appointmentDetailsModal'));
+                    if (detailsModal) {
+                        detailsModal.hide();
+                    }
+                    
+                    showNotification(data.message, 'success');
+                    refreshCalendar();
+                    // Refresh agenda stats after cancelling appointment
+                    if (typeof refreshAgendaStats === 'function') {
+                        refreshAgendaStats();
+                    }
+                } else {
+                    showNotification('Erro ao cancelar consulta: ' + data.error, 'error');
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                showNotification('Erro ao cancelar consulta', 'error');
+            })
+            .finally(() => {
+                // Restore button state
+                submitBtn.innerHTML = originalText;
+                submitBtn.disabled = false;
+            });
+        });
     }
     
-    fetch('/dashboard/api/appointments/cancel/', {
-        method: 'POST',
-        headers: {
-            'Content-Type': 'application/x-www-form-urlencoded',
-            'X-CSRFToken': getCookie('csrftoken')
-        },
-        body: `appointment_id=${appointmentId}&cancellation_reason=${encodeURIComponent(cancellationReason || 'Cancelado pelo usuário')}`
-    })
-    .then(response => response.json())
-    .then(data => {
-        if (data.success) {
-            showNotification(data.message, 'success');
-            const modal = bootstrap.Modal.getInstance(document.getElementById('appointmentDetailsModal'));
-            modal.hide();
-            refreshCalendar();
-            // Refresh agenda stats after cancelling appointment
-            if (typeof refreshAgendaStats === 'function') {
-                refreshAgendaStats();
+    // Reset form when modal is hidden
+    if (cancelModalEl) {
+        cancelModalEl.addEventListener('hidden.bs.modal', function() {
+            if (cancelForm) {
+                cancelForm.reset();
+                document.getElementById('cancel-appointment-id').value = '';
             }
-        } else {
-            showNotification('Erro ao cancelar consulta: ' + data.error, 'error');
-        }
-    })
-    .catch(error => {
-        showNotification('Erro ao cancelar consulta', 'error');
-    });
-}
+        });
+    }
+});
 
 function showNewAppointmentModalForTime(start, end) {
     // Pre-fill the appointment modal with selected time

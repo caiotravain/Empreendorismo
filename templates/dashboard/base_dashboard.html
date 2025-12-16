@@ -42,7 +42,7 @@
             <h1 class="h3 mb-0">
                 
             </h1>
-            {% if is_admin and accessible_doctors|length > 0 %}
+            <!-- {% if is_admin and accessible_doctors|length > 0 %}
             <div class="me-3">
                 <label for="doctor-selector" class="form-label mb-1">Ver como:</label>
                 <select id="doctor-selector" class="form-select form-select-sm" onchange="selectDoctor()">
@@ -52,24 +52,20 @@
                     {% endfor %}
                 </select>
             </div>
-            {% endif %}
-            <div class="btn-group" role="group">
+            {% endif %} -->
+            
+            <!-- Doctor View Tabs -->
+            <div class="btn-group doctor-tabs" role="group" id="doctor-tabs-group">
                 <button type="button" class="btn btn-primary" onclick="switchTab('agenda')">
                     <i class="fas fa-calendar-alt me-1"></i>Agenda
                 </button>
                 <button type="button" class="btn btn-outline-primary" id="pacientes-btn" onclick="switchTab('pacientes')">
                     <i class="fas fa-users me-1"></i>Pacientes
                 </button>
-                <button type="button" class="btn btn-outline-primary" id="indicadores-btn" onclick="switchTab('indicadores')">
-                    <i class="fas fa-chart-line me-1"></i>Indicadores
-                </button>
-                <button type="button" class="btn btn-outline-primary" id="finance-btn" onclick="switchTab('finance')">
-                    <i class="fas fa-chart-pie me-1"></i>Financeiro
-                </button>
-                <button type="button" class="btn btn-outline-primary disabled" id="prontuarios-btn" onclick="switchTab('prontuarios')" disabled>
+                <button type="button" class="btn btn-outline-primary" id="prontuarios-btn" onclick="switchTab('prontuarios')">
                     <i class="fas fa-file-medical me-1"></i>Prontuários
                 </button>
-                <button type="button" class="btn btn-outline-primary disabled" id="prescricao-btn" onclick="switchTab('prescricao')" disabled>
+                <button type="button" class="btn btn-outline-primary" id="prescricao-btn" onclick="switchTab('prescricao')">
                     <i class="fas fa-prescription-bottle-alt me-1"></i>Prescrição Online
                 </button>
                 <button type="button" class="btn btn-outline-primary" id="relatorios-btn" onclick="switchTab('relatorios')">
@@ -77,6 +73,22 @@
                 </button>
                 <button type="button" class="btn btn-outline-primary" id="waitlist-btn" onclick="switchTab('waitlist')">
                     <i class="fas fa-clock me-1"></i>Lista de Espera
+                </button>
+            </div>
+            
+            <!-- Administrator View Tabs (visible in admin mode) -->
+            <div class="btn-group administrator-tabs" role="group" id="administrator-tabs-group" style="display: none;">
+                <button type="button" class="btn btn-primary" id="admin-indicadores-btn" onclick="switchTab('indicadores')">
+                    <i class="fas fa-chart-line me-1"></i>Indicadores
+                </button>
+                <button type="button" class="btn btn-outline-primary" id="admin-finance-btn" onclick="switchTab('finance')">
+                    <i class="fas fa-chart-pie me-1"></i>Financeiro
+                </button>
+                <button type="button" class="btn btn-outline-primary" id="admin-relatorios-btn" onclick="switchTab('relatorios')">
+                    <i class="fas fa-file-alt me-1"></i>Relatórios
+                </button>
+                <button type="button" class="btn btn-outline-primary" id="admin-settings-btn" onclick="switchTab('settings')">
+                    <i class="fas fa-cog me-1"></i>Configurações
                 </button>
             </div>
             
@@ -146,4 +158,5 @@
 <script src="{% static 'js/extra.js' %}"></script>
 <script src="{% static 'js/finance.js' %}"></script>
 <script src="{% static 'js/fullcalendar.js' %}"></script>
+<script src="{% static 'js/settings.js' %}"></script>
 {% endblock %}

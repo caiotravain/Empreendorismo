@@ -526,6 +526,13 @@ class Appointment(models.Model):
         help_text="Payment type for the appointment"
     )
     
+    insurance_operator = models.CharField(
+        max_length=200,
+        blank=True,
+        null=True,
+        help_text="Insurance operator (convênio) when payment type is convenio"
+    )
+    
     status = models.CharField(
         max_length=20,
         choices=STATUS_CHOICES,
@@ -665,8 +672,13 @@ class Appointment(models.Model):
         # Use the related_name to avoid circular import
         self.incomes.all().delete()
         
-        self.status = 'cancelled'
-        self.cancelled_at = timezone.now()
+        # Check if reason contains "falta" (case-insensitive) to mark as no_show
+        if reason and 'falta' in reason.lower():
+            self.status = 'no_show'
+        else:
+            self.status = 'cancelled'
+            self.cancelled_at = timezone.now()
+        
         if reason:
             self.cancellation_reason = reason
         self.save()
@@ -1015,6 +1027,15 @@ class Income(models.Model):
         help_text="Appointment that generated this income"
     )
     
+    patient = models.ForeignKey(
+        Patient,
+        on_delete=models.SET_NULL,
+        related_name='incomes',
+        blank=True,
+        null=True,
+        help_text="Patient related to this income"
+    )
+    
     # Income Details
     amount = models.DecimalField(
         max_digits=10,
@@ -1074,6 +1095,7 @@ class Income(models.Model):
             models.Index(fields=['doctor']),
             models.Index(fields=['income_date']),
             models.Index(fields=['category']),
+            models.Index(fields=['patient']),
         ]
     
     def __str__(self):
@@ -1082,6 +1104,12 @@ class Income(models.Model):
     @property
     def doctor_name(self):
         return self.doctor.full_name
+    
+    @property
+    def patient_name(self):
+        if self.patient:
+            return self.patient.full_name
+        return None
     
     @property
     def formatted_amount(self):
@@ -1249,3 +1277,143 @@ class WaitingListEntry(models.Model):
         """Get numeric priority for sorting (higher = more urgent)"""
         priority_map = {'high': 3, 'medium': 2, 'low': 1}
         return priority_map.get(self.urgency_level, 0)
+
+
+class AppointmentSettings(models.Model):
+    """
+    Settings model to store configurable appointment values.
+    Uses singleton pattern - only one instance should exist.
+    """
+    # Duration options (in minutes)
+    duration_options = models.JSONField(
+        default=list,
+        help_text="Available duration options in minutes (e.g., [15, 30, 45, 60, 90, 120])"
+    )
+    
+    # Appointment type choices (list of display names only)
+    type_choices = models.JSONField(
+        default=list,
+        help_text="Available appointment types as display names"
+    )
+    
+    # Status choices (list of display names only)
+    status_choices = models.JSONField(
+        default=list,
+        help_text="Available appointment statuses as display names"
+    )
+    
+    # Status colors (dictionary mapping status display names to hex colors)
+    status_colors = models.JSONField(
+        default=dict,
+        help_text="Color mapping for each status (e.g., {'Agendada': '#007bff', 'Confirmada': '#28a745'})"
+    )
+    
+    # Location/place options (list of strings)
+    location_options = models.JSONField(
+        default=list,
+        help_text="Available location/place options"
+    )
+    
+    # Insurance operators (list of display names)
+    insurance_operators = models.JSONField(
+        default=list,
+        help_text="Available insurance operators (convênios) as display names"
+    )
+    
+    # Cancellation reasons (list of display names)
+    cancellation_reasons = models.JSONField(
+        default=list,
+        help_text="Available cancellation reasons as display names"
+    )
+    
+    # Timestamps
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    
+    class Meta:
+        verbose_name = "Appointment Settings"
+        verbose_name_plural = "Appointment Settings"
+    
+    def __str__(self):
+        return "Appointment Settings"
+    
+    @classmethod
+    def get_settings(cls):
+        """Get or create the singleton settings instance"""
+        settings, created = cls.objects.get_or_create(
+            pk=1,
+            defaults={
+                'duration_options': [15, 30, 45, 60, 90, 120],
+                'type_choices': [
+                    'Consulta',
+                    'Retorno',
+                    'Check-up',
+                    'Emergência',
+                    'Procedimento',
+                    'Terapia',
+                    'Outro',
+                ],
+                'status_choices': [
+                    'Agendada',
+                    'Confirmada',
+                    'Em Andamento',
+                    'Concluída',
+                    'Cancelada',
+                    'Não Compareceu',
+                    'Reagendada',
+                ],
+                'status_colors': {
+                    'Agendada': '#ad0202',
+                    'Confirmada': '#007bff',
+                    'Em Andamento': '#ffc107',
+                    'Concluída': '#28a745',
+                    'Cancelada': '#dc3545',
+                    'Não Compareceu': '#6c757d',
+                    'Reagendada': '#17a2b8',
+                },
+                'location_options': [],
+                'insurance_operators': [
+                    'Unimed',
+                    'Amil',
+                    'Bradesco Saúde',
+                    'SulAmérica',
+                    'NotreDame Intermédica',
+                    'Hapvida',
+                    'Outro',
+                ],
+                'cancellation_reasons': [
+                    'Paciente solicitou cancelamento',
+                    'Paciente não compareceu',
+                    'Emergência médica',
+                    'Problemas pessoais do paciente',
+                    'Reagendamento solicitado',
+                    'Problemas técnicos',
+                    'Outro motivo',
+                ],
+            }
+        )
+        return settings
+    
+    def get_duration_options(self):
+        """Get duration options with formatted labels"""
+        return [
+            {
+                'value': minutes,
+                'label': self._format_duration(minutes)
+            }
+            for minutes in self.duration_options
+        ]
+    
+    def _format_duration(self, minutes):
+        """Format duration in minutes to readable string"""
+        if minutes < 60:
+            return f"{minutes} minutos"
+        elif minutes == 60:
+            return "1 hora"
+        else:
+            hours = minutes // 60
+            mins = minutes % 60
+            if mins == 0:
+                return f"{hours} horas"
+            else:
+                return f"{hours}h {mins}min"

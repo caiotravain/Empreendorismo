@@ -26,7 +26,7 @@
                         <div>
                             <p class="text-slate-500 mb-1" style="font-size: 0.875rem; font-weight: 500;">Taxa de Comparecimento</p>
                             <h3 class="mb-0 text-emerald-600 fw-bold" id="show-rate-value">
-                                {{ metrics.show_rate|default:"92" }}%
+                                0%
                             </h3>
                             <p class="text-slate-400 mb-0 mt-1" style="font-size: 0.75rem;">Meta: 95%</p>
                         </div>
@@ -48,7 +48,7 @@
                         <div>
                             <p class="text-slate-500 mb-1" style="font-size: 0.875rem; font-weight: 500;">Total de Pacientes</p>
                             <h3 class="mb-0 text-slate-900 fw-bold" id="total-patients-value">
-                                {{ metrics.total_patients|default:patient_stats.total_patients|default:"0" }}
+                                0
                             </h3>
                             <p class="text-slate-400 mb-0 mt-1" style="font-size: 0.75rem;">Pacientes cadastrados</p>
                         </div>
@@ -70,9 +70,9 @@
                         <div>
                             <p class="text-slate-500 mb-1" style="font-size: 0.875rem; font-weight: 500;">Mix de Pacientes</p>
                             <h3 class="mb-0 text-blue-600 fw-bold" id="patient-mix-value">
-                                {{ metrics.private_pct|default:"60" }}% Particular
+                                0% Particular
                             </h3>
-                            <p class="text-slate-400 mb-0 mt-1" style="font-size: 0.75rem;">{{ metrics.insurance_pct|default:"40" }}% Convênio</p>
+                            <p class="text-slate-400 mb-0 mt-1" style="font-size: 0.75rem;" id="insurance-pct-text">0% Convênio</p>
                         </div>
                         <div class="bg-blue-50 rounded-lg p-3">
                             <svg xmlns="http://www.w3.org/2000/svg" class="text-blue-600" width="24" height="24" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
@@ -92,7 +92,7 @@
                         <div>
                             <p class="text-slate-500 mb-1" style="font-size: 0.875rem; font-weight: 500;">Retenção</p>
                             <h3 class="mb-0 text-amber-600 fw-bold" id="retention-value">
-                                {{ metrics.retention_rate|default:"45" }}%
+                                0%
                             </h3>
                             <p class="text-slate-400 mb-0 mt-1" style="font-size: 0.75rem;">Pacientes retornando</p>
                         </div>
@@ -173,72 +173,9 @@
                         </tr>
                     </thead>
                     <tbody id="insurance-providers-table">
-                        {% if metrics.providers %}
-                            {% for provider in metrics.providers %}
-                            <tr class="border-bottom">
-                                <td class="py-3 px-4">
-                                    <span class="text-slate-900 fw-medium">{{ provider.name }}</span>
-                                </td>
-                                <td class="py-3 px-4 text-center text-slate-600">{{ provider.total_appointments }}</td>
-                                <td class="py-3 px-4 text-end">
-                                    <span class="text-slate-900 fw-medium">R$ {{ provider.revenue|floatformat:2|default:"0.00" }}</span>
-                                </td>
-                                <td class="py-3 px-4 text-end">
-                                    <span class="text-slate-600">R$ {{ provider.avg_ticket|floatformat:2|default:"0.00" }}</span>
-                                </td>
-                            </tr>
-                            {% endfor %}
-                        {% else %}
-                            <!-- Default data -->
-                            <tr class="border-bottom">
-                                <td class="py-3 px-4">
-                                    <span class="text-slate-900 fw-medium">Unimed</span>
-                                </td>
-                                <td class="py-3 px-4 text-center text-slate-600">45</td>
-                                <td class="py-3 px-4 text-end">
-                                    <span class="text-slate-900 fw-medium">R$ 11.250,00</span>
-                                </td>
-                                <td class="py-3 px-4 text-end">
-                                    <span class="text-slate-600">R$ 250,00</span>
-                                </td>
-                            </tr>
-                            <tr class="border-bottom">
-                                <td class="py-3 px-4">
-                                    <span class="text-slate-900 fw-medium">Bradesco Saúde</span>
-                                </td>
-                                <td class="py-3 px-4 text-center text-slate-600">32</td>
-                                <td class="py-3 px-4 text-end">
-                                    <span class="text-slate-900 fw-medium">R$ 8.000,00</span>
-                                </td>
-                                <td class="py-3 px-4 text-end">
-                                    <span class="text-slate-600">R$ 250,00</span>
-                                </td>
-                            </tr>
-                            <tr class="border-bottom">
-                                <td class="py-3 px-4">
-                                    <span class="text-slate-900 fw-medium">Particular</span>
-                                </td>
-                                <td class="py-3 px-4 text-center text-slate-600">78</td>
-                                <td class="py-3 px-4 text-end">
-                                    <span class="text-slate-900 fw-medium">R$ 19.500,00</span>
-                                </td>
-                                <td class="py-3 px-4 text-end">
-                                    <span class="text-slate-600">R$ 250,00</span>
-                                </td>
-                            </tr>
-                            <tr class="border-bottom">
-                                <td class="py-3 px-4">
-                                    <span class="text-slate-900 fw-medium">SulAmérica</span>
-                                </td>
-                                <td class="py-3 px-4 text-center text-slate-600">18</td>
-                                <td class="py-3 px-4 text-end">
-                                    <span class="text-slate-900 fw-medium">R$ 4.500,00</span>
-                                </td>
-                                <td class="py-3 px-4 text-end">
-                                    <span class="text-slate-600">R$ 250,00</span>
-                                </td>
-                            </tr>
-                        {% endif %}
+                        <tr>
+                            <td colspan="4" class="text-center text-slate-500 py-4">Carregando dados...</td>
+                        </tr>
                     </tbody>
                 </table>
             </div>
@@ -250,21 +187,88 @@
 // Initialize charts when indicadores tab is shown
 let attendanceChart = null;
 let financialSourceChart = null;
+let currentMetrics = null;
 
-function initializeIndicadoresCharts() {
+// Load indicators data from API
+function loadIndicatorsData(period = 'month') {
+    fetch(`/dashboard/api/indicators/?period=${period}`)
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                currentMetrics = data.metrics;
+                updateIndicatorsDisplay(data.metrics);
+                updateIndicatorsCharts(data.metrics);
+                updateInsuranceProvidersTable(data.metrics.providers || []);
+            } else {
+                console.error('Error loading indicators:', data.error);
+            }
+        })
+        .catch(error => {
+            console.error('Error loading indicators:', error);
+        });
+}
+
+// Update HTML elements with real data
+function updateIndicatorsDisplay(metrics) {
+    // Show Rate
+    const showRateEl = document.getElementById('show-rate-value');
+    if (showRateEl) {
+        showRateEl.textContent = (metrics.show_rate || 0).toFixed(1) + '%';
+    }
+    
+    // Total Patients
+    const totalPatientsEl = document.getElementById('total-patients-value');
+    if (totalPatientsEl) {
+        totalPatientsEl.textContent = metrics.total_patients || 0;
+    }
+    
+    // Patient Mix
+    const patientMixEl = document.getElementById('patient-mix-value');
+    if (patientMixEl) {
+        patientMixEl.textContent = (metrics.private_pct || 0).toFixed(1) + '% Particular';
+    }
+    const insurancePctEl = document.getElementById('insurance-pct-text');
+    if (insurancePctEl) {
+        insurancePctEl.textContent = (metrics.insurance_pct || 0).toFixed(1) + '% Convênio';
+    }
+    
+    // Retention
+    const retentionEl = document.getElementById('retention-value');
+    if (retentionEl) {
+        retentionEl.textContent = (metrics.retention_rate || 0).toFixed(1) + '%';
+    }
+}
+
+// Store counts globally for tooltip access
+let attendanceCounts = [0, 0, 0];
+let financialCounts = {'Particular': 0, 'Convênio': 0};
+
+// Update charts with real data
+function updateIndicatorsCharts(metrics) {
     // Attendance Breakdown Donut Chart
     const attendanceCtx = document.getElementById('attendanceChart');
-    if (attendanceCtx && !attendanceChart) {
-        const showRate = {{ metrics.show_rate|default:"92" }};
-        const noShowRate = {{ metrics.no_show_rate|default:"8" }};
-        const cancelledRate = {{ metrics.cancelled_rate|default:"0" }};
+    if (attendanceCtx) {
+        if (attendanceChart) {
+            attendanceChart.destroy();
+        }
+        
+        // Store absolute counts for tooltip
+        attendanceCounts = [
+            metrics.attended_count || 0,
+            metrics.no_show_count || 0,
+            metrics.cancelled_count || 0
+        ];
         
         attendanceChart = new Chart(attendanceCtx, {
             type: 'doughnut',
             data: {
                 labels: ['Comparecimento', 'Faltas', 'Cancelados'],
                 datasets: [{
-                    data: [showRate, noShowRate, cancelledRate],
+                    data: [
+                        metrics.show_rate || 0,
+                        metrics.no_show_rate || 0,
+                        metrics.cancelled_rate || 0
+                    ],
                     backgroundColor: [
                         '#10b981', // Emerald for Show
                         '#f43f5e', // Rose for No-Show
@@ -284,8 +288,10 @@ function initializeIndicadoresCharts() {
                         callbacks: {
                             label: function(context) {
                                 const label = context.label || '';
-                                const value = context.parsed || 0;
-                                return label + ': ' + value + '%';
+                                const percentage = context.parsed || 0;
+                                const index = context.dataIndex;
+                                const count = attendanceCounts[index] || 0;
+                                return label + ': ' + percentage.toFixed(1) + '% (' + count + ' consultas)';
                             }
                         }
                     }
@@ -297,9 +303,16 @@ function initializeIndicadoresCharts() {
 
     // Financial Source Horizontal Bar Chart
     const financialCtx = document.getElementById('financialSourceChart');
-    if (financialCtx && !financialSourceChart) {
-        const privatePct = {{ metrics.private_pct|default:"60" }};
-        const insurancePct = {{ metrics.insurance_pct|default:"40" }};
+    if (financialCtx) {
+        if (financialSourceChart) {
+            financialSourceChart.destroy();
+        }
+        
+        // Store absolute counts for tooltip
+        financialCounts = {
+            'Particular': metrics.particular_count || 0,
+            'Convênio': metrics.convenio_count || 0
+        };
         
         financialSourceChart = new Chart(financialCtx, {
             type: 'bar',
@@ -308,13 +321,13 @@ function initializeIndicadoresCharts() {
                 datasets: [
                     {
                         label: 'Particular',
-                        data: [privatePct],
+                        data: [metrics.private_pct || 0],
                         backgroundColor: '#3b82f6',
                         borderWidth: 0
                     },
                     {
                         label: 'Convênio',
-                        data: [insurancePct],
+                        data: [metrics.insurance_pct || 0],
                         backgroundColor: '#64748b',
                         borderWidth: 0
                     }
@@ -332,8 +345,9 @@ function initializeIndicadoresCharts() {
                         callbacks: {
                             label: function(context) {
                                 const label = context.dataset.label || '';
-                                const value = context.parsed.x || 0;
-                                return label + ': ' + value + '%';
+                                const percentage = context.parsed.x || 0;
+                                const count = financialCounts[label] || 0;
+                                return label + ': ' + percentage.toFixed(1) + '% (' + count + ' consultas)';
                             }
                         }
                     }
@@ -369,13 +383,55 @@ function initializeIndicadoresCharts() {
     }
 }
 
+// Update insurance providers table
+function updateInsuranceProvidersTable(providers) {
+    const tableBody = document.getElementById('insurance-providers-table');
+    if (!tableBody) return;
+    
+    tableBody.innerHTML = '';
+    
+    if (providers.length === 0) {
+        tableBody.innerHTML = '<tr><td colspan="4" class="text-center text-slate-500 py-4">Nenhum dado disponível</td></tr>';
+        return;
+    }
+    
+    providers.forEach(provider => {
+        const row = document.createElement('tr');
+        row.className = 'border-bottom';
+        row.innerHTML = `
+            <td class="py-3 px-4">
+                <span class="text-slate-900 fw-medium">${provider.name}</span>
+            </td>
+            <td class="py-3 px-4 text-center text-slate-600">${provider.total_appointments}</td>
+            <td class="py-3 px-4 text-end">
+                <span class="text-slate-900 fw-medium">R$ ${provider.revenue.toLocaleString('pt-BR', {minimumFractionDigits: 2, maximumFractionDigits: 2})}</span>
+            </td>
+            <td class="py-3 px-4 text-end">
+                <span class="text-slate-600">R$ ${provider.avg_ticket.toLocaleString('pt-BR', {minimumFractionDigits: 2, maximumFractionDigits: 2})}</span>
+            </td>
+        `;
+        tableBody.appendChild(row);
+    });
+}
+
 // Initialize charts when tab becomes visible
 document.addEventListener('DOMContentLoaded', function() {
     const indicadoresTab = document.getElementById('indicadores-tab');
+    const periodFilter = document.getElementById('period-filter');
+    
+    // Load data when period filter changes
+    if (periodFilter) {
+        periodFilter.addEventListener('change', function() {
+            loadIndicatorsData(this.value);
+        });
+    }
+    
     if (indicadoresTab) {
         const observer = new MutationObserver(function(mutations) {
             if (indicadoresTab.style.display !== 'none') {
-                setTimeout(initializeIndicadoresCharts, 100);
+                // Load data with current period filter value
+                const period = periodFilter ? periodFilter.value : 'month';
+                loadIndicatorsData(period);
             }
         });
         observer.observe(indicadoresTab, { attributes: true, attributeFilter: ['style'] });
@@ -386,7 +442,8 @@ document.addEventListener('DOMContentLoaded', function() {
             window.switchTab = function(tabName) {
                 originalSwitchTab(tabName);
                 if (tabName === 'indicadores') {
-                    setTimeout(initializeIndicadoresCharts, 200);
+                    const period = periodFilter ? periodFilter.value : 'month';
+                    setTimeout(() => loadIndicatorsData(period), 200);
                 }
             };
         }

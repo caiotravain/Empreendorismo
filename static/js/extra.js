@@ -91,12 +91,14 @@ function switchChartView(view) {
 }
 
 function selectPatient(patientName, patientId) {
+    console.log('selectPatient called:', { patientName, patientId, pendingTab: window.pendingTabSwitch });
+    
     selectedPatient = {
         name: patientName,
         id: patientId
     };
     
-    // Update the persistent patient selection header
+    // Update the persistent patient selection header (if it exists)
     updatePatientSelectionHeader(patientName, 'selected');
     
     // Enable all other tabs
@@ -110,13 +112,29 @@ function selectPatient(patientName, patientId) {
     updatePatientInfo(patientName);
     
     // Load patient-specific data for prontuarios tab
-    loadPatientProntuarios(patientId);
+    if (typeof loadPatientProntuarios === 'function') {
+        loadPatientProntuarios(patientId);
+    }
     
     // Show success message
-    showNotification(`Paciente ${patientName} selecionado. Agora você pode acessar os outros módulos.`, 'success');
+    if (typeof showNotification === 'function') {
+        showNotification(`Paciente ${patientName} selecionado. Agora você pode acessar os outros módulos.`, 'success');
+    }
     
     // Update the page title to show selected patient
     document.title = `Dashboard Médico - ${patientName}`;
+    
+    // Switch to pending tab if one was requested
+    if (typeof window.pendingTabSwitch !== 'undefined' && window.pendingTabSwitch !== null && typeof switchTab === 'function') {
+        const tabToSwitch = window.pendingTabSwitch;
+        console.log('Switching to pending tab:', tabToSwitch);
+        window.pendingTabSwitch = null; // Clear it before switching to avoid loops
+        setTimeout(() => {
+            switchTab(tabToSwitch);
+        }, 100); // Small delay to ensure patient data is loaded
+    } else {
+        console.log('No pending tab switch or switchTab not available');
+    }
 }
 
 function updatePatientSelectionHeader(patientName, status) {
@@ -149,12 +167,13 @@ function clearPatientSelection() {
     // Update the persistent patient selection header
     updatePatientSelectionHeader('', 'none');
     
-    // Disable all other tabs except agenda and indicators
+    // Disable all other tabs except agenda, indicators, prontuarios, and prescricao
     const allButtons = document.querySelectorAll('.btn-group .btn');
     allButtons.forEach((btn, index) => {
         if (index > 0) { // Skip the first button (Agenda)
-            // Keep indicators button enabled (index 1)
-            if (index !== 1) {
+            const btnId = btn.id;
+            // Keep indicators button, prontuarios, and prescricao enabled
+            if (index !== 1 && btnId !== 'prontuarios-btn' && btnId !== 'prescricao-btn') {
                 btn.classList.add('disabled');
                 btn.disabled = true;
             }
@@ -675,8 +694,105 @@ function showNotification(message, type = 'info') {
 }
 
 
+// View mode state (doctor or administrator)
+let currentViewMode = 'doctor'; // Default to doctor view
+
+// Switch between doctor and administrator view modes
+function switchViewMode(mode) {
+    if (mode !== 'doctor' && mode !== 'administrator') {
+        return;
+    }
+    
+    currentViewMode = mode;
+    
+    // Update navbar dropdown menu items to show active state
+    const navbarDoctorItem = document.getElementById('navbar-doctor-item');
+    const navbarAdminItem = document.getElementById('navbar-admin-item');
+    
+    if (navbarDoctorItem && navbarAdminItem) {
+        navbarDoctorItem.classList.remove('active');
+        navbarAdminItem.classList.remove('active');
+        
+        if (mode === 'doctor') {
+            navbarDoctorItem.classList.add('active');
+        } else {
+            navbarAdminItem.classList.add('active');
+        }
+    }
+    
+    // Show/hide tab groups
+    const doctorTabsGroup = document.getElementById('doctor-tabs-group');
+    const adminTabsGroup = document.getElementById('administrator-tabs-group');
+    
+    if (mode === 'doctor') {
+        // Show doctor tabs, hide administrator tabs
+        if (doctorTabsGroup) {
+            doctorTabsGroup.style.setProperty('display', 'flex', 'important');
+            doctorTabsGroup.style.setProperty('visibility', 'visible', 'important');
+        }
+        if (adminTabsGroup) {
+            adminTabsGroup.style.setProperty('display', 'none', 'important');
+            adminTabsGroup.style.setProperty('visibility', 'hidden', 'important');
+        }
+    } else {
+        // Show administrator tabs, hide doctor tabs
+        if (doctorTabsGroup) {
+            doctorTabsGroup.style.setProperty('display', 'none', 'important');
+            doctorTabsGroup.style.setProperty('visibility', 'hidden', 'important');
+        }
+        if (adminTabsGroup) {
+            adminTabsGroup.style.setProperty('display', 'flex', 'important');
+            adminTabsGroup.style.setProperty('visibility', 'visible', 'important');
+        }
+    }
+    
+    // Update URL with view mode
+    const url = new URL(window.location);
+    if (mode === 'administrator') {
+        url.searchParams.set('view', 'administrator');
+    } else {
+        url.searchParams.delete('view');
+    }
+    window.history.pushState({}, '', url);
+    
+    // Close the navbar dropdown after selection
+    const navbarDropdown = document.getElementById('navbarDropdown');
+    if (navbarDropdown && typeof bootstrap !== 'undefined') {
+        const dropdownInstance = bootstrap.Dropdown.getInstance(navbarDropdown);
+        if (dropdownInstance) {
+            dropdownInstance.hide();
+        }
+    }
+    
+    // If switching to administrator, go to indicadores tab
+    if (mode === 'administrator') {
+        // Switch to indicadores tab when entering administrator mode
+        switchTab('indicadores');
+    } else {
+        // Switch back to agenda when going to doctor view
+        switchTab('agenda');
+    }
+}
+
 // Set default active tab to 'agenda' or from URL parameter
 document.addEventListener('DOMContentLoaded', function() {
+    // Initialize view mode (default to doctor)
+    // Check if navbar dropdown items exist (available to all users now)
+    const navbarDoctorItem = document.getElementById('navbar-doctor-item');
+    const navbarAdminItem = document.getElementById('navbar-admin-item');
+    const hasViewToggle = !!(navbarDoctorItem && navbarAdminItem);
+    
+    if (hasViewToggle) {
+        // Check if there's a view mode in URL or session
+        const urlParams = new URLSearchParams(window.location.search);
+        const viewMode = urlParams.get('view') || 'doctor';
+        if (viewMode === 'administrator') {
+            switchViewMode('administrator');
+        } else {
+            switchViewMode('doctor');
+        }
+    }
+    
     // Check URL parameter for active tab first
     const urlParams = new URLSearchParams(window.location.search);
     const tabParam = urlParams.get('tab');
@@ -687,11 +803,35 @@ document.addEventListener('DOMContentLoaded', function() {
             switchTab(tabParam);
         }, 150);
     } else {
+        // Ensure agenda tab is shown by default
+        const agendaTab = document.getElementById('agenda-tab');
+        if (agendaTab) {
+            // Hide all tabs first
+            const allTabs = document.querySelectorAll('.tab-content');
+            allTabs.forEach(tab => {
+                tab.style.display = 'none';
+                tab.classList.remove('active');
+            });
+            // Show agenda tab
+            agendaTab.style.display = 'block';
+            agendaTab.classList.add('active');
+        }
+        
         // Set the first button (Agenda) as active by default
-        const firstButton = document.querySelector('.btn-group .btn');
+        const activeTabGroup = currentViewMode === 'administrator' ? 
+            document.getElementById('administrator-tabs-group') : 
+            document.getElementById('doctor-tabs-group');
+        const firstButton = activeTabGroup ? activeTabGroup.querySelector('.btn') : null;
         if (firstButton) {
             firstButton.classList.remove('btn-outline-primary');
             firstButton.classList.add('btn-primary');
+        }
+        
+        // Initialize FullCalendar for agenda tab
+        if (typeof initializeFullCalendar === 'function') {
+            setTimeout(function() {
+                initializeFullCalendar();
+            }, 200);
         }
     }
     
@@ -745,6 +885,18 @@ function showNewAppointmentModal() {
     const modalElement = document.getElementById('newAppointmentModal');
     modalElement.addEventListener('shown.bs.modal', function() {
         setupPatientSearch();
+        // Load and apply settings to the modal
+        if (typeof updateAppointmentModalWithSettings === 'function') {
+            // If settings are already loaded, update immediately
+            if (typeof appointmentSettings !== 'undefined' && appointmentSettings) {
+                updateAppointmentModalWithSettings();
+            } else {
+                // Otherwise, load settings first
+                if (typeof loadSettings === 'function') {
+                    loadSettings();
+                }
+            }
+        }
     }, { once: true });
     
     modal.show();
@@ -763,17 +915,19 @@ function showNewPatientModal() {
 }
 
 function loadPatientsAndDoctors() {
-    // Load patients
-    fetch('/dashboard/api/patients/')
+    // Load patients and return the promise
+    return fetch('/dashboard/api/patients/')
         .then(response => response.json())
         .then(data => {
             console.log('Patients loaded:', data);
             window.allPatients = data.success ? data.patients : [];
             setupPatientSearch();
+            return data;
         })
         .catch(error => {
             console.error('Error loading patients:', error);
             window.allPatients = [];
+            throw error;
         });
     
     // Doctor is automatically set to current user, no need to load doctors
@@ -869,6 +1023,24 @@ document.addEventListener('DOMContentLoaded', function() {
             e.preventDefault();
             submitNewAppointment();
         });
+        
+        // Handle payment type change to show/hide insurance operator
+        const paymentTypeSelect = document.getElementById('appointment-payment-type');
+        const insuranceOperatorRow = document.getElementById('insurance-operator-row');
+        if (paymentTypeSelect && insuranceOperatorRow) {
+            paymentTypeSelect.addEventListener('change', function() {
+                if (this.value === 'convenio') {
+                    insuranceOperatorRow.style.display = 'block';
+                } else {
+                    insuranceOperatorRow.style.display = 'none';
+                    // Clear insurance operator when hiding
+                    const insuranceOperatorSelect = document.getElementById('appointment-insurance-operator');
+                    if (insuranceOperatorSelect) {
+                        insuranceOperatorSelect.value = '';
+                    }
+                }
+            });
+        }
     }
     
     const patientForm = document.getElementById('newPatientForm');
@@ -1084,9 +1256,13 @@ function createPatientCard(patient) {
 }
 
 function selectPatientFromPopup(patientId, patientName) {
+    console.log('selectPatientFromPopup called:', { patientId, patientName });
+    
     // Close the modal
     const modal = bootstrap.Modal.getInstance(document.getElementById('patientSelectionModal'));
-    modal.hide();
+    if (modal) {
+        modal.hide();
+    }
     
     // Set patient in appointment form if it exists
     const appointmentPatientInput = document.getElementById('appointment-patient');
@@ -2276,9 +2452,15 @@ function showAddToWaitlistModal() {
     if (window.allPatients && window.allPatients.length > 0) {
         setupWaitlistPatientSearch();
     } else {
-        loadPatientsAndDoctors().then(() => {
-            setupWaitlistPatientSearch();
-        });
+        loadPatientsAndDoctors()
+            .then(() => {
+                setupWaitlistPatientSearch();
+            })
+            .catch(error => {
+                console.error('Error loading patients for waitlist:', error);
+                // Still try to set up the search with empty patients
+                setupWaitlistPatientSearch();
+            });
     }
     
     // Set up patient search when modal is shown
@@ -2924,9 +3106,15 @@ function editWaitlistEntry(entryId) {
     if (window.allPatients && window.allPatients.length > 0) {
         setupWaitlistPatientSearch();
     } else {
-        loadPatientsAndDoctors().then(() => {
-            setupWaitlistPatientSearch();
-        });
+        loadPatientsAndDoctors()
+            .then(() => {
+                setupWaitlistPatientSearch();
+            })
+            .catch(error => {
+                console.error('Error loading patients for waitlist edit:', error);
+                // Still try to set up the search with empty patients
+                setupWaitlistPatientSearch();
+            });
     }
     
     // Pre-fill modal with entry data AFTER modal is shown

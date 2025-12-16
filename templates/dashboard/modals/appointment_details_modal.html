@@ -91,3 +91,41 @@
         </div>
     </div>
 </div>
+
+<!-- Cancellation Modal -->
+<div class="modal fade" id="cancelAppointmentModal" tabindex="-1" aria-labelledby="cancelAppointmentModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header bg-danger text-white">
+                <h5 class="modal-title" id="cancelAppointmentModalLabel">
+                    <i class="fas fa-times-circle me-2"></i>Cancelar Consulta
+                </h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <form id="cancelAppointmentForm">
+                <div class="modal-body">
+                    <p class="mb-3">Selecione o motivo do cancelamento:</p>
+                    <div class="mb-3">
+                        <label for="cancellation-reason-select" class="form-label">Motivo do Cancelamento <span class="text-danger">*</span></label>
+                        <select class="form-select" id="cancellation-reason-select" name="cancellation_reason" required>
+                            <option value="">Selecione um motivo...</option>
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label for="cancellation-reason-custom" class="form-label">Observações Adicionais (opcional)</label>
+                        <textarea class="form-control" id="cancellation-reason-custom" name="custom_reason" rows="3" placeholder="Adicione detalhes adicionais sobre o cancelamento..."></textarea>
+                    </div>
+                    <input type="hidden" id="cancel-appointment-id" name="appointment_id" value="">
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                        <i class="fas fa-times me-1"></i>Fechar
+                    </button>
+                    <button type="submit" class="btn btn-danger">
+                        <i class="fas fa-ban me-1"></i>Confirmar Cancelamento
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
