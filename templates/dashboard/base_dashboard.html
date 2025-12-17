@@ -11,7 +11,7 @@
 <!-- Patient Selection Header - Always Visible -->
 <div class="row mb-3">
     <div class="col-12">
-        <div class="card border-0 shadow-sm" id="patient-selection-header">
+        <!-- <div class="card border-0 shadow-sm" id="patient-selection-header">
             <div class="card-body py-3">
                 <div class="d-flex justify-content-between align-items-center">
                     <div class="d-flex align-items-center">
@@ -32,7 +32,7 @@
                     </div>
                 </div>
             </div>
-        </div>
+        </div> -->
     </div>
 </div>
 
@@ -67,9 +67,6 @@
                 </button>
                 <button type="button" class="btn btn-outline-primary" id="prescricao-btn" onclick="switchTab('prescricao')">
                     <i class="fas fa-prescription-bottle-alt me-1"></i>Prescrição Online
-                </button>
-                <button type="button" class="btn btn-outline-primary" id="relatorios-btn" onclick="switchTab('relatorios')">
-                    <i class="fas fa-file-alt me-1"></i>Relatórios
                 </button>
                 <button type="button" class="btn btn-outline-primary" id="waitlist-btn" onclick="switchTab('waitlist')">
                     <i class="fas fa-clock me-1"></i>Lista de Espera
@@ -110,6 +107,7 @@
 {% include 'dashboard/modals/appointment_details_modal.html' %}
 {% include 'dashboard/modals/record_popup_modal.html' %}
 {% include 'dashboard/modals/waitlist_modal.html' %}
+{% include 'dashboard/modals/bulk_cancel_modal.html' %}
 
 <!-- WhatsApp Test Modal -->
 <div class="modal fade" id="whatsappTestModal" tabindex="-1" aria-labelledby="whatsappTestModalLabel" aria-hidden="true">

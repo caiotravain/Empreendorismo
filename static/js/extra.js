@@ -98,6 +98,9 @@ function selectPatient(patientName, patientId) {
         id: patientId
     };
     
+    // Save to localStorage for persistence
+    localStorage.setItem('selectedPatient', JSON.stringify(selectedPatient));
+    
     // Update the persistent patient selection header (if it exists)
     updatePatientSelectionHeader(patientName, 'selected');
     
@@ -116,9 +119,23 @@ function selectPatient(patientName, patientId) {
         loadPatientProntuarios(patientId);
     }
     
+    // Load and display patient details if on prontuarios or prescricao tab
+    const activeTab = document.querySelector('.tab-content.active');
+    if (activeTab) {
+        const tabId = activeTab.id;
+        if (tabId === 'prontuarios-tab' || tabId === 'prescricao-tab') {
+            const tabName = tabId.replace('-tab', '');
+            setTimeout(() => {
+                if (typeof loadAndDisplayPatientDetails === 'function') {
+                    loadAndDisplayPatientDetails(patientId, tabName);
+                }
+            }, 100);
+        }
+    }
+    
     // Show success message
     if (typeof showNotification === 'function') {
-        showNotification(`Paciente ${patientName} selecionado. Agora você pode acessar os outros módulos.`, 'success');
+        showNotification(`Paciente ${patientName} selecionado.`, 'success');
     }
     
     // Update the page title to show selected patient
@@ -144,6 +161,11 @@ function updatePatientSelectionHeader(patientName, status) {
     const clearPatientBtn = document.getElementById('clear-patient-btn');
     const patientHeader = document.getElementById('patient-selection-header');
     
+    // Only update if elements exist (header might be commented out)
+    if (!patientNameElement || !patientInfoElement || !patientStatusBadge || !clearPatientBtn || !patientHeader) {
+        return; // Exit early if header elements don't exist
+    }
+    
     if (status === 'selected') {
         patientNameElement.textContent = patientName;
         patientInfoElement.textContent = 'Paciente selecionado - Acesso liberado a todos os módulos';
@@ -163,6 +185,9 @@ function updatePatientSelectionHeader(patientName, status) {
 
 function clearPatientSelection() {
     selectedPatient = null;
+    
+    // Remove from localStorage
+    localStorage.removeItem('selectedPatient');
     
     // Update the persistent patient selection header
     updatePatientSelectionHeader('', 'none');
@@ -205,13 +230,7 @@ function clearPatientSelection() {
 }
 
 function updatePatientInfo(patientName) {
-    // Update patient info in prontuários tab
-    const prontuariosInfo = document.getElementById('patient-info-prontuarios');
-    if (prontuariosInfo) {
-        prontuariosInfo.textContent = `Visualizando prontuário de: ${patientName}`;
-    }
-    
-    
+
     
     // Update patient info in prescrição tab
     const prescricaoInfo = document.getElementById('patient-info-prescricao');
@@ -224,6 +243,171 @@ function updatePatientInfo(patientName) {
     
     // Update prescription button states
     updatePrescriptionButtonStates();
+}
+
+function loadAndDisplayPatientDetails(patientId, tabName) {
+    // Fetch patient details from API
+    fetch(`/dashboard/api/patients/${patientId}/`)
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                const patient = data.patient;
+                displayPatientDetailsInTab(patient, tabName);
+            } else {
+                console.error('Error loading patient details:', data.error);
+            }
+        })
+        .catch(error => {
+            console.error('Error fetching patient details:', error);
+        });
+}
+
+function displayPatientDetailsInTab(patient, tabName) {
+    // Format date of birth
+    const dob = patient.date_of_birth ? new Date(patient.date_of_birth).toLocaleDateString('pt-BR') : 'Não informado';
+    
+    // Format gender
+    const gender = patient.gender === 'M' ? 'Masculino' : patient.gender === 'F' ? 'Feminino' : 'Outro';
+    
+    // Create patient details HTML
+    const detailsHTML = `
+        <div class="card shadow-sm mb-3">
+            <div class="card-header bg-primary text-white py-2 d-flex justify-content-between align-items-center">
+                <h6 class="mb-0" style="cursor: pointer; flex: 1;" onclick="togglePatientDetails('${tabName}')">
+                    <i class="fas fa-user-circle me-2"></i>${patient.full_name}
+                </h6>
+                <div class="d-flex align-items-center gap-2">
+                    <button class="btn btn-sm btn-outline-light" onclick="event.stopPropagation(); showPatientSelectionModal();" title="Alterar paciente" style="white-space: nowrap;">
+                        <i class="fas fa-exchange-alt me-1"></i>Alterar
+                    </button>
+                    <i class="fas fa-chevron-down patient-details-arrow" id="patient-details-arrow-${tabName}" style="cursor: pointer; font-size: 0.9rem;" onclick="togglePatientDetails('${tabName}')"></i>
+                </div>
+            </div>
+            <div class="card-body p-3 patient-details-body" id="patient-details-body-${tabName}">
+                <div class="row">
+                    <div class="col-md-3 col-sm-6 mb-2">
+                        <h6 class="mb-1 small"><i class="fas fa-envelope me-2 text-muted"></i>Email</h6>
+                        <p class="text-muted mb-0 small">${patient.email || 'Não informado'}</p>
+                    </div>
+                    <div class="col-md-3 col-sm-6 mb-2">
+                        <h6 class="mb-1 small"><i class="fas fa-phone me-2 text-muted"></i>Telefone</h6>
+                        <p class="text-muted mb-0 small">${patient.phone || 'Não informado'}</p>
+                    </div>
+                    <div class="col-md-3 col-sm-6 mb-2">
+                        <h6 class="mb-1 small"><i class="fas fa-birthday-cake me-2 text-muted"></i>Data de Nascimento</h6>
+                        <p class="text-muted mb-0 small">${dob}</p>
+                    </div>
+                    <div class="col-md-3 col-sm-6 mb-2">
+                        <h6 class="mb-1 small"><i class="fas fa-calendar-alt me-2 text-muted"></i>Idade</h6>
+                        <p class="text-muted mb-0 small">${patient.age || 0} anos</p>
+                    </div>
+                    <div class="col-md-3 col-sm-6 mb-2">
+                        <h6 class="mb-1 small"><i class="fas fa-venus-mars me-2 text-muted"></i>Sexo</h6>
+                        <p class="text-muted mb-0 small">${gender}</p>
+                    </div>
+                    <div class="col-md-3 col-sm-6 mb-2">
+                        <h6 class="mb-1 small"><i class="fas fa-map-marker-alt me-2 text-muted"></i>Endereço</h6>
+                        <p class="text-muted mb-0 small">${patient.address || 'Não informado'}</p>
+                    </div>
+                    <div class="col-md-3 col-sm-6 mb-2">
+                        <h6 class="mb-1 small"><i class="fas fa-city me-2 text-muted"></i>Cidade/Estado</h6>
+                        <p class="text-muted mb-0 small">${patient.city || 'Não informado'}${patient.state ? ', ' + patient.state : ''}</p>
+                    </div>
+                    <div class="col-md-3 col-sm-6 mb-2">
+                        <h6 class="mb-1 small"><i class="fas fa-mail-bulk me-2 text-muted"></i>CEP</h6>
+                        <p class="text-muted mb-0 small">${patient.zip_code || 'Não informado'}</p>
+                    </div>
+                </div>
+                ${patient.emergency_contact_name || patient.emergency_contact_phone || patient.medical_insurance ? `
+                <hr class="my-2">
+                <div class="row">
+                    ${patient.emergency_contact_name || patient.emergency_contact_phone ? `
+                    <div class="col-md-4 col-sm-6 mb-2">
+                        <h6 class="mb-1 small"><i class="fas fa-user-friends me-2 text-muted"></i>Contato de Emergência</h6>
+                        <p class="text-muted mb-1 small">${patient.emergency_contact_name || 'Não informado'}</p>
+                        <p class="text-muted mb-0 small"><i class="fas fa-phone-alt me-1"></i>${patient.emergency_contact_phone || 'Não informado'}</p>
+                    </div>
+                    ` : ''}
+                    ${patient.medical_insurance ? `
+                    <div class="col-md-4 col-sm-6 mb-2">
+                        <h6 class="mb-1 small"><i class="fas fa-heartbeat me-2 text-muted"></i>Plano de Saúde</h6>
+                        <p class="text-muted mb-0 small">${patient.medical_insurance}</p>
+                    </div>
+                    ` : ''}
+                </div>
+                ` : ''}
+            </div>
+        </div>
+    `;
+    
+    // Insert into the appropriate tab
+    if (tabName === 'prontuarios') {
+        const prontuariosTab = document.getElementById('prontuarios-tab');
+        if (prontuariosTab) {
+            // Hide the alert banner
+
+            // Find or create patient details container
+            let detailsContainer = document.getElementById('patient-details-prontuarios');
+            if (!detailsContainer) {
+                // Create container at the beginning of the col-12
+                const col12 = prontuariosTab.querySelector('.col-12');
+                if (col12) {
+                    detailsContainer = document.createElement('div');
+                    detailsContainer.id = 'patient-details-prontuarios';
+                    col12.insertBefore(detailsContainer, col12.firstChild);
+                }
+            }
+            if (detailsContainer) {
+                detailsContainer.innerHTML = detailsHTML;
+            }
+        }
+    } else if (tabName === 'prescricao') {
+        const prescricaoTab = document.getElementById('prescricao-tab');
+        if (prescricaoTab) {
+            // Hide the alert banner
+
+            
+            // Find or create patient details container
+            let detailsContainer = document.getElementById('patient-details-prescricao');
+            if (!detailsContainer) {
+                // Create container at the beginning of the col-12
+                const col12 = prescricaoTab.querySelector('.col-12');
+                if (col12) {
+                    detailsContainer = document.createElement('div');
+                    detailsContainer.id = 'patient-details-prescricao';
+                    col12.insertBefore(detailsContainer, col12.firstChild);
+                }
+            }
+            if (detailsContainer) {
+                detailsContainer.innerHTML = detailsHTML;
+            }
+        }
+    }
+}
+
+function togglePatientDetails(tabName) {
+    const bodyId = `patient-details-body-${tabName}`;
+    const arrowId = `patient-details-arrow-${tabName}`;
+    const body = document.getElementById(bodyId);
+    const arrow = document.getElementById(arrowId);
+    
+    if (body && arrow) {
+        const isCollapsed = body.classList.contains('collapsed');
+        
+        if (isCollapsed) {
+            // Expand
+            body.classList.remove('collapsed');
+            arrow.classList.remove('fa-chevron-up');
+            arrow.classList.add('fa-chevron-down');
+            arrow.classList.remove('rotated');
+        } else {
+            // Collapse
+            body.classList.add('collapsed');
+            arrow.classList.remove('fa-chevron-down');
+            arrow.classList.add('fa-chevron-up');
+            arrow.classList.add('rotated');
+        }
+    }
 }
 
 function loadPatientProntuarios(patientId, offset = 0) {
@@ -765,12 +949,36 @@ function switchViewMode(mode) {
     }
     
     // If switching to administrator, go to indicadores tab
+    // But only if there's no tab parameter in the URL
+    const urlParams = new URLSearchParams(window.location.search);
+    const tabParam = urlParams.get('tab');
+    
     if (mode === 'administrator') {
         // Switch to indicadores tab when entering administrator mode
-        switchTab('indicadores');
+        // But only if no tab parameter is specified in URL
+        if (tabParam) {
+            // Apply the tab from URL parameter after a delay to ensure view mode switching is complete
+            setTimeout(function() {
+                if (typeof switchTab === 'function') {
+                    switchTab(tabParam);
+                }
+            }, 200);
+        } else {
+            switchTab('indicadores');
+        }
     } else {
         // Switch back to agenda when going to doctor view
-        switchTab('agenda');
+        // But only if no tab parameter is specified in URL
+        if (tabParam) {
+            // Apply the tab from URL parameter after a delay to ensure view mode switching is complete
+            setTimeout(function() {
+                if (typeof switchTab === 'function') {
+                    switchTab(tabParam);
+                }
+            }, 200);
+        } else {
+            switchTab('agenda');
+        }
     }
 }
 
@@ -782,27 +990,31 @@ document.addEventListener('DOMContentLoaded', function() {
     const navbarAdminItem = document.getElementById('navbar-admin-item');
     const hasViewToggle = !!(navbarDoctorItem && navbarAdminItem);
     
+    // Check URL parameter for active tab first (before view mode switching)
+    const urlParams = new URLSearchParams(window.location.search);
+    const tabParam = urlParams.get('tab');
+    
     if (hasViewToggle) {
         // Check if there's a view mode in URL or session
-        const urlParams = new URLSearchParams(window.location.search);
         const viewMode = urlParams.get('view') || 'doctor';
         if (viewMode === 'administrator') {
             switchViewMode('administrator');
         } else {
             switchViewMode('doctor');
         }
+        // switchViewMode will handle tabParam if it exists, so we skip the duplicate call below
+    } else {
+        // If no view toggle, handle tab parameter directly
+        if (tabParam && typeof switchTab === 'function') {
+            // Switch to the tab from URL parameter
+            setTimeout(function() {
+                switchTab(tabParam);
+            }, 150);
+        }
     }
     
-    // Check URL parameter for active tab first
-    const urlParams = new URLSearchParams(window.location.search);
-    const tabParam = urlParams.get('tab');
-    
-    if (tabParam && typeof switchTab === 'function') {
-        // Switch to the tab from URL parameter
-        setTimeout(function() {
-            switchTab(tabParam);
-        }, 150);
-    } else {
+    // Only set default agenda tab if no tab parameter and view mode wasn't toggled
+    if (!tabParam && !hasViewToggle) {
         // Ensure agenda tab is shown by default
         const agendaTab = document.getElementById('agenda-tab');
         if (agendaTab) {
@@ -835,14 +1047,60 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     }
     
-    // Initialize patient selection header
-    updatePatientSelectionHeader('', 'none');
+    // Restore selected patient from localStorage
+    const savedPatient = localStorage.getItem('selectedPatient');
+    if (savedPatient) {
+        try {
+            selectedPatient = JSON.parse(savedPatient);
+            if (selectedPatient && selectedPatient.name && selectedPatient.id) {
+                // Restore patient selection
+                updatePatientSelectionHeader(selectedPatient.name, 'selected');
+                // Update patient info in tabs
+                if (typeof updatePatientInfo === 'function') {
+                    updatePatientInfo(selectedPatient.name);
+                }
+                // Load patient-specific data
+                if (typeof loadPatientProntuarios === 'function') {
+                    loadPatientProntuarios(selectedPatient.id);
+                }
+            }
+        } catch (e) {
+            console.error('Error restoring patient from localStorage:', e);
+            selectedPatient = null;
+        }
+    }
+    
+    // Initialize patient selection header (if no patient restored)
+    if (!selectedPatient) {
+        updatePatientSelectionHeader('', 'none');
+    }
+    
+    // Restore active tab from localStorage if not in URL
+    const savedTab = localStorage.getItem('activeTab');
+    if (savedTab && !tabParam && typeof switchTab === 'function') {
+        setTimeout(function() {
+            switchTab(savedTab);
+            // If patient is restored and we're on prontuarios or prescricao, load details
+            if (selectedPatient && (savedTab === 'prontuarios' || savedTab === 'prescricao')) {
+                setTimeout(() => {
+                    if (typeof loadAndDisplayPatientDetails === 'function') {
+                        loadAndDisplayPatientDetails(selectedPatient.id, savedTab);
+                    }
+                }, 300);
+            }
+        }, 250);
+    } else if (tabParam && selectedPatient && (tabParam === 'prontuarios' || tabParam === 'prescricao')) {
+        // If tab is in URL and patient is restored, load patient details
+        setTimeout(() => {
+            if (typeof loadAndDisplayPatientDetails === 'function') {
+                loadAndDisplayPatientDetails(selectedPatient.id, tabParam);
+            }
+        }, 300);
+    }
     
     // Attach prontuario event listeners
     attachProntuarioEventListeners();
     
-    // Show initial message
-    showNotification('Selecione um paciente na agenda para acessar os outros módulos.', 'info');
     
     // Load patients and doctors for appointment modal
     loadPatientsAndDoctors();
@@ -3237,5 +3495,336 @@ function deleteWaitlistEntry(entryId) {
     .catch(error => {
         console.error('Error deleting waitlist entry:', error);
         showNotification('Erro ao remover entrada. Tente novamente.', 'error');
+    });
+}
+
+// ============================================================================
+// BULK CANCEL APPOINTMENTS FUNCTIONS
+// ============================================================================
+
+function showBulkCancelModal() {
+    const modal = new bootstrap.Modal(document.getElementById('bulkCancelModal'));
+    
+    // Reset form
+    const form = document.getElementById('bulk-cancel-form');
+    if (form) {
+        form.reset();
+    }
+    
+    // Set default dates (today to 30 days from now)
+    const today = new Date();
+    const futureDate = new Date();
+    futureDate.setDate(today.getDate() + 30);
+    
+    const todayStr = today.toISOString().split('T')[0];
+    // Get current time and round up to next 5 minutes for easier selection
+    const minutes = today.getMinutes();
+    const roundedMinutes = Math.ceil(minutes / 5) * 5;
+    const roundedTime = new Date(today);
+    roundedTime.setMinutes(roundedMinutes, 0, 0);
+    // If rounded time is in the next hour, use it, otherwise use current hour
+    if (roundedMinutes >= 60) {
+        roundedTime.setHours(roundedTime.getHours() + 1);
+        roundedTime.setMinutes(0, 0, 0);
+    }
+    const currentTime = roundedTime.toTimeString().slice(0, 5); // HH:MM format
+    
+    const fromDateInput = document.getElementById('cancel-from-date');
+    const untilDateInput = document.getElementById('cancel-until-date');
+    const fromTimeInput = document.getElementById('cancel-from-time');
+    const untilTimeInput = document.getElementById('cancel-until-time');
+    
+    if (fromDateInput) {
+        fromDateInput.value = todayStr;
+        fromDateInput.min = todayStr; // Prevent selecting past dates
+    }
+    if (untilDateInput) {
+        untilDateInput.value = futureDate.toISOString().split('T')[0];
+        untilDateInput.min = todayStr; // Prevent selecting past dates
+    }
+    if (fromTimeInput) {
+        fromTimeInput.value = currentTime;
+    }
+    if (untilTimeInput) {
+        // Set to end of day (23:59)
+        untilTimeInput.value = '23:59';
+    }
+    
+    // Load cancellation reasons
+    loadBulkCancellationReasons();
+    
+    // Hide preview initially
+    const previewDiv = document.getElementById('bulk-cancel-preview');
+    if (previewDiv) {
+        previewDiv.style.display = 'none';
+    }
+    
+    // Add event listeners for date and time changes to update preview and validate
+    if (fromDateInput && untilDateInput) {
+        const updatePreview = () => {
+            const fromDate = fromDateInput.value;
+            const untilDate = untilDateInput.value;
+            const fromTime = fromTimeInput ? fromTimeInput.value : '';
+            const untilTime = untilTimeInput ? untilTimeInput.value : '';
+            
+            // Ensure until date is not before from date
+            if (fromDate && untilDate && untilDate < fromDate) {
+                untilDateInput.value = fromDate;
+            }
+            
+            // If same date, ensure until time is not before from time
+            if (fromDate && untilDate && fromDate === untilDate && fromTime && untilTime) {
+                if (untilTime < fromTime) {
+                    untilTimeInput.value = fromTime;
+                }
+            }
+            
+            if (fromDate && untilDate && fromTime && untilTime) {
+                previewAppointmentCount(fromDate, untilDate);
+            } else {
+                // Hide preview if dates or times are missing
+                const previewDiv = document.getElementById('bulk-cancel-preview');
+                if (previewDiv) {
+                    previewDiv.style.display = 'none';
+                }
+            }
+        };
+        
+        fromDateInput.addEventListener('change', updatePreview);
+        untilDateInput.addEventListener('change', updatePreview);
+        if (fromTimeInput) {
+            fromTimeInput.addEventListener('change', updatePreview);
+        }
+        if (untilTimeInput) {
+            untilTimeInput.addEventListener('change', updatePreview);
+        }
+    }
+    
+    modal.show();
+}
+
+function loadBulkCancellationReasons() {
+    const select = document.getElementById('bulk-cancellation-reason');
+    if (!select) return;
+    
+    // Clear existing options except the first one
+    select.innerHTML = '<option value="">Selecione um motivo...</option>';
+    
+    // Try to get reasons from settings if available
+    if (typeof appointmentSettings !== 'undefined' && appointmentSettings && appointmentSettings.cancellation_reasons) {
+        appointmentSettings.cancellation_reasons.forEach(reason => {
+            const option = document.createElement('option');
+            option.value = reason;
+            option.textContent = reason;
+            select.appendChild(option);
+        });
+    } else {
+        // Fallback: fetch from API
+        fetch('/dashboard/api/appointment-settings/')
+            .then(response => response.json())
+            .then(data => {
+                if (data.success && data.settings && data.settings.cancellation_reasons) {
+                    data.settings.cancellation_reasons.forEach(reason => {
+                        const option = document.createElement('option');
+                        option.value = reason;
+                        option.textContent = reason;
+                        select.appendChild(option);
+                    });
+                }
+            })
+            .catch(error => {
+                console.error('Error loading cancellation reasons:', error);
+                showNotification('Erro ao carregar motivos de cancelamento', 'error');
+            });
+    }
+}
+
+function previewAppointmentCount(fromDate, untilDate) {
+    const fromTimeInput = document.getElementById('cancel-from-time');
+    const untilTimeInput = document.getElementById('cancel-until-time');
+    const excludeCompleted = document.getElementById('exclude-completed');
+    
+    if (!fromDate || !untilDate || !fromTimeInput || !untilTimeInput) {
+        return;
+    }
+    
+    const fromTime = fromTimeInput.value;
+    const untilTime = untilTimeInput.value;
+    
+    if (!fromTime || !untilTime) {
+        return;
+    }
+    
+    // Build query string
+    const params = new URLSearchParams({
+        from_date: fromDate,
+        until_date: untilDate,
+        from_time: fromTime,
+        until_time: untilTime,
+        exclude_completed: excludeCompleted ? excludeCompleted.checked : true
+    });
+    
+    // Fetch count from API
+    fetch(`/dashboard/api/appointments/count-to-cancel/?${params.toString()}`)
+        .then(response => response.json())
+        .then(data => {
+            const previewDiv = document.getElementById('bulk-cancel-preview');
+            const previewCount = document.getElementById('preview-count');
+            
+            if (previewDiv && previewCount) {
+                if (data.success) {
+                    previewCount.textContent = data.count || 0;
+                    previewDiv.style.display = 'block';
+                } else {
+                    previewDiv.style.display = 'none';
+                }
+            }
+        })
+        .catch(error => {
+            console.error('Error counting appointments:', error);
+            const previewDiv = document.getElementById('bulk-cancel-preview');
+            if (previewDiv) {
+                previewDiv.style.display = 'none';
+            }
+        });
+}
+
+function confirmBulkCancel() {
+    const fromDateInput = document.getElementById('cancel-from-date');
+    const untilDateInput = document.getElementById('cancel-until-date');
+    const fromTimeInput = document.getElementById('cancel-from-time');
+    const untilTimeInput = document.getElementById('cancel-until-time');
+    const reasonSelect = document.getElementById('bulk-cancellation-reason');
+    const excludeCompleted = document.getElementById('exclude-completed');
+    const confirmBtn = document.getElementById('confirm-bulk-cancel-btn');
+    
+    if (!fromDateInput || !untilDateInput || !fromTimeInput || !untilTimeInput || !reasonSelect) {
+        showNotification('Erro: Campos não encontrados', 'error');
+        return;
+    }
+    
+    const fromDate = fromDateInput.value;
+    const untilDate = untilDateInput.value;
+    const fromTime = fromTimeInput.value;
+    const untilTime = untilTimeInput.value;
+    const reason = reasonSelect.value;
+    
+    // Validate inputs
+    if (!fromDate || !untilDate) {
+        showNotification('Por favor, preencha ambas as datas', 'error');
+        return;
+    }
+    
+    if (!fromTime || !untilTime) {
+        showNotification('Por favor, preencha ambos os horários', 'error');
+        return;
+    }
+    
+    // Validate dates are not in the past
+    // Compare dates as strings to avoid timezone issues
+    const today = new Date();
+    const todayStr = today.toISOString().split('T')[0]; // YYYY-MM-DD format
+    
+    if (fromDate < todayStr) {
+        showNotification('A data inicial não pode ser no passado', 'error');
+        fromDateInput.focus();
+        return;
+    }
+    
+    // If from_date is today, validate that from_time is not in the past
+    // Allow >= current_time to allow canceling appointments starting from now
+    const now = new Date();
+    const currentTime = now.toTimeString().slice(0, 5); // HH:MM format
+    
+    if (fromDate === todayStr && fromTime < currentTime) {
+        showNotification('O horário inicial não pode ser no passado', 'error');
+        fromTimeInput.focus();
+        return;
+    }
+    
+    // If same date, validate times
+    if (fromDate === untilDate && fromTime > untilTime) {
+        showNotification('O horário final não pode ser anterior ao horário inicial no mesmo dia', 'error');
+        untilTimeInput.focus();
+        return;
+    }
+    
+    // If until_date is today, validate that until_time is not in the past
+    if (untilDate === todayStr && untilTime < currentTime) {
+        showNotification('O horário final não pode ser no passado para o dia de hoje', 'error');
+        untilTimeInput.focus();
+        return;
+    }
+    
+    if (!reason) {
+        showNotification('Por favor, selecione um motivo do cancelamento', 'error');
+        reasonSelect.focus();
+        return;
+    }
+    
+    // Confirm action
+    if (!confirm(`Tem certeza que deseja cancelar todas as consultas de ${fromDate} ${fromTime} até ${untilDate} ${untilTime}?\n\nEsta ação não pode ser desfeita!`)) {
+        return;
+    }
+    
+    // Disable button and show loading
+    const originalText = confirmBtn.innerHTML;
+    confirmBtn.disabled = true;
+    confirmBtn.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i>Cancelando...';
+    
+    // Prepare form data
+    const formData = new FormData();
+    formData.append('from_date', fromDate);
+    formData.append('until_date', untilDate);
+    formData.append('from_time', fromTime);
+    formData.append('until_time', untilTime);
+    formData.append('cancellation_reason', reason);
+    formData.append('exclude_completed', excludeCompleted ? excludeCompleted.checked : true);
+    
+    // Make API call
+    fetch('/dashboard/api/appointments/bulk-cancel/', {
+        method: 'POST',
+        headers: {
+            'X-CSRFToken': getCookie('csrftoken')
+        },
+        body: formData
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            showNotification(data.message, 'success');
+            
+            // Close modal
+            const modal = bootstrap.Modal.getInstance(document.getElementById('bulkCancelModal'));
+            if (modal) {
+                modal.hide();
+            }
+            
+            // Reload calendar if it exists
+            if (typeof refreshCalendar === 'function') {
+                refreshCalendar();
+            } else if (typeof initializeFullCalendar === 'function') {
+                // Reinitialize calendar to show updated appointments
+                setTimeout(() => {
+                    initializeFullCalendar();
+                }, 500);
+            }
+            
+            // Reload agenda stats if function exists
+            if (typeof refreshAgendaStats === 'function') {
+                refreshAgendaStats();
+            }
+        } else {
+            showNotification('Erro: ' + (data.error || 'Erro desconhecido'), 'error');
+        }
+    })
+    .catch(error => {
+        console.error('Error bulk canceling appointments:', error);
+        showNotification('Erro ao cancelar consultas. Tente novamente.', 'error');
+    })
+    .finally(() => {
+        // Restore button state
+        confirmBtn.innerHTML = originalText;
+        confirmBtn.disabled = false;
     });
 }

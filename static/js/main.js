@@ -78,6 +78,9 @@ function switchTab(tabName) {
     // Clear any pending tab switch since we're switching now
     window.pendingTabSwitch = null;
     
+    // Save tab to localStorage for persistence
+    localStorage.setItem('activeTab', tabName);
+    
     // Update URL parameter without reloading the page
     const url = new URL(window.location);
     if (tabName === 'agenda') {
@@ -163,6 +166,21 @@ function switchTab(tabName) {
     if (tabName === 'prescricao') {
         if (typeof initializePrescriptionForm === 'function') {
             setTimeout(initializePrescriptionForm, 100);
+        }
+        // Load patient details when switching to prescricao tab
+        if (typeof selectedPatient !== 'undefined' && selectedPatient && selectedPatient.id) {
+            setTimeout(() => {
+                loadAndDisplayPatientDetails(selectedPatient.id, 'prescricao');
+            }, 150);
+        }
+    }
+    
+    // Load patient details when switching to prontuarios tab
+    if (tabName === 'prontuarios') {
+        if (typeof selectedPatient !== 'undefined' && selectedPatient && selectedPatient.id) {
+            setTimeout(() => {
+                loadAndDisplayPatientDetails(selectedPatient.id, 'prontuarios');
+            }, 150);
         }
     }
     

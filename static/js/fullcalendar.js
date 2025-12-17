@@ -41,7 +41,7 @@ function initializeFullCalendar() {
         headerToolbar: {
             left: 'prev,next today',
             center: 'title',
-            right: 'dayGridMonth,timeGridWeek'
+            right: 'dayGridMonth,timeGridWeek,timeGridDay'
         },
         locale: 'pt-br',
         timeZone: 'local', // Use local timezone - ensures ISO strings are interpreted in local time
@@ -53,7 +53,10 @@ function initializeFullCalendar() {
         selectable: true,
         selectMirror: true,
         dayMaxEvents: true,
-        height: 550,
+        moreLinkText: function(num) {
+            return num + '+ mais';
+        },
+        height: 650,
         slotMinTime: '06:00:00',
         slotMaxTime: '20:00:00',
         slotDuration: '00:15:00',
@@ -72,6 +75,7 @@ function initializeFullCalendar() {
             today: 'Hoje',
             month: 'Mês',
             week: 'Semana',
+            day: 'Dia',
         },
         events: function(info, successCallback, failureCallback) {
             // Load appointments for the current view
@@ -423,15 +427,46 @@ function getEventColor(status) {
     return '#6c757d';
 }
 
+// Store patient data for modal actions
+let appointmentModalPatientId = null;
+let appointmentModalPatientName = null;
+
 function showAppointmentDetailsFromCalendar(event) {
     const props = event.extendedProps;
     
+    // Store patient data for icon actions
+    appointmentModalPatientId = props.patientId;
+    appointmentModalPatientName = props.patientName;
+    
     // Populate the appointment details modal
-    const patientNameElement = document.getElementById('modal-patient-name');
-    if (props.paymentType === 'Particular') {
-        patientNameElement.innerHTML = `${props.patientName} <span class="badge bg-warning text-dark ms-1">$</span>`;
-    } else {
+    const patientNameElement = document.getElementById('modal-patient-name-text');
+    const patientBadgeElement = document.getElementById('modal-patient-badge');
+    const prontuarioIconBtn = document.getElementById('modal-prontuario-icon-btn');
+    const prescricaoIconBtn = document.getElementById('modal-prescricao-icon-btn');
+    
+    // Set patient name
+    if (patientNameElement) {
         patientNameElement.textContent = props.patientName;
+    }
+    
+    // Set payment badge
+    if (patientBadgeElement) {
+        if (props.paymentType === 'Particular') {
+            patientBadgeElement.innerHTML = '<span class="badge bg-warning text-dark ms-1">$</span>';
+        } else {
+            patientBadgeElement.innerHTML = '';
+        }
+    }
+    
+    // Show/hide action icons based on whether patient ID is available
+    if (prontuarioIconBtn && prescricaoIconBtn) {
+        if (appointmentModalPatientId) {
+            prontuarioIconBtn.style.display = 'inline-block';
+            prescricaoIconBtn.style.display = 'inline-block';
+        } else {
+            prontuarioIconBtn.style.display = 'none';
+            prescricaoIconBtn.style.display = 'none';
+        }
     }
     document.getElementById('modal-doctor-name').textContent = props.doctorName;
     document.getElementById('modal-appointment-date').textContent = event.start.toLocaleDateString('pt-BR');
@@ -480,6 +515,50 @@ function showAppointmentDetailsFromCalendar(event) {
     // Show the modal
     const modal = new bootstrap.Modal(document.getElementById('appointmentDetailsModal'));
     modal.show();
+}
+
+// Function to access patient prontuario from appointment modal
+function accessProntuarioFromAppointmentModal() {
+    if (appointmentModalPatientId && appointmentModalPatientName) {
+        // Close the appointment modal first
+        const modal = bootstrap.Modal.getInstance(document.getElementById('appointmentDetailsModal'));
+        if (modal) {
+            modal.hide();
+        }
+        
+        // Then access prontuario using the existing function
+        if (typeof accessPatientProntuario === 'function') {
+            accessPatientProntuario(appointmentModalPatientId, appointmentModalPatientName);
+        } else if (typeof selectPatient === 'function') {
+            // Fallback: use selectPatient with pendingTabSwitch
+            if (typeof window !== 'undefined') {
+                window.pendingTabSwitch = 'prontuarios';
+            }
+            selectPatient(appointmentModalPatientName, appointmentModalPatientId);
+        }
+    }
+}
+
+// Function to access patient prescription from appointment modal
+function accessPrescricaoFromAppointmentModal() {
+    if (appointmentModalPatientId && appointmentModalPatientName) {
+        // Close the appointment modal first
+        const modal = bootstrap.Modal.getInstance(document.getElementById('appointmentDetailsModal'));
+        if (modal) {
+            modal.hide();
+        }
+        
+        // Then access prescription using the existing function
+        if (typeof accessPatientPrescription === 'function') {
+            accessPatientPrescription(appointmentModalPatientId, appointmentModalPatientName);
+        } else if (typeof selectPatient === 'function') {
+            // Fallback: use selectPatient with pendingTabSwitch
+            if (typeof window !== 'undefined') {
+                window.pendingTabSwitch = 'prescricao';
+            }
+            selectPatient(appointmentModalPatientName, appointmentModalPatientId);
+        }
+    }
 }
 
 function getStatusDisplay(status) {

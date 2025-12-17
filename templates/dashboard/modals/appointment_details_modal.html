@@ -12,7 +12,16 @@
                 <div class="row">
                     <div class="col-md-6 mb-3">
                         <label class="form-label fw-bold">Paciente:</label>
-                        <p id="modal-patient-name" class="mb-0">-</p>
+                        <p id="modal-patient-name" class="mb-0 d-flex align-items-center gap-2">
+                            <span id="modal-patient-name-text">-</span>
+                            <span id="modal-patient-badge"></span>
+                            <button class="btn btn-sm btn-link text-primary p-0" id="modal-prontuario-icon-btn" style="display: none;" onclick="accessProntuarioFromAppointmentModal()" title="Acessar Prontuário">
+                                <i class="fas fa-file-medical"></i>
+                            </button>
+                            <button class="btn btn-sm btn-link text-success p-0" id="modal-prescricao-icon-btn" style="display: none;" onclick="accessPrescricaoFromAppointmentModal()" title="Acessar Prescrição">
+                                <i class="fas fa-prescription-bottle-alt"></i>
+                            </button>
+                        </p>
                     </div>
                     <div class="col-md-6 mb-3">
                         <label class="form-label fw-bold">Médico:</label>

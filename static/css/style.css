@@ -302,7 +302,7 @@ body {
 /* Google Calendar Style Week View */
 .calendar-week-container {
     display: flex;
-    height: 550px;
+    height: 650px;
     border: 1px solid #e0e0e0;
     border-radius: 8px;
     overflow: hidden;

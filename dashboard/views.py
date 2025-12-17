@@ -1014,6 +1014,296 @@ def api_cancel_appointment(request):
         })
 
 @login_required
+def api_count_appointments_to_cancel(request):
+    """API endpoint to count appointments that will be cancelled in a date/time range"""
+    try:
+        # Get current user's doctor profile
+        try:
+            current_doctor = Doctor.objects.get(user=request.user)
+        except Doctor.DoesNotExist:
+            return JsonResponse({
+                'success': False,
+                'error': 'Usuário não é um médico válido'
+            })
+        
+        # Get date range and time range from GET parameters
+        from_date_str = request.GET.get('from_date')
+        until_date_str = request.GET.get('until_date')
+        from_time_str = request.GET.get('from_time')
+        until_time_str = request.GET.get('until_time')
+        exclude_completed = request.GET.get('exclude_completed', 'true').lower() == 'true'
+        
+        if not from_date_str or not until_date_str or not from_time_str or not until_time_str:
+            return JsonResponse({
+                'success': False,
+                'error': 'Datas e horários são obrigatórios'
+            })
+        
+        # Parse dates
+        try:
+            from_date = datetime.strptime(from_date_str, '%Y-%m-%d').date()
+            until_date = datetime.strptime(until_date_str, '%Y-%m-%d').date()
+        except ValueError:
+            return JsonResponse({
+                'success': False,
+                'error': 'Formato de data inválido. Use YYYY-MM-DD'
+            })
+        
+        # Parse times
+        try:
+            from_time = datetime.strptime(from_time_str, '%H:%M').time()
+            until_time = datetime.strptime(until_time_str, '%H:%M').time()
+        except ValueError:
+            return JsonResponse({
+                'success': False,
+                'error': 'Formato de horário inválido. Use HH:MM'
+            })
+        
+        # Build query for appointments in date and time range (same logic as cancel)
+        if from_date == until_date:
+            # Same day: filter by time range
+            appointments_query = Appointment.objects.filter(
+                doctor=current_doctor,
+                appointment_date=from_date,
+                appointment_time__gte=from_time,
+                appointment_time__lte=until_time
+            )
+        else:
+            # Different days: use Q objects for complex filtering
+            from django.db.models import Q
+            
+            appointments_query = Appointment.objects.filter(
+                doctor=current_doctor
+            ).filter(
+                Q(
+                    # Appointments on start date with time >= from_time
+                    appointment_date=from_date,
+                    appointment_time__gte=from_time
+                ) | Q(
+                    # Appointments on end date with time <= until_time
+                    appointment_date=until_date,
+                    appointment_time__lte=until_time
+                ) | Q(
+                    # Appointments between start and end dates (all times)
+                    appointment_date__gt=from_date,
+                    appointment_date__lt=until_date
+                )
+            )
+        
+        # Exclude completed appointments if requested
+        if exclude_completed:
+            appointments_query = appointments_query.exclude(status='completed')
+        
+        # Count appointments
+        count = appointments_query.count()
+        
+        return JsonResponse({
+            'success': True,
+            'count': count
+        })
+        
+    except Exception as e:
+        return JsonResponse({
+            'success': False,
+            'error': f'Erro ao contar consultas: {str(e)}'
+        })
+
+@login_required
+@require_POST
+def api_bulk_cancel_appointments(request):
+    """API endpoint to cancel multiple appointments in a date range"""
+    try:
+        # Get current user's doctor profile
+        try:
+            current_doctor = Doctor.objects.get(user=request.user)
+        except Doctor.DoesNotExist:
+            return JsonResponse({
+                'success': False,
+                'error': 'Usuário não é um médico válido'
+            })
+        
+        # Get date range, time range and cancellation reason
+        from_date_str = request.POST.get('from_date')
+        until_date_str = request.POST.get('until_date')
+        from_time_str = request.POST.get('from_time')
+        until_time_str = request.POST.get('until_time')
+        cancellation_reason = request.POST.get('cancellation_reason', '').strip()
+        exclude_completed = request.POST.get('exclude_completed', 'true').lower() == 'true'
+        
+        if not from_date_str or not until_date_str:
+            return JsonResponse({
+                'success': False,
+                'error': 'Datas inicial e final são obrigatórias'
+            })
+        
+        if not from_time_str or not until_time_str:
+            return JsonResponse({
+                'success': False,
+                'error': 'Horários inicial e final são obrigatórios'
+            })
+        
+        if not cancellation_reason:
+            return JsonResponse({
+                'success': False,
+                'error': 'Motivo do cancelamento é obrigatório'
+            })
+        
+        # Parse dates
+        try:
+            from_date = datetime.strptime(from_date_str, '%Y-%m-%d').date()
+            until_date = datetime.strptime(until_date_str, '%Y-%m-%d').date()
+        except ValueError:
+            return JsonResponse({
+                'success': False,
+                'error': 'Formato de data inválido. Use YYYY-MM-DD'
+            })
+        
+        # Parse times
+        try:
+            from_time = datetime.strptime(from_time_str, '%H:%M').time()
+            until_time = datetime.strptime(until_time_str, '%H:%M').time()
+        except ValueError:
+            return JsonResponse({
+                'success': False,
+                'error': 'Formato de horário inválido. Use HH:MM'
+            })
+        
+        # Get today's date and current time
+        now = timezone.localtime(timezone.now())
+        today = now.date()
+        current_time = now.time()
+        
+        # Validate dates are not in the past
+        # If it's today, allow if the time is in the future or current
+        if from_date < today:
+            return JsonResponse({
+                'success': False,
+                'error': 'A data inicial não pode ser no passado. Selecione a partir de hoje.'
+            })
+        
+        if until_date < today:
+            return JsonResponse({
+                'success': False,
+                'error': 'A data final não pode ser no passado. Selecione a partir de hoje.'
+            })
+        
+        # If from_date is today, validate that from_time is not in the past
+        if from_date == today and from_time < current_time:
+            return JsonResponse({
+                'success': False,
+                'error': 'O horário inicial não pode ser no passado.'
+            })
+        
+        if from_date > until_date:
+            return JsonResponse({
+                'success': False,
+                'error': 'Data inicial não pode ser maior que data final'
+            })
+        
+        # If same date, validate times
+        if from_date == until_date and from_time > until_time:
+            return JsonResponse({
+                'success': False,
+                'error': 'Horário final não pode ser anterior ao horário inicial no mesmo dia'
+            })
+        
+        # If until_date is today, validate that until_time is not in the past
+        if until_date == today and until_time < current_time:
+            return JsonResponse({
+                'success': False,
+                'error': 'O horário final não pode ser no passado para o dia de hoje.'
+            })
+        
+        # Build query for appointments in date and time range
+        # For appointments on the start date, filter by time >= from_time
+        # For appointments on the end date, filter by time <= until_time
+        # For appointments in between, include all times
+        
+        if from_date == until_date:
+            # Same day: filter by time range
+            appointments_query = Appointment.objects.filter(
+                doctor=current_doctor,
+                appointment_date=from_date,
+                appointment_time__gte=from_time,
+                appointment_time__lte=until_time
+            )
+        else:
+            # Different days: use Q objects for complex filtering
+            from django.db.models import Q
+            
+            appointments_query = Appointment.objects.filter(
+                doctor=current_doctor
+            ).filter(
+                Q(
+                    # Appointments on start date with time >= from_time
+                    appointment_date=from_date,
+                    appointment_time__gte=from_time
+                ) | Q(
+                    # Appointments on end date with time <= until_time
+                    appointment_date=until_date,
+                    appointment_time__lte=until_time
+                ) | Q(
+                    # Appointments between start and end dates (all times)
+                    appointment_date__gt=from_date,
+                    appointment_date__lt=until_date
+                )
+            )
+        
+        # Exclude completed appointments if requested
+        if exclude_completed:
+            appointments_query = appointments_query.exclude(status='completed')
+        
+        # Get appointments to cancel
+        appointments = appointments_query.all()
+        
+        if not appointments.exists():
+            return JsonResponse({
+                'success': False,
+                'error': 'Nenhuma consulta encontrada no período selecionado para cancelar'
+            })
+        
+        # Cancel all appointments
+        cancelled_count = 0
+        income_deleted_count = 0
+        errors = []
+        
+        for appointment in appointments:
+            try:
+                # Remove any associated income records
+                associated_incomes = Income.objects.filter(appointment=appointment)
+                if associated_incomes.exists():
+                    income_deleted_count += associated_incomes.count()
+                    associated_incomes.delete()
+                
+                # Cancel the appointment
+                appointment.cancel(cancellation_reason)
+                cancelled_count += 1
+            except Exception as e:
+                errors.append(f'Erro ao cancelar consulta {appointment.id}: {str(e)}')
+        
+        # Build response message
+        message = f'{cancelled_count} consulta(s) cancelada(s) com sucesso'
+        if income_deleted_count > 0:
+            message += f' e {income_deleted_count} receita(s) removida(s)'
+        
+        if errors:
+            message += f'. {len(errors)} erro(s) ocorreram durante o processo.'
+        
+        return JsonResponse({
+            'success': True,
+            'message': message,
+            'cancelled_count': cancelled_count,
+            'income_deleted_count': income_deleted_count,
+            'errors': errors if errors else None
+        })
+        
+    except Exception as e:
+        return JsonResponse({
+            'success': False,
+            'error': f'Erro ao cancelar consultas: {str(e)}'
+        })
+
+@login_required
 @require_POST
 def api_confirm_attendance(request):
     """API endpoint to confirm patient attendance"""
@@ -1138,6 +1428,19 @@ def api_complete_appointment(request):
             return JsonResponse({
                 'success': False,
                 'error': 'Não é possível concluir uma consulta cancelada'
+            })
+        
+        # Check if appointment is more than 4 hours in the future
+        now = timezone.localtime(timezone.now())
+        appointment_datetime = datetime.combine(appointment.appointment_date, appointment.appointment_time)
+        # Make appointment_datetime timezone-aware for comparison
+        appointment_datetime = timezone.make_aware(appointment_datetime)
+        time_diff = appointment_datetime - now
+        
+        if time_diff.total_seconds() > 4 * 3600:  # 4 hours = 4 * 3600 seconds
+            return JsonResponse({
+                'success': False,
+                'error': 'Não é possível concluir uma consulta com mais de 4 horas de antecedência'
             })
         
         # Update appointment status to completed

@@ -61,7 +61,7 @@
     {% endif %}
 
     <!-- Main Content -->
-    <main class="{% if user.is_authenticated %}container-fluid mt-4{% else %}container mt-5{% endif %}">
+    <main class="{% if user.is_authenticated %}container-fluid mt-2{% else %}container mt-5{% endif %}">
         {% if messages %}
             {% for message in messages %}
                 <div class="alert alert-{{ message.tags }} alert-dismissible fade show" role="alert">
