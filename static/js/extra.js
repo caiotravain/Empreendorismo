@@ -2283,20 +2283,9 @@ function printPrescription(prescriptionId) {
         return;
     }
     
-    fetch(`/dashboard/api/prescriptions/print/?prescription_id=${prescriptionId}`)
-        .then(response => response.json())
-        .then(data => {
-            if (data.success) {
-                printPrescriptionWindow(data.prescription);
-                // Don't reload since we allow multiple prints
-            } else {
-                showNotification('Erro ao carregar prescrição: ' + (data.error || 'Erro desconhecido'), 'error');
-            }
-        })
-        .catch(error => {
-            console.error('Error loading prescription for print:', error);
-            showNotification('Erro ao carregar prescrição para impressão. Tente novamente.', 'error');
-        });
+    // Open PDF in new window/tab
+    const pdfUrl = `/dashboard/api/prescriptions/generate-pdf/?prescription_id=${prescriptionId}`;
+    window.open(pdfUrl, '_blank');
 }
 
 function printPrescriptionWindow(prescription) {

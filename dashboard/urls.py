@@ -37,6 +37,7 @@ urlpatterns = [
     path('api/prescriptions/send-email/', views.api_send_prescription_email, name='api_send_prescription_email'),
     path('api/prescriptions/send-whatsapp/', views.api_send_prescription_whatsapp, name='api_send_prescription_whatsapp'),
     path('api/prescriptions/print/', views.api_print_prescription, name='api_print_prescription'),
+    path('api/prescriptions/generate-pdf/', views.api_generate_prescription_pdf, name='api_generate_prescription_pdf'),
     path('api/medications/search/', views.api_search_medications, name='api_search_medications'),
     
     # API endpoint for generic WhatsApp sending

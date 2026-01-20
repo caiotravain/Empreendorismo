@@ -2162,6 +2162,277 @@ def api_print_prescription(request):
 
 @login_required
 @require_http_methods(["GET"])
+def api_generate_prescription_pdf(request):
+    """API endpoint to generate a professional PDF prescription"""
+    try:
+        from reportlab.lib.pagesizes import A4
+        from reportlab.lib import colors
+        from reportlab.lib.units import inch, cm
+        from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer, KeepTogether
+        from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+        from reportlab.lib.enums import TA_CENTER, TA_LEFT, TA_RIGHT, TA_JUSTIFY
+        from io import BytesIO
+        
+        prescription_id = request.GET.get('prescription_id')
+        
+        if not prescription_id:
+            return JsonResponse({
+                'success': False,
+                'error': 'ID da prescrição é obrigatório'
+            })
+        
+        # Get prescription
+        try:
+            prescription = Prescription.objects.select_related('patient', 'doctor', 'doctor__user').prefetch_related('items').get(id=prescription_id)
+        except Prescription.DoesNotExist:
+            return JsonResponse({
+                'success': False,
+                'error': 'Prescrição não encontrada'
+            })
+        
+        # Create PDF buffer
+        buffer = BytesIO()
+        doc = SimpleDocTemplate(
+            buffer,
+            pagesize=A4,
+            rightMargin=2*cm,
+            leftMargin=2*cm,
+            topMargin=2*cm,
+            bottomMargin=2*cm
+        )
+        
+        # Container for the PDF elements
+        story = []
+        styles = getSampleStyleSheet()
+        
+        # Custom styles
+        title_style = ParagraphStyle(
+            'PrescriptionTitle',
+            parent=styles['Heading1'],
+            fontSize=24,
+            textColor=colors.HexColor('#1a5490'),
+            spaceAfter=20,
+            alignment=TA_CENTER,
+            fontName='Helvetica-Bold'
+        )
+        
+        header_style = ParagraphStyle(
+            'PrescriptionHeader',
+            parent=styles['Heading2'],
+            fontSize=14,
+            textColor=colors.HexColor('#2c3e50'),
+            spaceAfter=10,
+            fontName='Helvetica-Bold'
+        )
+        
+        info_style = ParagraphStyle(
+            'PrescriptionInfo',
+            parent=styles['Normal'],
+            fontSize=11,
+            textColor=colors.HexColor('#333333'),
+            spaceAfter=8,
+            leading=14
+        )
+        
+        medication_name_style = ParagraphStyle(
+            'MedicationName',
+            parent=styles['Normal'],
+            fontSize=12,
+            textColor=colors.HexColor('#1a5490'),
+            spaceAfter=5,
+            fontName='Helvetica-Bold',
+            leading=16
+        )
+        
+        medication_detail_style = ParagraphStyle(
+            'MedicationDetail',
+            parent=styles['Normal'],
+            fontSize=10,
+            textColor=colors.HexColor('#555555'),
+            spaceAfter=4,
+            leftIndent=20,
+            leading=14
+        )
+        
+        notes_style = ParagraphStyle(
+            'PrescriptionNotes',
+            parent=styles['Normal'],
+            fontSize=10,
+            textColor=colors.HexColor('#666666'),
+            spaceAfter=8,
+            alignment=TA_JUSTIFY,
+            leading=14
+        )
+        
+        # Header with decorative line
+        story.append(Spacer(1, 0.3*inch))
+        story.append(Paragraph("PRESCRIÇÃO MÉDICA", title_style))
+        
+        # Decorative line
+        line_data = [['']]
+        line_table = Table(line_data, colWidths=[6*inch])
+        line_table.setStyle(TableStyle([
+            ('LINEBELOW', (0, 0), (-1, -1), 2, colors.HexColor('#1a5490')),
+            ('TOPPADDING', (0, 0), (-1, -1), 0),
+            ('BOTTOMPADDING', (0, 0), (-1, -1), 10),
+        ]))
+        story.append(line_table)
+        story.append(Spacer(1, 0.25*inch))
+        
+        # Date and Prescription Number - Minimalist at top
+        date_style = ParagraphStyle(
+            'DateStyle',
+            parent=styles['Normal'],
+            fontSize=10,
+            textColor=colors.HexColor('#666666'),
+            spaceAfter=20,
+            alignment=TA_RIGHT
+        )
+        date_text = f"{prescription.prescription_date.strftime('%d/%m/%Y')} • Prescrição Nº {prescription.id}"
+        story.append(Paragraph(date_text, date_style))
+        story.append(Spacer(1, 0.3*inch))
+        
+        # Patient and Doctor Information - Minimalist boxes
+        # Patient Information
+        patient_info = f"<b>PACIENTE</b><br/>{prescription.patient.full_name}"
+        if prescription.patient.date_of_birth:
+            age = prescription.patient.age
+            if age is not None:
+                patient_info += f"<br/><font size='9' color='#999999'>Idade: {age} anos</font>"
+        
+        patient_row = Table([[Paragraph(patient_info, info_style)]], colWidths=[6*inch])
+        patient_row.setStyle(TableStyle([
+            ('BACKGROUND', (0, 0), (-1, -1), colors.HexColor('#fafafa')),
+            ('TEXTCOLOR', (0, 0), (-1, -1), colors.HexColor('#333333')),
+            ('ALIGN', (0, 0), (-1, -1), 'LEFT'),
+            ('FONTNAME', (0, 0), (-1, -1), 'Helvetica'),
+            ('FONTSIZE', (0, 0), (-1, -1), 11),
+            ('BOTTOMPADDING', (0, 0), (-1, -1), 12),
+            ('TOPPADDING', (0, 0), (-1, -1), 12),
+            ('LEFTPADDING', (0, 0), (-1, -1), 15),
+            ('RIGHTPADDING', (0, 0), (-1, -1), 15),
+            ('LINEBELOW', (0, 0), (-1, -1), 0.5, colors.HexColor('#e0e0e0')),
+            ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+        ]))
+        story.append(patient_row)
+        story.append(Spacer(1, 0.12*inch))
+        
+        # Doctor Information
+        doctor_info = f"<b>MÉDICO</b><br/>{prescription.doctor.full_name}"
+        if prescription.doctor.medical_license:
+            doctor_info += f"<br/><font size='9' color='#999999'>CRM: {prescription.doctor.medical_license}</font>"
+        if prescription.doctor.specialization:
+            doctor_info += f"<br/><font size='9' color='#999999'>{prescription.doctor.specialization}</font>"
+        
+        doctor_row = Table([[Paragraph(doctor_info, info_style)]], colWidths=[6*inch])
+        doctor_row.setStyle(TableStyle([
+            ('BACKGROUND', (0, 0), (-1, -1), colors.HexColor('#fafafa')),
+            ('TEXTCOLOR', (0, 0), (-1, -1), colors.HexColor('#333333')),
+            ('ALIGN', (0, 0), (-1, -1), 'LEFT'),
+            ('FONTNAME', (0, 0), (-1, -1), 'Helvetica'),
+            ('FONTSIZE', (0, 0), (-1, -1), 11),
+            ('BOTTOMPADDING', (0, 0), (-1, -1), 12),
+            ('TOPPADDING', (0, 0), (-1, -1), 12),
+            ('LEFTPADDING', (0, 0), (-1, -1), 15),
+            ('RIGHTPADDING', (0, 0), (-1, -1), 15),
+            ('LINEBELOW', (0, 0), (-1, -1), 0.5, colors.HexColor('#e0e0e0')),
+            ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+        ]))
+        story.append(doctor_row)
+        story.append(Spacer(1, 0.4*inch))
+        
+        # Medications section
+        story.append(Paragraph("MEDICAMENTOS PRESCRITOS", header_style))
+        story.append(Spacer(1, 0.2*inch))
+        
+        # Medication items
+        for idx, item in enumerate(prescription.items.all(), 1):
+            medication_block = []
+            
+            # Medication name with number
+            med_name = f"{idx}. {item.medication_name}"
+            medication_block.append(Paragraph(med_name, medication_name_style))
+            
+            # Quantity
+            if item.quantity:
+                medication_block.append(Paragraph(f"<b>Quantidade:</b> {item.quantity}", medication_detail_style))
+            
+            # Dosage
+            if item.dosage:
+                medication_block.append(Paragraph(f"<b>Posologia:</b> {item.dosage}", medication_detail_style))
+            
+            # Notes
+            if item.notes:
+                medication_block.append(Paragraph(f"<b>Observações:</b> {item.notes}", medication_detail_style))
+            
+            # Add spacing between medications
+            if idx < prescription.items.count():
+                medication_block.append(Spacer(1, 0.15*inch))
+            
+            # Keep medication together
+            story.append(KeepTogether(medication_block))
+        
+        # Additional notes section
+        if prescription.notes:
+            story.append(Spacer(1, 0.3*inch))
+            story.append(Paragraph("OBSERVAÇÕES GERAIS", header_style))
+            story.append(Spacer(1, 0.15*inch))
+            story.append(Paragraph(prescription.notes, notes_style))
+        
+        # Footer with signature area
+        story.append(Spacer(1, 0.5*inch))
+        
+        # Signature line
+        signature_data = [['']]
+        signature_table = Table(signature_data, colWidths=[6*inch])
+        signature_table.setStyle(TableStyle([
+            ('LINEABOVE', (0, 0), (-1, -1), 1, colors.HexColor('#333333')),
+            ('TOPPADDING', (0, 0), (-1, -1), 30),
+            ('BOTTOMPADDING', (0, 0), (-1, -1), 0),
+        ]))
+        story.append(signature_table)
+        
+        signature_text = Paragraph(
+            f"<i>{prescription.doctor.full_name}<br/>CRM: {prescription.doctor.medical_license or 'N/A'}</i>",
+            ParagraphStyle(
+                'Signature',
+                parent=styles['Normal'],
+                fontSize=10,
+                textColor=colors.HexColor('#666666'),
+                alignment=TA_CENTER,
+                spaceAfter=0
+            )
+        )
+        story.append(signature_text)
+        
+        # Build PDF
+        doc.build(story)
+        
+        # Get PDF data
+        buffer.seek(0)
+        pdf_data = buffer.getvalue()
+        buffer.close()
+        
+        # Create HTTP response
+        response = HttpResponse(pdf_data, content_type='application/pdf')
+        filename = f"prescricao_{prescription.patient.full_name.replace(' ', '_')}_{prescription.prescription_date.strftime('%Y%m%d')}.pdf"
+        response['Content-Disposition'] = f'inline; filename="{filename}"'
+        return response
+        
+    except ImportError:
+        return JsonResponse({
+            'success': False,
+            'error': 'Biblioteca reportlab não instalada. Execute: pip install reportlab'
+        })
+    except Exception as e:
+        return JsonResponse({
+            'success': False,
+            'error': f'Erro ao gerar PDF: {str(e)}'
+        })
+
+
+@login_required
+@require_http_methods(["GET"])
 def api_search_medications(request):
     """API endpoint to search medications (case and accent insensitive)"""
     import unicodedata
