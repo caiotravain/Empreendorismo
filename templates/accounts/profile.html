@@ -13,7 +13,7 @@
                 </div>
                 <h4 class="card-title">{{ user.username }}</h4>
                 <p class="text-muted">Member since {{ user.date_joined|date:"M Y" }}</p>
-                <button class="btn btn-outline-primary btn-sm">
+                <button class="btn btn-outline-primary btn-sm" onclick="document.getElementById('profile-settings-card').scrollIntoView({ behavior: 'smooth', block: 'start' });">
                     <i class="fas fa-edit me-1"></i>Edit Profile
                 </button>
             </div>
@@ -45,46 +45,31 @@
     </div>
     
     <div class="col-lg-8">
-        <div class="card shadow mb-4">
+        <div class="card shadow mb-4" id="profile-settings-card">
             <div class="card-header">
                 <h6 class="m-0 font-weight-bold text-primary">Profile Settings</h6>
             </div>
             <div class="card-body">
-                <form>
+                <form id="profile-form">
+                    {% csrf_token %}
                     <div class="row">
                         <div class="col-md-6 mb-3">
                             <label for="firstName" class="form-label">First Name</label>
-                            <input type="text" class="form-control" id="firstName" value="{{ user.first_name|default:'' }}">
+                            <input type="text" class="form-control" id="firstName" name="first_name" value="{{ user.first_name|default:'' }}" required>
                         </div>
                         <div class="col-md-6 mb-3">
                             <label for="lastName" class="form-label">Last Name</label>
-                            <input type="text" class="form-control" id="lastName" value="{{ user.last_name|default:'' }}">
+                            <input type="text" class="form-control" id="lastName" name="last_name" value="{{ user.last_name|default:'' }}" required>
                         </div>
                     </div>
                     
                     <div class="mb-3">
                         <label for="email" class="form-label">Email Address</label>
-                        <input type="email" class="form-control" id="email" value="{{ user.email|default:'' }}">
-                    </div>
-                    
-                    <div class="mb-3">
-                        <label for="bio" class="form-label">Bio</label>
-                        <textarea class="form-control" id="bio" rows="3" placeholder="Tell us about yourself..."></textarea>
-                    </div>
-                    
-                    <div class="mb-3">
-                        <label for="timezone" class="form-label">Timezone</label>
-                        <select class="form-select" id="timezone">
-                            <option value="UTC">UTC</option>
-                            <option value="America/New_York">Eastern Time</option>
-                            <option value="America/Chicago">Central Time</option>
-                            <option value="America/Denver">Mountain Time</option>
-                            <option value="America/Los_Angeles">Pacific Time</option>
-                        </select>
+                        <input type="email" class="form-control" id="email" name="email" value="{{ user.email|default:'' }}" required>
                     </div>
                     
                     <div class="d-flex justify-content-between">
-                        <button type="button" class="btn btn-secondary">
+                        <button type="button" class="btn btn-secondary" onclick="resetProfileForm()">
                             <i class="fas fa-times me-1"></i>Cancel
                         </button>
                         <button type="submit" class="btn btn-primary">
@@ -147,4 +132,102 @@
         </div>
     </div>
 </div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const profileForm = document.getElementById('profile-form');
+    
+    if (profileForm) {
+        profileForm.addEventListener('submit', function(e) {
+            e.preventDefault();
+            
+            const formData = new FormData(profileForm);
+            
+            fetch('{% url "accounts:update_profile" %}', {
+                method: 'POST',
+                body: formData,
+                headers: {
+                    'X-CSRFToken': getCookie('csrftoken')
+                }
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    // Show success message
+                    showNotification(data.message || 'Perfil atualizado com sucesso!', 'success');
+                    
+                    // Update displayed values
+                    if (data.user) {
+                        // Update the username display if needed
+                        const usernameDisplay = document.querySelector('.card-title');
+                        if (usernameDisplay && data.user.username) {
+                            // Username doesn't change, but we could update first/last name display
+                        }
+                    }
+                    
+                    // Reload page after a short delay to show updated info
+                    setTimeout(() => {
+                        window.location.reload();
+                    }, 1500);
+                } else {
+                    showNotification(data.error || 'Erro ao atualizar perfil', 'error');
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                showNotification('Erro ao atualizar perfil. Tente novamente.', 'error');
+            });
+        });
+    }
+});
+
+function resetProfileForm() {
+    const form = document.getElementById('profile-form');
+    if (form) {
+        form.reset();
+        // Reset to original values
+        document.getElementById('firstName').value = '{{ user.first_name|default:"" }}';
+        document.getElementById('lastName').value = '{{ user.last_name|default:"" }}';
+        document.getElementById('email').value = '{{ user.email|default:"" }}';
+    }
+}
+
+function getCookie(name) {
+    let cookieValue = null;
+    if (document.cookie && document.cookie !== '') {
+        const cookies = document.cookie.split(';');
+        for (let i = 0; i < cookies.length; i++) {
+            const cookie = cookies[i].trim();
+            if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                break;
+            }
+        }
+    }
+    return cookieValue;
+}
+
+function showNotification(message, type) {
+    // Create notification element
+    const alertClass = type === 'success' ? 'alert-success' : 'alert-danger';
+    const alertDiv = document.createElement('div');
+    alertDiv.className = `alert ${alertClass} alert-dismissible fade show position-fixed`;
+    alertDiv.style.cssText = 'top: 20px; right: 20px; z-index: 9999; min-width: 300px;';
+    alertDiv.innerHTML = `
+        ${message}
+        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+    `;
+    
+    document.body.appendChild(alertDiv);
+    
+    // Auto remove after 5 seconds
+    setTimeout(() => {
+        if (alertDiv.parentNode) {
+            alertDiv.remove();
+        }
+    }, 5000);
+}
+</script>
 {% endblock %}
