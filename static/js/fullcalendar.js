@@ -430,11 +430,13 @@ function getEventColor(status) {
 // Store patient data for modal actions
 let appointmentModalPatientId = null;
 let appointmentModalPatientName = null;
+let currentAppointmentId = null;
 
 function showAppointmentDetailsFromCalendar(event) {
     const props = event.extendedProps;
     
-    // Store patient data for icon actions
+    // Store appointment and patient data for actions
+    currentAppointmentId = event.id;
     appointmentModalPatientId = props.patientId;
     appointmentModalPatientName = props.patientName;
     
@@ -479,10 +481,47 @@ function showAppointmentDetailsFromCalendar(event) {
     document.getElementById('modal-appointment-reason').textContent = props.reason || 'Consulta médica';
     document.getElementById('modal-appointment-notes').textContent = props.notes || 'Nenhuma observação';
     
-    // Update status badge
+    // Update status badge and store current status
     const statusBadge = document.getElementById('modal-status-badge');
     statusBadge.textContent = getStatusDisplay(props.status);
     statusBadge.className = 'badge ' + getStatusBadgeClass(props.status);
+    
+    // Set up status select with current status and populate options
+    const statusSelect = document.getElementById('modal-status-select');
+    if (statusSelect) {
+        // Populate status options from settings if available, otherwise use defaults
+        if (typeof appointmentSettings !== 'undefined' && appointmentSettings && appointmentSettings.status_choices) {
+            statusSelect.innerHTML = '';
+            const statusValueMap = {
+                'Agendada': 'scheduled',
+                'Confirmada': 'confirmed',
+                'Em Andamento': 'in_progress',
+                'Concluída': 'completed',
+                'Cancelada': 'cancelled',
+                'Não Compareceu': 'no_show',
+                'Reagendada': 'rescheduled'
+            };
+            
+            const normalizedStatuses = appointmentSettings.status_choices.map(choice => {
+                if (Array.isArray(choice) && choice.length >= 2) {
+                    return { display: choice[1], value: choice[0] };
+                }
+                const displayName = String(choice);
+                return { display: displayName, value: statusValueMap[displayName] || displayName.toLowerCase().replace(/\s+/g, '_') };
+            });
+            
+            normalizedStatuses.forEach(status => {
+                const option = document.createElement('option');
+                option.value = status.value;
+                option.textContent = status.display;
+                statusSelect.appendChild(option);
+            });
+        }
+        statusSelect.value = props.status;
+    }
+    
+    // Reset status edit UI
+    resetStatusEditUI();
     
     // Show/hide action buttons based on status
     const confirmBtn = document.getElementById('confirm-attendance-btn');
@@ -568,7 +607,8 @@ function getStatusDisplay(status) {
         'in_progress': 'Em Andamento',
         'completed': 'Concluída',
         'cancelled': 'Cancelada',
-        'no_show': 'Não Compareceu'
+        'no_show': 'Não Compareceu',
+        'rescheduled': 'Reagendada'
     };
     return statusMap[status] || status;
 }
@@ -580,7 +620,8 @@ function getStatusBadgeClass(status) {
         'in_progress': 'bg-warning',
         'completed': 'bg-success',
         'cancelled': 'bg-danger',
-        'no_show': 'bg-secondary'
+        'no_show': 'bg-secondary',
+        'rescheduled': 'bg-info'
     };
     return badgeClasses[status] || 'bg-secondary';
 }
@@ -870,6 +911,120 @@ function refreshCalendar() {
     if (calendar) {
         calendar.refetchEvents();
     }
+}
+
+// Function to edit appointment status
+function editAppointmentStatus() {
+    const statusBadge = document.getElementById('modal-status-badge');
+    const editBtn = document.getElementById('edit-status-btn');
+    const statusSelect = document.getElementById('modal-status-select');
+    const saveBtn = document.getElementById('save-status-btn');
+    const cancelBtn = document.getElementById('cancel-status-btn');
+    
+    if (statusBadge && editBtn && statusSelect && saveBtn && cancelBtn) {
+        // Hide badge and edit button, show select and action buttons
+        statusBadge.style.display = 'none';
+        editBtn.style.display = 'none';
+        statusSelect.style.display = 'inline-block';
+        saveBtn.style.display = 'inline-block';
+        cancelBtn.style.display = 'inline-block';
+    }
+}
+
+// Function to cancel status edit
+function cancelStatusEdit() {
+    resetStatusEditUI();
+}
+
+// Function to reset status edit UI
+function resetStatusEditUI() {
+    const statusBadge = document.getElementById('modal-status-badge');
+    const editBtn = document.getElementById('edit-status-btn');
+    const statusSelect = document.getElementById('modal-status-select');
+    const saveBtn = document.getElementById('save-status-btn');
+    const cancelBtn = document.getElementById('cancel-status-btn');
+    
+    if (statusBadge && editBtn && statusSelect && saveBtn && cancelBtn) {
+        statusBadge.style.display = 'inline-block';
+        editBtn.style.display = 'inline-block';
+        statusSelect.style.display = 'none';
+        saveBtn.style.display = 'none';
+        cancelBtn.style.display = 'none';
+    }
+}
+
+// Function to save appointment status
+function saveAppointmentStatus() {
+    if (!currentAppointmentId) {
+        showNotification('Erro: ID da consulta não encontrado', 'error');
+        return;
+    }
+    
+    const statusSelect = document.getElementById('modal-status-select');
+    if (!statusSelect) {
+        showNotification('Erro: Campo de status não encontrado', 'error');
+        return;
+    }
+    
+    const newStatus = statusSelect.value;
+    if (!newStatus) {
+        showNotification('Por favor, selecione um status', 'warning');
+        return;
+    }
+    
+    // Show loading state
+    const saveBtn = document.getElementById('save-status-btn');
+    const originalText = saveBtn ? saveBtn.innerHTML : '';
+    if (saveBtn) {
+        saveBtn.disabled = true;
+        saveBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
+    }
+    
+    // Send update request
+    fetch('/dashboard/api/appointments/update/', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/x-www-form-urlencoded',
+            'X-CSRFToken': getCookie('csrftoken')
+        },
+        body: `appointment_id=${currentAppointmentId}&status=${newStatus}`
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            // Update status badge
+            const statusBadge = document.getElementById('modal-status-badge');
+            if (statusBadge && data.appointment) {
+                statusBadge.textContent = data.appointment.status_display || getStatusDisplay(newStatus);
+                statusBadge.className = 'badge ' + getStatusBadgeClass(newStatus);
+            }
+            
+            // Reset UI
+            resetStatusEditUI();
+            
+            // Refresh calendar and stats
+            if (typeof refreshCalendar === 'function') {
+                refreshCalendar();
+            }
+            if (typeof refreshAgendaStats === 'function') {
+                refreshAgendaStats();
+            }
+            
+            showNotification('Status atualizado com sucesso!', 'success');
+        } else {
+            showNotification('Erro ao atualizar status: ' + (data.error || 'Erro desconhecido'), 'error');
+        }
+    })
+    .catch(error => {
+        console.error('Error updating status:', error);
+        showNotification('Erro ao atualizar status. Tente novamente.', 'error');
+    })
+    .finally(() => {
+        if (saveBtn) {
+            saveBtn.disabled = false;
+            saveBtn.innerHTML = originalText;
+        }
+    });
 }
 
 // Override the existing showNewAppointmentModal to refresh calendar after creation

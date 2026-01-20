@@ -1626,7 +1626,7 @@ def api_sync_appointment_income(request):
 @login_required
 @require_POST
 def api_update_appointment(request):
-    """API endpoint to update appointment time or duration"""
+    """API endpoint to update appointment time, duration, or status"""
     try:
         # Get current doctor (from selection for admins, or user's doctor)
         current_doctor = get_selected_doctor(request)
@@ -1649,6 +1649,7 @@ def api_update_appointment(request):
         appointment_date = request.POST.get('appointment_date')
         appointment_time = request.POST.get('appointment_time')
         duration_minutes = request.POST.get('duration_minutes')
+        status = request.POST.get('status')
         
         if not appointment_id:
             return JsonResponse({
@@ -1675,12 +1676,27 @@ def api_update_appointment(request):
             appointment.appointment_time = appointment_time
         if duration_minutes:
             appointment.duration_minutes = int(duration_minutes)
+        if status:
+            # Validate status
+            valid_statuses = [choice[0] for choice in Appointment.STATUS_CHOICES]
+            if status in valid_statuses:
+                appointment.status = status
+            else:
+                return JsonResponse({
+                    'success': False,
+                    'error': f'Status inválido: {status}'
+                })
         
         appointment.save()
         
         return JsonResponse({
             'success': True,
-            'message': 'Consulta atualizada com sucesso'
+            'message': 'Consulta atualizada com sucesso',
+            'appointment': {
+                'id': appointment.id,
+                'status': appointment.status,
+                'status_display': appointment.get_status_display()
+            }
         })
         
     except Exception as e:
