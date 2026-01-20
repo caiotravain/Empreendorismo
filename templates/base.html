@@ -39,12 +39,12 @@
                                 <h6 class="dropdown-header">Área de Trabalho</h6>
                             </li>
                             <li>
-                                <a class="dropdown-item" href="#" onclick="switchViewMode('doctor'); return false;" id="navbar-doctor-item">
+                                <a class="dropdown-item" href="{% url 'dashboard:home' %}?tab=agenda" id="navbar-doctor-item" onclick="if(typeof switchViewMode === 'function') { switchViewMode('doctor'); return false; }">
                                     <i class="fas fa-user-md me-2"></i>Área Médico
                                 </a>
                             </li>
                             <li>
-                                <a class="dropdown-item" href="#" onclick="switchViewMode('administrator'); return false;" id="navbar-admin-item">
+                                <a class="dropdown-item" href="{% url 'dashboard:home' %}?view=administrator&tab=indicadores" id="navbar-admin-item" onclick="if(typeof switchViewMode === 'function') { switchViewMode('administrator'); return false; }">
                                     <i class="fas fa-user-shield me-2"></i>Área Administrador
                                 </a>
                             </li>
