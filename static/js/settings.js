@@ -630,27 +630,47 @@ function updateAppointmentModalWithSettings() {
         });
     }
     
-    // Update status select (now using display names directly)
+    // Update status select - use actual status values, not display names
     const statusSelect = document.getElementById('appointment-status');
     if (statusSelect) {
         statusSelect.innerHTML = '';
+        
+        // Map display names to actual status values
+        const statusValueMap = {
+            'Agendada': 'scheduled',
+            'Confirmada': 'confirmed',
+            'Em Andamento': 'in_progress',
+            'Concluída': 'completed',
+            'Cancelada': 'cancelled',
+            'Não Compareceu': 'no_show',
+            'Reagendada': 'rescheduled'
+        };
+        
         // Normalize: handle both old format [value, label] and new format (string)
         const normalizedStatuses = appointmentSettings.status_choices.map(choice => {
             if (Array.isArray(choice) && choice.length >= 2) {
-                return choice[1]; // Use label from old format
+                return { display: choice[1], value: choice[0] }; // [value, label] format
             }
-            return String(choice); // New format
+            // New format - assume it's a display name, map to value
+            const displayName = String(choice);
+            return { display: displayName, value: statusValueMap[displayName] || displayName.toLowerCase().replace(/\s+/g, '_') };
         });
         
-        normalizedStatuses.forEach((displayName, index) => {
+        normalizedStatuses.forEach((status, index) => {
             const option = document.createElement('option');
-            option.value = displayName; // Use display name as value
-            option.textContent = displayName;
-            if (index === 0) {
+            option.value = status.value; // Use actual status value
+            option.textContent = status.display; // Use display name
+            // Set 'scheduled' as default, or first option if 'scheduled' not found
+            if (status.value === 'scheduled' || (index === 0 && !normalizedStatuses.find(s => s.value === 'scheduled'))) {
                 option.selected = true;
             }
             statusSelect.appendChild(option);
         });
+        
+        // Ensure 'scheduled' is selected if it exists
+        if (statusSelect.querySelector('option[value="scheduled"]')) {
+            statusSelect.value = 'scheduled';
+        }
     }
     
     // Update insurance operator select

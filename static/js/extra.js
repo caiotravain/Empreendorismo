@@ -1131,6 +1131,29 @@ function showNewAppointmentModal() {
     nextHour.setHours(nextHour.getHours() + 1, 0, 0, 0);
     document.getElementById('appointment-time').value = nextHour.toTimeString().slice(0, 5);
     
+    // Set default status to 'scheduled'
+    const statusSelect = document.getElementById('appointment-status');
+    if (statusSelect) {
+        // Try to set to 'scheduled', if option exists
+        const scheduledOption = statusSelect.querySelector('option[value="scheduled"]');
+        if (scheduledOption) {
+            statusSelect.value = 'scheduled';
+        } else {
+            // If 'scheduled' option doesn't exist yet (settings not loaded), set it after settings are applied
+            const modalElement = document.getElementById('newAppointmentModal');
+            const setScheduledStatus = function() {
+                const statusSelectAfter = document.getElementById('appointment-status');
+                if (statusSelectAfter) {
+                    const scheduledOpt = statusSelectAfter.querySelector('option[value="scheduled"]');
+                    if (scheduledOpt) {
+                        statusSelectAfter.value = 'scheduled';
+                    }
+                }
+            };
+            modalElement.addEventListener('shown.bs.modal', setScheduledStatus, { once: true });
+        }
+    }
+    
     // Ensure patient search is set up when modal is shown
     if (window.allPatients && window.allPatients.length > 0) {
         setupPatientSearch();
@@ -1317,6 +1340,17 @@ document.addEventListener('DOMContentLoaded', function() {
 function submitNewAppointment() {
     const form = document.getElementById('newAppointmentForm');
     const formData = new FormData(form);
+    
+    // Ensure status is set to 'scheduled' if not provided
+    const statusSelect = document.getElementById('appointment-status');
+    if (statusSelect && !formData.get('status')) {
+        formData.set('status', 'scheduled');
+    } else if (statusSelect && statusSelect.value) {
+        // Make sure we're using the actual value, not display name
+        formData.set('status', statusSelect.value);
+    } else {
+        formData.set('status', 'scheduled');
+    }
     
     // Show loading state
     const submitBtn = form.querySelector('button[type="submit"]');
