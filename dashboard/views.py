@@ -37,7 +37,7 @@ def home(request):
             doctor__in=accessible_doctors,
             appointment_date=today
         ).exclude(status='cancelled').order_by('appointment_time')
-    
+    print("today_appointments", today_appointments)
     # Get this week's appointments for the calendar view (excluding cancelled)
     start_of_week = today - timedelta(days=today.weekday())
     end_of_week = start_of_week + timedelta(days=6)
@@ -1772,12 +1772,15 @@ def api_agenda_stats(request):
         today = now.date()
         current_time = now.time()
 
-        # Calculate stats - if no doctor selected, show aggregated stats for all doctors
-        if current_doctor:
+        # Get accessible doctors for filtering
+        accessible_doctors = get_accessible_doctors(request.user)
+        
+        # Calculate stats - always filter by accessible doctors
+        if current_doctor and current_doctor in accessible_doctors:
             total_today = Appointment.objects.filter(
                 doctor=current_doctor,
                 appointment_date=today
-            ).count()
+            ).exclude(status='cancelled').count()
             completed_today = Appointment.objects.filter(
                 doctor=current_doctor,
                 appointment_date=today,
@@ -1823,22 +1826,26 @@ def api_agenda_stats(request):
                 else:
                     next_appointment_time = 'N/A'
         else:
-            # For admins without doctor selection, show aggregated stats
+            # For admins without doctor selection, show aggregated stats for accessible doctors
             total_today = Appointment.objects.filter(
+                doctor__in=accessible_doctors,
                 appointment_date=today
-            ).count()
+            ).exclude(status='cancelled').count()
             completed_today = Appointment.objects.filter(
+                doctor__in=accessible_doctors,
                 appointment_date=today,
                 status='completed'
             ).count()
             
             pending_today = Appointment.objects.filter(
+                doctor__in=accessible_doctors,
                 appointment_date=today,
                 status__in=['scheduled', 'confirmed']
             ).count()
             
-            # Get next appointment from all doctors
+            # Get next appointment from accessible doctors
             today_future_appointments = Appointment.objects.filter(
+                doctor__in=accessible_doctors,
                 appointment_date=today,
                 appointment_time__gt=current_time,
                 status__in=['scheduled', 'confirmed']
@@ -1851,6 +1858,7 @@ def api_agenda_stats(request):
             else:
                 tomorrow = today + timedelta(days=1)
                 next_appointment = Appointment.objects.filter(
+                    doctor__in=accessible_doctors,
                     appointment_date__gte=tomorrow,
                     status__in=['scheduled', 'confirmed']
                 ).exclude(
