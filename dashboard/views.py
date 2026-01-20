@@ -211,11 +211,8 @@ def home(request):
 @login_required
 def prontuarios(request):
     """Medical records view"""
-    # Get current user's doctor profile
-    try:
-        current_doctor = Doctor.objects.get(user=request.user)
-    except Doctor.DoesNotExist:
-        current_doctor = None
+    # Get current doctor (from selection for admins, or user's doctor)
+    current_doctor = get_selected_doctor(request)
     
     # Get selected patient ID from request
     selected_patient_id = request.GET.get('patient_id')
@@ -225,30 +222,41 @@ def prontuarios(request):
     medical_records = []
     patients_with_records = []
     
-    if current_doctor:
+    # Get accessible doctors for filtering
+    accessible_doctors = get_accessible_doctors(request.user)
+    
+    if current_doctor and current_doctor in accessible_doctors:
         if selected_patient_id:
             # Filter by selected patient
             try:
                 selected_patient = Patient.objects.get(id=selected_patient_id)
-                # Get total count for pagination info
-                total_records = MedicalRecord.objects.filter(
-                    doctor=current_doctor,
-                    patient=selected_patient
-                ).count()
                 
-                # Get offset from request (default 0)
-                offset = int(request.GET.get('offset', 0))
-                limit = int(request.GET.get('limit', 2))
-                
-                # Get records in reverse chronological order (newest first) for display
-                medical_records = MedicalRecord.objects.filter(
-                    doctor=current_doctor,
-                    patient=selected_patient
-                ).select_related('patient').order_by('-datetime')[offset:offset+limit]
-                
-                # Add pagination info to context
-                has_more_records = (offset + limit) < total_records
-                next_offset = offset + limit
+                # Check if user has access to this patient
+                if not has_access_to_patient(request.user, selected_patient):
+                    selected_patient = None
+                    total_records = 0
+                    has_more_records = False
+                    next_offset = 0
+                else:
+                    # Get total count for pagination info
+                    total_records = MedicalRecord.objects.filter(
+                        doctor__in=accessible_doctors,
+                        patient=selected_patient
+                    ).count()
+                    
+                    # Get offset from request (default 0)
+                    offset = int(request.GET.get('offset', 0))
+                    limit = int(request.GET.get('limit', 2))
+                    
+                    # Get records in reverse chronological order (newest first) for display
+                    medical_records = MedicalRecord.objects.filter(
+                        doctor__in=accessible_doctors,
+                        patient=selected_patient
+                    ).select_related('patient').order_by('-datetime')[offset:offset+limit]
+                    
+                    # Add pagination info to context
+                    has_more_records = (offset + limit) < total_records
+                    next_offset = offset + limit
                 
             except Patient.DoesNotExist:
                 selected_patient = None
@@ -256,15 +264,16 @@ def prontuarios(request):
                 has_more_records = False
                 next_offset = 0
         else:
-            # Show all patients with records for this doctor
-            patients = Patient.objects.filter(
-                medical_records__doctor=current_doctor
+            # Show all patients with records for accessible doctors
+            accessible_patients = get_accessible_patients(request.user)
+            patients = accessible_patients.filter(
+                medical_records__doctor__in=accessible_doctors
             ).distinct().order_by('last_name', 'first_name')
             
             for patient in patients:
                 # Get the latest medical record for this patient
                 latest_record = MedicalRecord.objects.filter(
-                    doctor=current_doctor,
+                    doctor__in=accessible_doctors,
                     patient=patient
                 ).order_by('-datetime').first()
                 
@@ -273,7 +282,7 @@ def prontuarios(request):
                         'patient': patient,
                         'latest_record': latest_record,
                         'total_records': MedicalRecord.objects.filter(
-                            doctor=current_doctor,
+                            doctor__in=accessible_doctors,
                             patient=patient
                         ).count()
                     })
@@ -441,37 +450,46 @@ def settings(request):
 def add_medical_record(request):
     """Add a new medical record for a patient"""
     try:
-        # Get current user's doctor profile
-        current_doctor = Doctor.objects.get(user=request.user)
-    except Doctor.DoesNotExist:
-        return JsonResponse({'success': False, 'error': 'Doctor profile not found'})
-    
-    # Get patient ID and content from request
-    patient_id = request.POST.get('patient_id')
-    content = request.POST.get('content', '').strip()
-    
-    if not patient_id or not content:
-        return JsonResponse({'success': False, 'error': 'Patient ID and content are required'})
-    
-    try:
-        patient = Patient.objects.get(id=patient_id)
-    except Patient.DoesNotExist:
-        return JsonResponse({'success': False, 'error': 'Patient not found'})
-    
-    # Create new medical record
-    medical_record = MedicalRecord.objects.create(
-        patient=patient,
-        doctor=current_doctor,
-        content=content,
-        datetime=timezone.now()
-    )
-    
-    return JsonResponse({
-        'success': True,
-        'record_id': medical_record.id,
-        'datetime': medical_record.datetime.strftime('%d/%m/%Y %H:%M'),
-        'content': medical_record.content
-    })
+        # Get current doctor (from selection for admins, or user's doctor)
+        current_doctor = get_selected_doctor(request)
+        if not current_doctor:
+            return JsonResponse({'success': False, 'error': 'Médico não encontrado ou sem permissão'})
+        
+        # Get patient ID and content from request
+        patient_id = request.POST.get('patient_id')
+        content = request.POST.get('content', '').strip()
+        
+        if not patient_id or not content:
+            return JsonResponse({'success': False, 'error': 'Patient ID and content are required'})
+        
+        try:
+            patient = Patient.objects.get(id=patient_id)
+        except Patient.DoesNotExist:
+            return JsonResponse({'success': False, 'error': 'Patient not found'})
+        
+        # Check if user has access to this patient
+        if not has_access_to_patient(request.user, patient):
+            return JsonResponse({'success': False, 'error': 'Você não tem permissão para criar registro para este paciente'})
+        
+        # Create new medical record
+        medical_record = MedicalRecord.objects.create(
+            patient=patient,
+            doctor=current_doctor,
+            content=content,
+            datetime=timezone.now()
+        )
+        
+        return JsonResponse({
+            'success': True,
+            'record_id': medical_record.id,
+            'datetime': medical_record.datetime.strftime('%d/%m/%Y %H:%M'),
+            'content': medical_record.content
+        })
+    except Exception as e:
+        return JsonResponse({
+            'success': False,
+            'error': f'Erro ao criar registro médico: {str(e)}'
+        })
 
 # API Views for Appointment Modal
 
@@ -580,7 +598,8 @@ def api_patient_detail(request, patient_id):
 def api_doctors(request):
     """API endpoint to get all doctors for the appointment modal"""
     try:
-        doctors = Doctor.objects.filter(is_active=True).order_by('user__last_name', 'user__first_name')
+        # Get only accessible doctors
+        doctors = get_accessible_doctors(request.user).filter(is_active=True).order_by('user__last_name', 'user__first_name')
         doctors_data = []
         
         for doctor in doctors:
@@ -606,13 +625,12 @@ def api_doctors(request):
 def api_appointments(request):
     """API endpoint to create a new appointment"""
     try:
-        # Get current user's doctor profile
-        try:
-            current_doctor = Doctor.objects.get(user=request.user)
-        except Doctor.DoesNotExist:
+        # Get current doctor (from selection for admins, or user's doctor)
+        current_doctor = get_selected_doctor(request)
+        if not current_doctor:
             return JsonResponse({
                 'success': False,
-                'error': 'Usuário não é um médico válido'
+                'error': 'Médico não encontrado ou sem permissão'
             })
         
         # Get form data
@@ -643,6 +661,13 @@ def api_appointments(request):
             return JsonResponse({
                 'success': False,
                 'error': 'Paciente não encontrado'
+            })
+        
+        # Check if user has access to this patient
+        if not has_access_to_patient(request.user, patient):
+            return JsonResponse({
+                'success': False,
+                'error': 'Você não tem permissão para criar consulta para este paciente'
             })
         
         # Check for appointment conflicts (excluding cancelled appointments)
@@ -929,13 +954,20 @@ def api_create_patient(request):
 def api_cancel_appointment(request):
     """API endpoint to cancel an appointment"""
     try:
-        # Get current user's doctor profile
-        try:
-            current_doctor = Doctor.objects.get(user=request.user)
-        except Doctor.DoesNotExist:
+        # Get current doctor (from selection for admins, or user's doctor)
+        current_doctor = get_selected_doctor(request)
+        if not current_doctor:
             return JsonResponse({
                 'success': False,
-                'error': 'Usuário não é um médico válido'
+                'error': 'Médico não encontrado ou sem permissão'
+            })
+        
+        # Get accessible doctors for verification
+        accessible_doctors = get_accessible_doctors(request.user)
+        if current_doctor not in accessible_doctors:
+            return JsonResponse({
+                'success': False,
+                'error': 'Você não tem permissão para cancelar consultas deste médico'
             })
         
         # Get appointment ID and cancellation reason
@@ -952,12 +984,12 @@ def api_cancel_appointment(request):
         try:
             appointment = Appointment.objects.get(
                 id=appointment_id,
-                doctor=current_doctor
+                doctor__in=accessible_doctors
             )
         except Appointment.DoesNotExist:
             return JsonResponse({
                 'success': False,
-                'error': 'Consulta não encontrada'
+                'error': 'Consulta não encontrada ou sem permissão para acessá-la'
             })
         
         # Check if appointment can be cancelled
@@ -1017,13 +1049,20 @@ def api_cancel_appointment(request):
 def api_count_appointments_to_cancel(request):
     """API endpoint to count appointments that will be cancelled in a date/time range"""
     try:
-        # Get current user's doctor profile
-        try:
-            current_doctor = Doctor.objects.get(user=request.user)
-        except Doctor.DoesNotExist:
+        # Get current doctor (from selection for admins, or user's doctor)
+        current_doctor = get_selected_doctor(request)
+        if not current_doctor:
             return JsonResponse({
                 'success': False,
-                'error': 'Usuário não é um médico válido'
+                'error': 'Médico não encontrado ou sem permissão'
+            })
+        
+        # Get accessible doctors for filtering
+        accessible_doctors = get_accessible_doctors(request.user)
+        if current_doctor not in accessible_doctors:
+            return JsonResponse({
+                'success': False,
+                'error': 'Você não tem permissão para contar consultas deste médico'
             })
         
         # Get date range and time range from GET parameters
@@ -1063,7 +1102,7 @@ def api_count_appointments_to_cancel(request):
         if from_date == until_date:
             # Same day: filter by time range
             appointments_query = Appointment.objects.filter(
-                doctor=current_doctor,
+                doctor__in=accessible_doctors,
                 appointment_date=from_date,
                 appointment_time__gte=from_time,
                 appointment_time__lte=until_time
@@ -1073,7 +1112,7 @@ def api_count_appointments_to_cancel(request):
             from django.db.models import Q
             
             appointments_query = Appointment.objects.filter(
-                doctor=current_doctor
+                doctor__in=accessible_doctors
             ).filter(
                 Q(
                     # Appointments on start date with time >= from_time
@@ -1113,13 +1152,20 @@ def api_count_appointments_to_cancel(request):
 def api_bulk_cancel_appointments(request):
     """API endpoint to cancel multiple appointments in a date range"""
     try:
-        # Get current user's doctor profile
-        try:
-            current_doctor = Doctor.objects.get(user=request.user)
-        except Doctor.DoesNotExist:
+        # Get current doctor (from selection for admins, or user's doctor)
+        current_doctor = get_selected_doctor(request)
+        if not current_doctor:
             return JsonResponse({
                 'success': False,
-                'error': 'Usuário não é um médico válido'
+                'error': 'Médico não encontrado ou sem permissão'
+            })
+        
+        # Get accessible doctors for filtering
+        accessible_doctors = get_accessible_doctors(request.user)
+        if current_doctor not in accessible_doctors:
+            return JsonResponse({
+                'success': False,
+                'error': 'Você não tem permissão para cancelar consultas deste médico'
             })
         
         # Get date range, time range and cancellation reason
@@ -1222,7 +1268,7 @@ def api_bulk_cancel_appointments(request):
         if from_date == until_date:
             # Same day: filter by time range
             appointments_query = Appointment.objects.filter(
-                doctor=current_doctor,
+                doctor__in=accessible_doctors,
                 appointment_date=from_date,
                 appointment_time__gte=from_time,
                 appointment_time__lte=until_time
@@ -1232,7 +1278,7 @@ def api_bulk_cancel_appointments(request):
             from django.db.models import Q
             
             appointments_query = Appointment.objects.filter(
-                doctor=current_doctor
+                doctor__in=accessible_doctors
             ).filter(
                 Q(
                     # Appointments on start date with time >= from_time
@@ -1308,13 +1354,20 @@ def api_bulk_cancel_appointments(request):
 def api_confirm_attendance(request):
     """API endpoint to confirm patient attendance"""
     try:
-        # Get current user's doctor profile
-        try:
-            current_doctor = Doctor.objects.get(user=request.user)
-        except Doctor.DoesNotExist:
+        # Get current doctor (from selection for admins, or user's doctor)
+        current_doctor = get_selected_doctor(request)
+        if not current_doctor:
             return JsonResponse({
                 'success': False,
-                'error': 'Usuário não é um médico válido'
+                'error': 'Médico não encontrado ou sem permissão'
+            })
+        
+        # Get accessible doctors for verification
+        accessible_doctors = get_accessible_doctors(request.user)
+        if current_doctor not in accessible_doctors:
+            return JsonResponse({
+                'success': False,
+                'error': 'Você não tem permissão para confirmar presença de consultas deste médico'
             })
         
         # Get appointment ID
@@ -1330,12 +1383,12 @@ def api_confirm_attendance(request):
         try:
             appointment = Appointment.objects.get(
                 id=appointment_id,
-                doctor=current_doctor
+                doctor__in=accessible_doctors
             )
         except Appointment.DoesNotExist:
             return JsonResponse({
                 'success': False,
-                'error': 'Consulta não encontrada'
+                'error': 'Consulta não encontrada ou sem permissão para acessá-la'
             })
         
         # Check if appointment can be confirmed
@@ -1387,13 +1440,20 @@ def api_confirm_attendance(request):
 def api_complete_appointment(request):
     """API endpoint to complete an appointment"""
     try:
-        # Get current user's doctor profile
-        try:
-            current_doctor = Doctor.objects.get(user=request.user)
-        except Doctor.DoesNotExist:
+        # Get current doctor (from selection for admins, or user's doctor)
+        current_doctor = get_selected_doctor(request)
+        if not current_doctor:
             return JsonResponse({
                 'success': False,
-                'error': 'Usuário não é um médico válido'
+                'error': 'Médico não encontrado ou sem permissão'
+            })
+        
+        # Get accessible doctors for verification
+        accessible_doctors = get_accessible_doctors(request.user)
+        if current_doctor not in accessible_doctors:
+            return JsonResponse({
+                'success': False,
+                'error': 'Você não tem permissão para concluir consultas deste médico'
             })
         
         # Get appointment ID
@@ -1409,12 +1469,12 @@ def api_complete_appointment(request):
         try:
             appointment = Appointment.objects.get(
                 id=appointment_id,
-                doctor=current_doctor
+                doctor__in=accessible_doctors
             )
         except Appointment.DoesNotExist:
             return JsonResponse({
                 'success': False,
-                'error': 'Consulta não encontrada'
+                'error': 'Consulta não encontrada ou sem permissão para acessá-la'
             })
         
         # Check if appointment can be completed
@@ -1487,13 +1547,20 @@ def api_complete_appointment(request):
 def api_sync_appointment_income(request):
     """API endpoint to sync income records for all completed appointments"""
     try:
-        # Get current user's doctor profile
-        try:
-            current_doctor = Doctor.objects.get(user=request.user)
-        except Doctor.DoesNotExist:
+        # Get current doctor (from selection for admins, or user's doctor)
+        current_doctor = get_selected_doctor(request)
+        if not current_doctor:
             return JsonResponse({
                 'success': False,
-                'error': 'Usuário não é um médico válido'
+                'error': 'Médico não encontrado ou sem permissão'
+            })
+        
+        # Get accessible doctors for filtering
+        accessible_doctors = get_accessible_doctors(request.user)
+        if current_doctor not in accessible_doctors:
+            return JsonResponse({
+                'success': False,
+                'error': 'Você não tem permissão para sincronizar receitas deste médico'
             })
         
         # Get all completed appointments with values that don't have income records
@@ -1503,7 +1570,7 @@ def api_sync_appointment_income(request):
         today = date.today()
         
         completed_appointments = Appointment.objects.filter(
-            doctor=current_doctor,
+            doctor__in=accessible_doctors,
             status='completed',  # Only completed appointments generate income
             value__gt=0,
             appointment_date__lte=today  # Only today or past appointments
@@ -1550,13 +1617,20 @@ def api_sync_appointment_income(request):
 def api_update_appointment(request):
     """API endpoint to update appointment time or duration"""
     try:
-        # Get current user's doctor profile
-        try:
-            current_doctor = Doctor.objects.get(user=request.user)
-        except Doctor.DoesNotExist:
+        # Get current doctor (from selection for admins, or user's doctor)
+        current_doctor = get_selected_doctor(request)
+        if not current_doctor:
             return JsonResponse({
                 'success': False,
-                'error': 'Usuário não é um médico válido'
+                'error': 'Médico não encontrado ou sem permissão'
+            })
+        
+        # Get accessible doctors for verification
+        accessible_doctors = get_accessible_doctors(request.user)
+        if current_doctor not in accessible_doctors:
+            return JsonResponse({
+                'success': False,
+                'error': 'Você não tem permissão para atualizar consultas deste médico'
             })
         
         # Get appointment ID and update data
@@ -1575,12 +1649,12 @@ def api_update_appointment(request):
         try:
             appointment = Appointment.objects.get(
                 id=appointment_id,
-                doctor=current_doctor
+                doctor__in=accessible_doctors
             )
         except Appointment.DoesNotExist:
             return JsonResponse({
                 'success': False,
-                'error': 'Consulta não encontrada'
+                'error': 'Consulta não encontrada ou sem permissão para acessá-la'
             })
         
         # Update appointment fields if provided
@@ -1798,20 +1872,23 @@ def api_agenda_stats(request):
 
 # Prescription Views
 
+def can_access_prescription(user, prescription):
+    """
+    Check if a user can access a specific prescription
+    - Admins can access prescriptions of doctors they manage
+    - Doctors can access only their own prescriptions
+    - Secretaries can access prescriptions of their assigned doctor
+    """
+    if not user or not user.is_authenticated or not prescription:
+        return False
+    
+    return can_access_doctor(user, prescription.doctor)
+
 @login_required
 @require_http_methods(["GET"])
 def api_prescriptions(request):
     """API endpoint to get prescriptions for a patient"""
     try:
-        # Get current user's doctor profile
-        try:
-            current_doctor = Doctor.objects.get(user=request.user)
-        except Doctor.DoesNotExist:
-            return JsonResponse({
-                'success': False,
-                'error': 'Usuário não é um médico válido'
-            })
-        
         # Get patient ID from request
         patient_id = request.GET.get('patient_id')
         if not patient_id:
@@ -1829,10 +1906,20 @@ def api_prescriptions(request):
                 'error': 'Paciente não encontrado'
             })
         
-        # Get prescriptions for this patient and doctor
+        # Check if user has access to this patient
+        if not has_access_to_patient(request.user, patient):
+            return JsonResponse({
+                'success': False,
+                'error': 'Você não tem permissão para acessar este paciente'
+            })
+        
+        # Get accessible doctors for the current user
+        accessible_doctors = get_accessible_doctors(request.user)
+        
+        # Get prescriptions for this patient from accessible doctors
         prescriptions = Prescription.objects.filter(
             patient=patient,
-            doctor=current_doctor
+            doctor__in=accessible_doctors
         ).order_by('-prescription_date')
         
         prescriptions_data = []
@@ -1875,13 +1962,12 @@ def api_prescriptions(request):
 def api_create_prescription(request):
     """API endpoint to create a new prescription"""
     try:
-        # Get current user's doctor profile
-        try:
-            current_doctor = Doctor.objects.get(user=request.user)
-        except Doctor.DoesNotExist:
+        # Get current doctor (from selection for admins, or user's doctor)
+        current_doctor = get_selected_doctor(request)
+        if not current_doctor:
             return JsonResponse({
                 'success': False,
-                'error': 'Usuário não é um médico válido'
+                'error': 'Médico não encontrado ou sem permissão'
             })
         
         # Get form data
@@ -1915,6 +2001,13 @@ def api_create_prescription(request):
             return JsonResponse({
                 'success': False,
                 'error': 'Paciente não encontrado'
+            })
+        
+        # Check if user has access to this patient
+        if not has_access_to_patient(request.user, patient):
+            return JsonResponse({
+                'success': False,
+                'error': 'Você não tem permissão para criar prescrição para este paciente'
             })
         
         # Get template if provided
@@ -1982,6 +2075,13 @@ def api_send_prescription_email(request):
                 'error': 'Prescrição não encontrada'
             })
         
+        # Check access permission
+        if not can_access_prescription(request.user, prescription):
+            return JsonResponse({
+                'success': False,
+                'error': 'Você não tem permissão para acessar esta prescrição'
+            })
+        
         # Don't mark as sent - allow multiple sends
         # prescription.sent_by_email = True
         # prescription.save()
@@ -2020,6 +2120,13 @@ def api_send_prescription_whatsapp(request):
             return JsonResponse({
                 'success': False,
                 'error': 'Prescrição não encontrada'
+            })
+        
+        # Check access permission
+        if not can_access_prescription(request.user, prescription):
+            return JsonResponse({
+                'success': False,
+                'error': 'Você não tem permissão para acessar esta prescrição'
             })
         
         # Don't mark as sent - allow multiple sends
@@ -2125,6 +2232,13 @@ def api_print_prescription(request):
                 'error': 'Prescrição não encontrada'
             })
         
+        # Check access permission
+        if not can_access_prescription(request.user, prescription):
+            return JsonResponse({
+                'success': False,
+                'error': 'Você não tem permissão para acessar esta prescrição'
+            })
+        
         # Don't mark as printed - allow multiple prints
         # prescription.printed = True
         # prescription.save()
@@ -2188,6 +2302,13 @@ def api_generate_prescription_pdf(request):
             return JsonResponse({
                 'success': False,
                 'error': 'Prescrição não encontrada'
+            })
+        
+        # Check access permission
+        if not can_access_prescription(request.user, prescription):
+            return JsonResponse({
+                'success': False,
+                'error': 'Você não tem permissão para acessar esta prescrição'
             })
         
         # Create PDF buffer
@@ -3358,6 +3479,13 @@ def api_deactivate_patient(request, patient_id):
                 'error': 'Paciente não encontrado'
             })
         
+        # Check if user has access to this patient
+        if not has_access_to_patient(request.user, patient):
+            return JsonResponse({
+                'success': False,
+                'error': 'Você não tem permissão para desativar este paciente'
+            })
+        
         # Check if patient is already inactive
         if not patient.is_active:
             return JsonResponse({
@@ -3392,6 +3520,13 @@ def api_activate_patient(request, patient_id):
             return JsonResponse({
                 'success': False,
                 'error': 'Paciente não encontrado'
+            })
+        
+        # Check if user has access to this patient
+        if not has_access_to_patient(request.user, patient):
+            return JsonResponse({
+                'success': False,
+                'error': 'Você não tem permissão para ativar este paciente'
             })
         
         # Check if patient is already active
@@ -3534,6 +3669,13 @@ def api_update_patient(request):
             return JsonResponse({
                 'success': False,
                 'error': 'Paciente não encontrado'
+            })
+        
+        # Check if user has access to this patient
+        if not has_access_to_patient(request.user, patient):
+            return JsonResponse({
+                'success': False,
+                'error': 'Você não tem permissão para atualizar este paciente'
             })
         
         # Update patient fields
