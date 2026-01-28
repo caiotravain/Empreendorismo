@@ -1,5 +1,6 @@
 from django.urls import path
 from . import views
+from . import whatsapp_views
 
 app_name = 'dashboard'
 
@@ -79,4 +80,8 @@ urlpatterns = [
     
     # API endpoint for indicators
     path('api/indicators/', views.api_indicators, name='api_indicators'),
+    
+    # WhatsApp webhook (with and without trailing slash to handle both cases)
+    path('whatsapp/webhook/', whatsapp_views.whatsapp_webhook, name='whatsapp_webhook'),
+    path('whatsapp/webhook', whatsapp_views.whatsapp_webhook, name='whatsapp_webhook_no_slash'),
 ]

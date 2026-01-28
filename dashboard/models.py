@@ -1417,3 +1417,108 @@ class AppointmentSettings(models.Model):
                 return f"{hours} horas"
             else:
                 return f"{hours}h {mins}min"
+
+
+class WhatsAppConversation(models.Model):
+    """
+    Model to track WhatsApp conversation state for appointment booking
+    """
+    STATE_CHOICES = [
+        ('initial', 'Inicial'),
+        ('selecting_doctor', 'Selecionando Médico'),
+        ('selecting_date', 'Selecionando Data'),
+        ('selecting_time', 'Selecionando Horário'),
+        ('collecting_patient_info', 'Coletando Informações do Paciente'),
+        ('completed', 'Concluída'),
+        ('cancelled', 'Cancelada'),
+    ]
+    
+    # WhatsApp user info
+    phone_number = models.CharField(
+        max_length=20,
+        help_text="WhatsApp phone number"
+    )
+    
+    # Conversation state
+    state = models.CharField(
+        max_length=30,
+        choices=STATE_CHOICES,
+        default='initial',
+        help_text="Current conversation state"
+    )
+    
+    # Selected values
+    selected_doctor = models.ForeignKey(
+        Doctor,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='whatsapp_conversations',
+        help_text="Selected doctor"
+    )
+    
+    selected_date = models.DateField(
+        null=True,
+        blank=True,
+        help_text="Selected appointment date"
+    )
+    
+    selected_time = models.TimeField(
+        null=True,
+        blank=True,
+        help_text="Selected appointment time"
+    )
+    
+    # Patient info being collected
+    patient_name = models.CharField(
+        max_length=200,
+        blank=True,
+        null=True,
+        help_text="Patient name from conversation"
+    )
+    
+    patient_phone = models.CharField(
+        max_length=20,
+        blank=True,
+        null=True,
+        help_text="Patient phone number"
+    )
+    
+    # Created appointment
+    appointment = models.ForeignKey(
+        Appointment,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='whatsapp_conversation',
+        help_text="Created appointment"
+    )
+    
+    # Timestamps
+    created_at = models.DateTimeField(auto_now_add=True, help_text="When conversation started")
+    updated_at = models.DateTimeField(auto_now=True, help_text="When conversation was last updated")
+    completed_at = models.DateTimeField(null=True, blank=True, help_text="When conversation was completed")
+    
+    class Meta:
+        verbose_name = "WhatsApp Conversation"
+        verbose_name_plural = "WhatsApp Conversations"
+        ordering = ['-updated_at']
+        indexes = [
+            models.Index(fields=['phone_number']),
+            models.Index(fields=['state']),
+            models.Index(fields=['created_at']),
+        ]
+    
+    def __str__(self):
+        return f"WhatsApp: {self.phone_number} - {self.get_state_display()}"
+    
+    def reset(self):
+        """Reset conversation to initial state"""
+        self.state = 'initial'
+        self.selected_doctor = None
+        self.selected_date = None
+        self.selected_time = None
+        self.patient_name = None
+        self.patient_phone = None
+        self.appointment = None
+        self.save()

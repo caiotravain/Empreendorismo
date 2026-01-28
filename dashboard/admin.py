@@ -1,5 +1,5 @@
 from django.contrib import admin
-from .models import Admin, Patient, Doctor, Secretary, MedicalRecord, Appointment, Expense, Income, WaitingListEntry
+from .models import Admin, Patient, Doctor, Secretary, MedicalRecord, Appointment, Expense, Income, WaitingListEntry, WhatsAppConversation
 
 
 @admin.register(Patient)
@@ -550,3 +550,51 @@ class WaitingListEntryAdmin(admin.ModelAdmin):
         updated = queryset.update(status='pending')
         self.message_user(request, f'{updated} entries marked as pending.')
     mark_as_pending.short_description = "Mark selected entries as pending"
+
+
+@admin.register(WhatsAppConversation)
+class WhatsAppConversationAdmin(admin.ModelAdmin):
+    list_display = [
+        'phone_number',
+        'state',
+        'selected_doctor',
+        'selected_date',
+        'selected_time',
+        'patient_name',
+        'appointment',
+        'created_at',
+        'updated_at'
+    ]
+    list_filter = [
+        'state',
+        'selected_doctor',
+        'created_at',
+        'updated_at'
+    ]
+    search_fields = [
+        'phone_number',
+        'patient_name',
+        'patient_phone'
+    ]
+    readonly_fields = ['created_at', 'updated_at', 'completed_at']
+    date_hierarchy = 'created_at'
+    ordering = ['-updated_at']
+    
+    fieldsets = (
+        ('Conversation Info', {
+            'fields': ('phone_number', 'state')
+        }),
+        ('Selection', {
+            'fields': ('selected_doctor', 'selected_date', 'selected_time')
+        }),
+        ('Patient Info', {
+            'fields': ('patient_name', 'patient_phone')
+        }),
+        ('Result', {
+            'fields': ('appointment',)
+        }),
+        ('Timestamps', {
+            'fields': ('created_at', 'updated_at', 'completed_at'),
+            'classes': ('collapse',)
+        }),
+    )

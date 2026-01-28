@@ -18,6 +18,7 @@ from django.contrib import admin
 from django.urls import path, include
 from django.shortcuts import redirect
 from django.contrib.auth.decorators import login_required
+from dashboard import whatsapp_views
 
 def home_redirect(request):
     if request.user.is_authenticated:
@@ -29,4 +30,7 @@ urlpatterns = [
     path('admin/', admin.site.urls),
     path('accounts/', include('accounts.urls')),
     path('dashboard/', include('dashboard.urls')),
+    # WhatsApp webhook at root level (with and without trailing slash)
+    path('whatsapp/webhook/', whatsapp_views.whatsapp_webhook, name='whatsapp_webhook_root'),
+    path('whatsapp/webhook', whatsapp_views.whatsapp_webhook, name='whatsapp_webhook_root_no_slash'),
 ]
