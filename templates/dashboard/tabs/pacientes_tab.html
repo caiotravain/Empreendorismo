@@ -20,7 +20,7 @@
                         <path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
                     </svg>
                 </span>
-                <input type="text" class="form-control border-start-0" id="patient-search" placeholder="Buscar por nome, email ou telefone...">
+                <input type="text" class="form-control border-start-0" id="patient-search" placeholder="Buscar por nome, CPF, email ou telefone...">
             </div>
         </div>
         <div class="col-md-3">
@@ -53,6 +53,7 @@
                     <thead class="bg-white border-bottom">
                         <tr>
                             <th class="text-slate-800 fw-medium border-0 py-2 px-3" style="font-size: 0.8rem;">Nome</th>
+                            <th class="text-slate-800 fw-medium border-0 py-2 px-3" style="font-size: 0.8rem;">CPF</th>
                             <th class="text-slate-800 fw-medium border-0 py-2 px-3" style="font-size: 0.8rem;">Email</th>
                             <th class="text-slate-800 fw-medium border-0 py-2 px-3" style="font-size: 0.8rem;">Telefone</th>
                             <th class="text-slate-800 fw-medium border-0 py-2 px-3" style="font-size: 0.8rem;">Idade</th>
@@ -74,6 +75,13 @@
                                 <span class="text-slate-900 fw-medium">
                                     {{ patient.full_name }}
                                 </span>
+                            </td>
+                            <td class="py-2 px-3 text-slate-500" style="font-size: 0.875rem;">
+                                {% if patient.cpf %}
+                                    <span class="text-slate-500">{{ patient.cpf }}</span>
+                                {% else %}
+                                    <span class="text-slate-400">-</span>
+                                {% endif %}
                             </td>
                             <td class="py-2 px-3 text-slate-500" style="font-size: 0.875rem;">
                                 {% if patient.email %}
@@ -334,25 +342,32 @@
                     <div class="row">
                         <div class="col-md-6">
                             <div class="mb-3">
+                                <label for="edit-cpf" class="form-label">CPF</label>
+                                <input type="text" class="form-control" id="edit-cpf" name="cpf" placeholder="000.000.000-00" maxlength="14">
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="mb-3">
                                 <label for="edit-email" class="form-label">Email</label>
                                 <input type="email" class="form-control" id="edit-email" name="email">
                             </div>
                         </div>
+                    </div>
+                    <div class="row">
                         <div class="col-md-6">
                             <div class="mb-3">
                                 <label for="edit-phone" class="form-label">Telefone</label>
                                 <input type="tel" class="form-control" id="edit-phone" name="phone">
                             </div>
                         </div>
-                    </div>
-                    
-                    <div class="row">
                         <div class="col-md-6">
                             <div class="mb-3">
                                 <label for="edit-date-of-birth" class="form-label">Data de Nascimento *</label>
                                 <input type="date" class="form-control" id="edit-date-of-birth" name="date_of_birth" required>
                             </div>
                         </div>
+                    </div>
+                    <div class="row">
                         <div class="col-md-6">
                             <div class="mb-3">
                                 <label for="edit-gender" class="form-label">Sexo *</label>
@@ -364,6 +379,7 @@
                                 </select>
                             </div>
                         </div>
+                        <div class="col-md-6"></div>
                     </div>
                     
                     <div class="mb-3">
@@ -451,25 +467,32 @@
                     <div class="row">
                         <div class="col-md-6">
                             <div class="mb-3">
+                                <label for="create-cpf" class="form-label">CPF</label>
+                                <input type="text" class="form-control" id="create-cpf" name="cpf" placeholder="000.000.000-00" maxlength="14">
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="mb-3">
                                 <label for="create-email" class="form-label">Email</label>
                                 <input type="email" class="form-control" id="create-email" name="email">
                             </div>
                         </div>
+                    </div>
+                    <div class="row">
                         <div class="col-md-6">
                             <div class="mb-3">
                                 <label for="create-phone" class="form-label">Telefone</label>
                                 <input type="tel" class="form-control" id="create-phone" name="phone">
                             </div>
                         </div>
-                    </div>
-                    
-                    <div class="row">
                         <div class="col-md-6">
                             <div class="mb-3">
                                 <label for="create-date-of-birth" class="form-label">Data de Nascimento *</label>
                                 <input type="date" class="form-control" id="create-date-of-birth" name="date_of_birth" required>
                             </div>
                         </div>
+                    </div>
+                    <div class="row">
                         <div class="col-md-6">
                             <div class="mb-3">
                                 <label for="create-gender" class="form-label">Sexo *</label>
@@ -481,6 +504,7 @@
                                 </select>
                             </div>
                         </div>
+                        <div class="col-md-6"></div>
                     </div>
                     
                     <div class="row">
@@ -577,14 +601,15 @@ function filterPatients() {
     
     rows.forEach((row, index) => {
         const name = row.querySelector('td:first-child').textContent.trim().toLowerCase();
-        const email = row.querySelector('td:nth-child(2)').textContent.trim().toLowerCase();
-        const phone = row.querySelector('td:nth-child(3)').textContent.trim().toLowerCase();
-        const genderElement = row.querySelector('td:nth-child(5)');
+        const cpf = row.querySelector('td:nth-child(2)').textContent.trim().toLowerCase();
+        const email = row.querySelector('td:nth-child(3)').textContent.trim().toLowerCase();
+        const phone = row.querySelector('td:nth-child(4)').textContent.trim().toLowerCase();
+        const genderElement = row.querySelector('td:nth-child(6)');
         const gender = genderElement ? genderElement.textContent.trim().toLowerCase() : '';
         // Get status from data attribute (more reliable)
         const patientStatus = row.getAttribute('data-patient-status') || '';
         
-        const matchesSearch = !searchTerm || name.includes(searchTerm) || email.includes(searchTerm) || phone.includes(searchTerm);
+        const matchesSearch = !searchTerm || name.includes(searchTerm) || cpf.includes(searchTerm) || email.includes(searchTerm) || phone.includes(searchTerm);
         
         // Gender filtering
         let matchesGender = true;
@@ -793,6 +818,9 @@ function displayPatientDetails(patient) {
             <div class="col-md-8">
                 <div class="row">
                     <div class="col-md-6">
+                        <h6><i class="fas fa-id-card me-2"></i>CPF</h6>
+                        <p class="text-muted">${patient.cpf || 'Não informado'}</p>
+                        
                         <h6><i class="fas fa-envelope me-2"></i>Email</h6>
                         <p class="text-muted">${patient.email || 'Não informado'}</p>
                         
@@ -858,6 +886,7 @@ function editPatient(patientId) {
                 // Populate all fields with server data
                 document.getElementById('edit-first-name').value = patient.first_name || '';
                 document.getElementById('edit-last-name').value = patient.last_name || '';
+                document.getElementById('edit-cpf').value = patient.cpf || '';
                 document.getElementById('edit-email').value = patient.email || '';
                 document.getElementById('edit-phone').value = patient.phone || '';
                 document.getElementById('edit-date-of-birth').value = patient.date_of_birth || '';
@@ -987,6 +1016,11 @@ document.getElementById('patientCreateForm').addEventListener('submit', function
     e.preventDefault();
     
     const formData = new FormData(this);
+    // Ensure CPF is always sent (some browsers may omit empty inputs)
+    const cpfInput = document.getElementById('create-cpf');
+    if (cpfInput) {
+        formData.set('cpf', cpfInput.value ? cpfInput.value.trim() : '');
+    }
     
     fetch('/dashboard/api/patients/create/', {
         method: 'POST',

@@ -286,6 +286,10 @@ function displayPatientDetailsInTab(patient, tabName) {
             <div class="card-body p-3 patient-details-body" id="patient-details-body-${tabName}">
                 <div class="row">
                     <div class="col-md-3 col-sm-6 mb-2">
+                        <h6 class="mb-1 small"><i class="fas fa-id-card me-2 text-muted"></i>CPF</h6>
+                        <p class="text-muted mb-0 small">${patient.cpf || 'Não informado'}</p>
+                    </div>
+                    <div class="col-md-3 col-sm-6 mb-2">
                         <h6 class="mb-1 small"><i class="fas fa-envelope me-2 text-muted"></i>Email</h6>
                         <p class="text-muted mb-0 small">${patient.email || 'Não informado'}</p>
                     </div>
@@ -1237,9 +1241,11 @@ function setupPatientSearch() {
     // Handle search input
     searchInput.addEventListener('input', function() {
         const searchTerm = this.value.toLowerCase();
-        const filteredPatients = window.allPatients.filter(patient => 
-            `${patient.first_name} ${patient.last_name}`.toLowerCase().includes(searchTerm)
-        );
+        const filteredPatients = window.allPatients.filter(patient => {
+            const name = `${patient.first_name} ${patient.last_name}`.toLowerCase();
+            const cpf = (patient.cpf || '').toLowerCase();
+            return name.includes(searchTerm) || cpf.includes(searchTerm);
+        });
         showPatients(filteredPatients);
     });
     
@@ -1624,11 +1630,13 @@ function searchPatientsInPopup(searchTerm) {
                     const fullName = `${patient.first_name} ${patient.last_name}`.toLowerCase();
                     const email = (patient.email || '').toLowerCase();
                     const phone = (patient.phone || '').toLowerCase();
+                    const cpf = (patient.cpf || '').toLowerCase();
                     const searchLower = searchTerm.toLowerCase();
                     
                     return fullName.includes(searchLower) || 
                            email.includes(searchLower) || 
-                           phone.includes(searchLower);
+                           phone.includes(searchLower) ||
+                           cpf.includes(searchLower);
                 });
                 
                 displayPatientsInPopup(filteredPatients);
@@ -2769,9 +2777,11 @@ function setupWaitlistPatientSearch() {
     // Handle search input
     searchInput.addEventListener('input', function() {
         const searchTerm = this.value.toLowerCase();
-        const filteredPatients = (window.allPatients || []).filter(patient => 
-            `${patient.first_name} ${patient.last_name}`.toLowerCase().includes(searchTerm)
-        );
+        const filteredPatients = (window.allPatients || []).filter(patient => {
+            const name = `${patient.first_name} ${patient.last_name}`.toLowerCase();
+            const cpf = (patient.cpf || '').toLowerCase();
+            return name.includes(searchTerm) || cpf.includes(searchTerm);
+        });
         showWaitlistPatients(filteredPatients);
     });
     

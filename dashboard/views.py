@@ -529,6 +529,7 @@ def api_patients(request):
                 'last_name': patient.last_name,
                 'email': patient.email,
                 'phone': patient.phone,
+                'cpf': patient.cpf or '',
                 'full_name': patient.full_name
             })
         
@@ -574,6 +575,7 @@ def api_patient_detail(request, patient_id):
             'last_name': patient.last_name,
             'email': patient.email,
             'phone': patient.phone,
+            'cpf': patient.cpf or '',
             'date_of_birth': patient.date_of_birth.strftime('%Y-%m-%d') if patient.date_of_birth else '',
             'gender': patient.gender,
             'address': patient.address,
@@ -877,88 +879,6 @@ def api_week_appointments(request):
             'error': f'Erro ao carregar consultas: {str(e)}'
         })
 
-
-@login_required
-@require_POST
-def api_create_patient(request):
-    """API endpoint to create a new patient"""
-    try:
-        # Get form data
-        first_name = request.POST.get('first_name', '').strip()
-        last_name = request.POST.get('last_name', '').strip()
-        email = request.POST.get('email', '').strip()
-        phone = request.POST.get('phone', '').strip()
-        date_of_birth = request.POST.get('date_of_birth')
-        gender = request.POST.get('gender')
-        
-        # Validate required fields
-        if not all([first_name, last_name, date_of_birth, gender]):
-            return JsonResponse({
-                'success': False,
-                'error': 'Nome, sobrenome, data de nascimento e sexo são obrigatórios'
-            })
-        
-        # Check if patient already exists
-        existing_patient = Patient.objects.filter(
-            first_name__iexact=first_name,
-            last_name__iexact=last_name,
-            date_of_birth=date_of_birth
-        ).exists()
-        
-        if existing_patient:
-            return JsonResponse({
-                'success': False,
-                'error': 'Já existe um paciente com estes dados'
-            })
-        
-        # Get the current doctor for the user
-        from accounts.utils import get_user_role
-        from accounts.utils import get_doctor_for_user
-        
-        role = get_user_role(request.user)
-        doctor = None
-        
-        if role == 'admin':
-            # For admins, first check if they have a doctor_profile (some admins are also doctors)
-            if hasattr(request.user, 'doctor_profile'):
-                doctor = request.user.doctor_profile
-            else:
-                # Otherwise, use get_selected_doctor which checks session
-                doctor = get_selected_doctor(request)
-        else:
-            doctor = get_doctor_for_user(request.user)
-        
-        if not doctor:
-            error_msg = 'Usuário não tem um perfil de médico associado'
-            if role == 'admin':
-                error_msg += ' ou nenhum médico foi selecionado'
-            return JsonResponse({
-                'success': False,
-                'error': error_msg
-            })
-        
-        # Create the patient assigned to the current doctor
-        patient = Patient.objects.create(
-            doctor=doctor,
-            first_name=first_name,
-            last_name=last_name,
-            email=email if email else None,
-            phone=phone if phone else None,
-            date_of_birth=date_of_birth,
-            gender=gender
-        )
-        
-        return JsonResponse({
-            'success': True,
-            'patient_id': patient.id,
-            'message': f'Paciente {patient.full_name} criado com sucesso'
-        })
-        
-    except Exception as e:
-        return JsonResponse({
-            'success': False,
-            'error': f'Erro ao criar paciente: {str(e)}'
-        })
 
 @login_required
 @require_POST
@@ -2451,6 +2371,8 @@ def api_generate_prescription_pdf(request):
         # Patient and Doctor Information - Minimalist boxes
         # Patient Information
         patient_info = f"<b>PACIENTE</b><br/>{prescription.patient.full_name}"
+        if prescription.patient.cpf:
+            patient_info += f"<br/><font size='9' color='#999999'>CPF: {prescription.patient.cpf}</font>"
         if prescription.patient.date_of_birth:
             age = prescription.patient.age
             if age is not None:
@@ -3596,6 +3518,7 @@ def api_create_patient(request):
         last_name = request.POST.get('last_name', '').strip()
         email = request.POST.get('email', '').strip()
         phone = request.POST.get('phone', '').strip()
+        cpf = request.POST.get('cpf', '').strip()
         date_of_birth = request.POST.get('date_of_birth')
         gender = request.POST.get('gender')
         address = request.POST.get('address', '').strip()
@@ -3646,6 +3569,7 @@ def api_create_patient(request):
             last_name=last_name,
             email=email if email else None,
             phone=phone if phone else None,
+            cpf=cpf if cpf else None,
             date_of_birth=date_of_birth,
             gender=gender,
             address=address if address else None,
@@ -3660,6 +3584,7 @@ def api_create_patient(request):
         
         return JsonResponse({
             'success': True,
+            'patient_id': patient.id,
             'message': f'Paciente {patient.full_name} criado com sucesso'
         })
         
@@ -3680,6 +3605,7 @@ def api_update_patient(request):
         last_name = request.POST.get('last_name', '').strip()
         email = request.POST.get('email', '').strip()
         phone = request.POST.get('phone', '').strip()
+        cpf = request.POST.get('cpf', '').strip()
         date_of_birth = request.POST.get('date_of_birth')
         gender = request.POST.get('gender')
         address = request.POST.get('address', '').strip()
@@ -3718,6 +3644,7 @@ def api_update_patient(request):
         patient.last_name = last_name
         patient.email = email if email else None
         patient.phone = phone if phone else None
+        patient.cpf = cpf if cpf else None
         patient.date_of_birth = date_of_birth
         patient.gender = gender
         patient.address = address if address else None
@@ -3746,6 +3673,7 @@ def api_update_patient(request):
             'last_name': patient.last_name,
             'email': patient.email,
             'phone': patient.phone,
+            'cpf': patient.cpf or '',
             'date_of_birth': safe_date_format(patient.date_of_birth, '%Y-%m-%d'),
             'gender': patient.gender,
             'address': patient.address,

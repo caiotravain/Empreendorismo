@@ -25,7 +25,7 @@ SECRET_KEY = 'django-insecure-gt5^f5&n)qzbjy4h!8p1n*&8&s9t_+=kce#wx18oi#_dnwu(za
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
-ALLOWED_HOSTS = []
+ALLOWED_HOSTS = ['7c5fa7b58241.ngrok-free.app', '2e8d5fb39c2c.ngrok-free.app', 'localhost', '127.0.0.1']
 
 
 # Application definition
@@ -141,8 +141,57 @@ LOGIN_URL = '/accounts/login/'
 # CSRF settings
 CSRF_COOKIE_HTTPONLY = False  # Allow JavaScript to access CSRF cookie
 CSRF_USE_SESSIONS = False  # Use cookies instead of sessions for CSRF
+CSRF_TRUSTED_ORIGINS = [
+    'https://7c5fa7b58241.ngrok-free.app',
+    'http://7c5fa7b58241.ngrok-free.app',
+    'https://2e8d5fb39c2c.ngrok-free.app',
+    'http://2e8d5fb39c2c.ngrok-free.app',
+]
 
 # Default primary key field type
 # https://docs.djangoproject.com/en/5.2/ref/settings/#default-auto-field
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
+
+# Logging configuration
+LOGGING = {
+    'version': 1,
+    'disable_existing_loggers': False,
+    'formatters': {
+        'verbose': {
+            'format': '{levelname} {asctime} {module} {message}',
+            'style': '{',
+        },
+        'simple': {
+            'format': '{levelname} {message}',
+            'style': '{',
+        },
+    },
+    'handlers': {
+        'console': {
+            'class': 'logging.StreamHandler',
+            'formatter': 'verbose',
+        },
+        'file': {
+            'class': 'logging.FileHandler',
+            'filename': BASE_DIR / 'whatsapp.log',
+            'formatter': 'verbose',
+        },
+    },
+    'root': {
+        'handlers': ['console', 'file'],
+        'level': 'INFO',
+    },
+    'loggers': {
+        'dashboard.whatsapp_views': {
+            'handlers': ['console', 'file'],
+            'level': 'INFO',
+            'propagate': False,
+        },
+        'dashboard.whatsapp_service': {
+            'handlers': ['console', 'file'],
+            'level': 'INFO',
+            'propagate': False,
+        },
+    },
+}

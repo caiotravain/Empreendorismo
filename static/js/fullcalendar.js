@@ -24,6 +24,11 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 });
 
+function isMobileDevice() {
+    return window.matchMedia('(max-width: 768px)').matches ||
+        (typeof navigator !== 'undefined' && /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent));
+}
+
 function initializeFullCalendar() {
     if (calendarInitialized) {
         return;
@@ -36,8 +41,11 @@ function initializeFullCalendar() {
     
     calendarInitialized = true;
 
+    // On cellphone/mobile: show day view; on desktop: show week view
+    const initialView = isMobileDevice() ? 'timeGridDay' : 'timeGridWeek';
+
     calendar = new FullCalendar.Calendar(calendarEl, {
-        initialView: 'timeGridWeek',
+        initialView: initialView,
         headerToolbar: {
             left: 'prev,next today',
             center: 'title',
