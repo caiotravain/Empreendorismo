@@ -21,6 +21,12 @@ class Patient(models.Model):
     # Basic Information
     first_name = models.CharField(max_length=100, help_text="Patient's first name")
     last_name = models.CharField(max_length=100, help_text="Patient's last name")
+    cpf = models.CharField(
+        max_length=14,
+        blank=True,
+        null=True,
+        help_text="Patient's CPF (Brazilian tax ID)"
+    )
     
     # Contact Information
     email = models.EmailField(blank=True, null=True, help_text="Patient's email address")
@@ -77,6 +83,7 @@ class Patient(models.Model):
             models.Index(fields=['last_name', 'first_name']),
             models.Index(fields=['email']),
             models.Index(fields=['phone']),
+            models.Index(fields=['cpf']),
         ]
     
     def __str__(self):

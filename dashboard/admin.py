@@ -7,6 +7,7 @@ class PatientAdmin(admin.ModelAdmin):
     list_display = [
         'full_name',
         'doctor',
+        'cpf',
         'email', 
         'phone', 
         'date_of_birth',
@@ -26,6 +27,7 @@ class PatientAdmin(admin.ModelAdmin):
     search_fields = [
         'first_name', 
         'last_name', 
+        'cpf',
         'email',
         'phone',
         'medical_insurance'
@@ -39,7 +41,7 @@ class PatientAdmin(admin.ModelAdmin):
             'fields': ('doctor',)
         }),
         ('Personal Information', {
-            'fields': ('first_name', 'last_name', 'date_of_birth', 'gender')
+            'fields': ('first_name', 'last_name', 'cpf', 'date_of_birth', 'gender')
         }),
         ('Contact Information', {
             'fields': ('email', 'phone', 'address', 'city', 'state', 'zip_code')
