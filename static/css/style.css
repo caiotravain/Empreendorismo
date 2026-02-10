@@ -854,6 +854,12 @@ body {
     font-size: 0.875rem;
 }
 
+/* Convênio row: name + price + delete */
+.settings-input-group-convenio .input-group {
+    flex-shrink: 0;
+    min-width: 100px;
+}
+
 /* Color picker styling for status options */
 .settings-input-group.status-input-group {
     display: flex;

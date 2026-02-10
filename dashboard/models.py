@@ -1333,6 +1333,12 @@ class AppointmentSettings(models.Model):
         help_text="Available cancellation reasons as display names"
     )
     
+    # Price per convenio: dict mapping operator name to price string (e.g. {"Unimed": "150.00", "Amil": "120.00"})
+    convenio_prices = models.JSONField(
+        default=dict,
+        help_text="Price per insurance operator: {operator_name: price_string}"
+    )
+    
     # Timestamps
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
@@ -1397,6 +1403,7 @@ class AppointmentSettings(models.Model):
                     'Problemas técnicos',
                     'Outro motivo',
                 ],
+                'convenio_prices': {},
             }
         )
         return settings

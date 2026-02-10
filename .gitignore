@@ -1,2 +1,12 @@
 .env
 empreendedorismo/settings.py
+# Python
+__pycache__/
+*.pyc
+*.pyo
+
+# Django
+db.sqlite3
+
+# Ambiente
+.env

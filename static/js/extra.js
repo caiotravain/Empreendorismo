@@ -1311,22 +1311,31 @@ document.addEventListener('DOMContentLoaded', function() {
             submitNewAppointment();
         });
         
-        // Handle payment type change to show/hide insurance operator
+        // Handle payment type change: show value input for particular, insurance operator for convenio
         const paymentTypeSelect = document.getElementById('appointment-payment-type');
         const insuranceOperatorRow = document.getElementById('insurance-operator-row');
-        if (paymentTypeSelect && insuranceOperatorRow) {
-            paymentTypeSelect.addEventListener('change', function() {
-                if (this.value === 'convenio') {
-                    insuranceOperatorRow.style.display = 'block';
-                } else {
-                    insuranceOperatorRow.style.display = 'none';
-                    // Clear insurance operator when hiding
-                    const insuranceOperatorSelect = document.getElementById('appointment-insurance-operator');
-                    if (insuranceOperatorSelect) {
-                        insuranceOperatorSelect.value = '';
+        const valueRow = document.getElementById('appointment-value-row');
+        if (paymentTypeSelect) {
+            function togglePaymentFields() {
+                const isConvenio = paymentTypeSelect.value === 'convenio';
+                const isParticular = paymentTypeSelect.value === 'particular';
+                if (insuranceOperatorRow) {
+                    insuranceOperatorRow.style.display = isConvenio ? 'flex' : 'none';
+                    if (!isConvenio) {
+                        const insuranceOperatorSelect = document.getElementById('appointment-insurance-operator');
+                        if (insuranceOperatorSelect) insuranceOperatorSelect.value = '';
                     }
                 }
-            });
+                if (valueRow) {
+                    valueRow.style.display = isParticular ? 'flex' : 'none';
+                    if (!isParticular) {
+                        const valueInput = document.getElementById('appointment-value');
+                        if (valueInput) valueInput.value = '';
+                    }
+                }
+            }
+            paymentTypeSelect.addEventListener('change', togglePaymentFields);
+            togglePaymentFields(); // Initial state when modal opens
         }
     }
     
@@ -1346,6 +1355,14 @@ document.addEventListener('DOMContentLoaded', function() {
 function submitNewAppointment() {
     const form = document.getElementById('newAppointmentForm');
     const formData = new FormData(form);
+    
+    // When convenio, use configured price for the selected insurance operator
+    const paymentType = formData.get('payment_type');
+    if (paymentType === 'convenio' && typeof appointmentSettings !== 'undefined' && appointmentSettings && appointmentSettings.convenio_prices) {
+        const selectedOperator = formData.get('insurance_operator') || '';
+        const price = appointmentSettings.convenio_prices[selectedOperator];
+        formData.set('value', (price != null && price !== '') ? String(price) : '0');
+    }
     
     // Ensure status is set to 'scheduled' if not provided
     const statusSelect = document.getElementById('appointment-status');

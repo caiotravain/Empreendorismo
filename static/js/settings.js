@@ -34,6 +34,10 @@ function loadSettings() {
                 if (!appointmentSettings.cancellation_reasons) {
                     appointmentSettings.cancellation_reasons = [];
                 }
+                // Initialize convenio_prices if not present (dict: operator name -> price string)
+                if (!appointmentSettings.convenio_prices || typeof appointmentSettings.convenio_prices !== 'object') {
+                    appointmentSettings.convenio_prices = {};
+                }
                 renderSettings();
                 // Also update appointment modal with these settings
                 updateAppointmentModalWithSettings();
@@ -208,25 +212,39 @@ function renderLocationOptions() {
     });
 }
 
-// Render insurance operators
+// Update price for one convenio (by index)
+function updateConvenioPriceForOperator(index, value) {
+    if (!appointmentSettings) return;
+    if (!appointmentSettings.convenio_prices) appointmentSettings.convenio_prices = {};
+    const op = appointmentSettings.insurance_operators[index];
+    if (op) appointmentSettings.convenio_prices[op] = value === '' ? '0' : String(value);
+}
+
+// Render insurance operators (name + price per row)
 function renderInsuranceOperators() {
     const container = document.getElementById('insurance-operators-container');
     if (!container) return;
     
     container.innerHTML = '';
     
-    // Initialize insurance_operators if it doesn't exist
-    if (!appointmentSettings.insurance_operators) {
-        appointmentSettings.insurance_operators = [];
-    }
+    if (!appointmentSettings.insurance_operators) appointmentSettings.insurance_operators = [];
+    if (!appointmentSettings.convenio_prices) appointmentSettings.convenio_prices = {};
     
     appointmentSettings.insurance_operators.forEach((operator, index) => {
+        const price = appointmentSettings.convenio_prices[operator] != null && appointmentSettings.convenio_prices[operator] !== ''
+            ? appointmentSettings.convenio_prices[operator] : '0';
+        const escapedOp = (operator || '').replace(/"/g, '&quot;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
         const div = document.createElement('div');
-        div.className = 'settings-input-group';
+        div.className = 'settings-input-group settings-input-group-convenio';
         div.innerHTML = `
-            <input type="text" class="form-control" value="${operator}" 
-                   placeholder="Nome do convênio (ex: Unimed)" 
+            <input type="text" class="form-control flex-grow-1" value="${escapedOp}" 
+                   placeholder="Nome do convênio" 
                    onchange="updateInsuranceOperator(${index}, this.value)">
+            <div class="input-group input-group-sm" style="max-width: 120px;">
+                <span class="input-group-text">R$</span>
+                <input type="number" class="form-control" value="${price}" step="0.01" min="0" placeholder="0,00" 
+                       onchange="updateConvenioPriceForOperator(${index}, this.value)">
+            </div>
             <button type="button" class="delete-btn" onclick="removeInsuranceOperator(${index})" title="Remover">
                 <i class="fas fa-trash"></i>
             </button>
@@ -238,24 +256,34 @@ function renderInsuranceOperators() {
 // Add insurance operator
 function addInsuranceOperator() {
     if (!appointmentSettings) return;
-    if (!appointmentSettings.insurance_operators) {
-        appointmentSettings.insurance_operators = [];
-    }
-    appointmentSettings.insurance_operators.push('Novo Convênio');
+    if (!appointmentSettings.insurance_operators) appointmentSettings.insurance_operators = [];
+    if (!appointmentSettings.convenio_prices) appointmentSettings.convenio_prices = {};
+    const name = 'Novo Convênio';
+    appointmentSettings.insurance_operators.push(name);
+    appointmentSettings.convenio_prices[name] = '0';
     renderInsuranceOperators();
 }
 
 // Remove insurance operator
 function removeInsuranceOperator(index) {
     if (!appointmentSettings) return;
+    const op = appointmentSettings.insurance_operators[index];
+    if (op && appointmentSettings.convenio_prices) delete appointmentSettings.convenio_prices[op];
     appointmentSettings.insurance_operators.splice(index, 1);
     renderInsuranceOperators();
 }
 
-// Update insurance operator
+// Update insurance operator name (migrate price from old name to new name)
 function updateInsuranceOperator(index, value) {
     if (!appointmentSettings) return;
-    appointmentSettings.insurance_operators[index] = value;
+    const newName = (value || '').trim();
+    if (!newName) return;
+    const oldName = appointmentSettings.insurance_operators[index];
+    if (oldName !== newName && appointmentSettings.convenio_prices) {
+        appointmentSettings.convenio_prices[newName] = appointmentSettings.convenio_prices[oldName] != null ? appointmentSettings.convenio_prices[oldName] : '0';
+        if (oldName) delete appointmentSettings.convenio_prices[oldName];
+    }
+    appointmentSettings.insurance_operators[index] = newName;
 }
 
 // Render cancellation reasons
@@ -494,7 +522,7 @@ function saveSettings() {
         return r && String(r).trim();
     });
     
-    // Prepare data
+    // Prepare data (convenio_prices is dict: operator name -> price string)
     const data = {
         duration_options: validDurations,
         type_choices: normalizedTypes,
@@ -502,7 +530,8 @@ function saveSettings() {
         status_colors: appointmentSettings.status_colors || {},
         location_options: appointmentSettings.location_options.filter(l => l.trim()),
         insurance_operators: validOperators.map(o => String(o).trim()),
-        cancellation_reasons: validCancellationReasons.map(r => String(r).trim())
+        cancellation_reasons: validCancellationReasons.map(r => String(r).trim()),
+        convenio_prices: appointmentSettings.convenio_prices || {}
     };
     
     // Send to server
@@ -582,7 +611,8 @@ function resetSettings() {
                 'Reagendamento solicitado',
                 'Problemas técnicos',
                 'Outro motivo',
-            ]
+            ],
+            convenio_prices: {},
         };
         renderSettings();
     }

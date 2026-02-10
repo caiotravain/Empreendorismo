@@ -112,9 +112,9 @@
                         </div>
                     </div>
 
-                    <!-- Location, Value and Payment Type -->
+                    <!-- Location -->
                     <div class="row">
-                        <div class="col-md-4 mb-3">
+                        <div class="col-md-6 mb-3">
                             <label for="appointment-location" class="form-label">
                                 <i class="fas fa-map-marker-alt me-1"></i>Local
                             </label>
@@ -122,18 +122,7 @@
                                    placeholder="Ex: Sala 1, Consultório A">
                         </div>
 
-                        <div class="col-md-4 mb-3">
-                            <label for="appointment-value" class="form-label">
-                                <i class="fas fa-dollar-sign me-1"></i>Valor da Consulta
-                            </label>
-                            <div class="input-group">
-                                <span class="input-group-text">R$</span>
-                                <input type="number" class="form-control" id="appointment-value" name="value" 
-                                       step="0.01" min="0" placeholder="0,00">
-                            </div>
-                        </div>
-
-                        <div class="col-md-4 mb-3">
+                        <div class="col-md-6 mb-3">
                             <label for="appointment-payment-type" class="form-label">
                                 <i class="fas fa-credit-card me-1"></i>Tipo de Pagamento <span class="text-danger">*</span>
                             </label>
@@ -142,6 +131,20 @@
                                 <option value="convenio">Convênio</option>
                                 <option value="particular">Particular</option>
                             </select>
+                        </div>
+                    </div>
+
+                    <!-- Value (shown only when payment type is particular) -->
+                    <div class="row" id="appointment-value-row" style="display: none;">
+                        <div class="col-md-6 mb-3">
+                            <label for="appointment-value" class="form-label">
+                                <i class="fas fa-dollar-sign me-1"></i>Valor da Consulta
+                            </label>
+                            <div class="input-group">
+                                <span class="input-group-text">R$</span>
+                                <input type="number" class="form-control" id="appointment-value" name="value" 
+                                       step="0.01" min="0" placeholder="0,00">
+                            </div>
                         </div>
                     </div>
 

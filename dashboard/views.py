@@ -2579,6 +2579,7 @@ def api_get_appointment_settings(request):
                 'location_options': settings.location_options,
                 'insurance_operators': settings.insurance_operators if settings.insurance_operators else [],
                 'cancellation_reasons': settings.cancellation_reasons if settings.cancellation_reasons else [],
+                'convenio_prices': settings.convenio_prices if settings.convenio_prices is not None else {},
             }
         })
     except Exception as e:
@@ -2671,6 +2672,17 @@ def api_save_appointment_settings(request):
             # Remove duplicates while preserving order
             if cancellation_reasons:
                 settings.cancellation_reasons = list(dict.fromkeys(cancellation_reasons))
+        
+        # Validate and update convenio prices (dict: operator name -> price string)
+        if 'convenio_prices' in data and isinstance(data['convenio_prices'], dict):
+            cleaned = {}
+            for op, val in data['convenio_prices'].items():
+                if isinstance(op, str) and op.strip():
+                    try:
+                        cleaned[op.strip()] = str(float(val)) if val is not None and str(val).strip() != '' else '0'
+                    except (TypeError, ValueError):
+                        cleaned[op.strip()] = '0'
+            settings.convenio_prices = cleaned
         
         settings.save()
         
