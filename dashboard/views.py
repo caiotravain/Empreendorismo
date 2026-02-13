@@ -358,8 +358,10 @@ def prescricao(request):
 @login_required
 def indicadores(request):
     """Medical indicators view"""
+    current_doctor = get_selected_doctor(request)
     context = {
         'active_tab': 'indicadores',
+        'current_doctor': current_doctor,
     }
     return render(request, 'dashboard/home.html', context)
 
@@ -2700,138 +2702,239 @@ def api_save_appointment_settings(request):
 @login_required
 @require_http_methods(["GET"])
 def api_indicators(request):
-    """API endpoint to get real indicators/metrics data"""
+    """API endpoint to get real indicators/metrics data (Performance + Pacientes views)."""
     try:
-        # Get current user's doctor profile
-        try:
-            current_doctor = Doctor.objects.get(user=request.user)
-        except Doctor.DoesNotExist:
+        current_doctor = get_selected_doctor(request)
+        if not current_doctor:
             return JsonResponse({
                 'success': False,
-                'error': 'Usuário não é um médico válido'
+                'error': 'Nenhum médico selecionado ou usuário não é um médico válido'
             })
-        
-        # Get period filter
-        period = request.GET.get('period', 'month')
-        
-        # Calculate date range based on period
+
+        # Get period: optional year + month for specific month selection
         from datetime import date, timedelta
         from django.utils import timezone
-        
+        from django.db.models import Count, Sum, Avg, Min
+
         today = timezone.now().date()
-        start_date = None
-        end_date = today
-        
-        if period == '30':
+        year_param = request.GET.get('year')
+        month_param = request.GET.get('month')
+        period = request.GET.get('period', 'month')
+
+        if year_param is not None and month_param is not None:
+            try:
+                y, m = int(year_param), int(month_param)
+                if 1 <= m <= 12 and y >= 2020:
+                    start_date = date(y, m, 1)
+                    if m == 12:
+                        end_date = date(y, 12, 31)
+                    else:
+                        end_date = date(y, m + 1, 1) - timedelta(days=1)
+                else:
+                    start_date = date(today.year, today.month, 1)
+                    end_date = today
+            except (ValueError, TypeError):
+                start_date = date(today.year, today.month, 1)
+                end_date = today
+        elif period == '30':
             start_date = today - timedelta(days=30)
+            end_date = today
         elif period == 'month':
             start_date = date(today.year, today.month, 1)
+            end_date = today
         elif period == 'quarter':
             quarter = (today.month - 1) // 3
             start_date = date(today.year, quarter * 3 + 1, 1)
+            end_date = today
         elif period == 'year':
             start_date = date(today.year, 1, 1)
+            end_date = today
         else:
             start_date = date(today.year, today.month, 1)
-        
-        # Get appointments in the period
+            end_date = today
+
         appointments = Appointment.objects.filter(
             doctor=current_doctor,
             appointment_date__gte=start_date,
             appointment_date__lte=end_date
         )
-        
-        # Calculate metrics
+
         total_appointments = appointments.count()
-        
-        # Attendance metrics
         completed_count = appointments.filter(status='completed').count()
         no_show_count = appointments.filter(status='no_show').count()
         cancelled_count = appointments.filter(status='cancelled').count()
-        attended_count = completed_count  # Completed = attended
-        
-        # Calculate percentages based on total appointments (so they add up to 100%)
+        attended_count = completed_count
+
         show_rate = round((attended_count / total_appointments * 100) if total_appointments > 0 else 0, 1)
         no_show_rate = round((no_show_count / total_appointments * 100) if total_appointments > 0 else 0, 1)
         cancelled_rate = round((cancelled_count / total_appointments * 100) if total_appointments > 0 else 0, 1)
-        
-        # Total patients
+        # "Vago" = empty slots (we don't have slot data; use 0 or remainder)
+        vago_rate = max(0, 100 - show_rate - no_show_rate - cancelled_rate)
+
         total_patients = Patient.objects.filter(doctor=current_doctor, is_active=True).count()
-        
-        # Patient mix (payment type distribution)
         particular_count = appointments.filter(payment_type='particular').count()
         convenio_count = appointments.filter(payment_type='convenio').count()
         total_payment_appointments = particular_count + convenio_count
-        
         private_pct = round((particular_count / total_payment_appointments * 100) if total_payment_appointments > 0 else 0, 1)
         insurance_pct = round((convenio_count / total_payment_appointments * 100) if total_payment_appointments > 0 else 0, 1)
-        
-        # Retention rate (patients with more than one appointment in the period)
-        from django.db.models import Count
+
         patients_with_multiple = appointments.values('patient').annotate(
             appointment_count=Count('id')
         ).filter(appointment_count__gt=1).count()
-        
         total_unique_patients = appointments.values('patient').distinct().count()
         retention_rate = round((patients_with_multiple / total_unique_patients * 100) if total_unique_patients > 0 else 0, 1)
-        
-        # Insurance providers breakdown
-        providers_data = []
-        
-        # Get all insurance operators from appointments
-        from django.db.models import Sum, Count, Avg
-        from decimal import Decimal
-        
-        # Group by insurance operator
-        insurance_appointments = appointments.filter(
-            payment_type='convenio',
-            insurance_operator__isnull=False
-        ).exclude(insurance_operator='')
-        
-        operator_stats = insurance_appointments.values('insurance_operator').annotate(
-            total_appointments=Count('id'),
-            total_revenue=Sum('value'),
-            avg_ticket=Avg('value')
-        ).order_by('-total_revenue')
-        
-        for stat in operator_stats:
-            providers_data.append({
-                'name': stat['insurance_operator'],
-                'total_appointments': stat['total_appointments'],
-                'revenue': float(stat['total_revenue'] or 0),
-                'avg_ticket': float(stat['avg_ticket'] or 0)
+        total_retornos = max(0, total_appointments - total_unique_patients)
+
+        days_in_period = (end_date - start_date).days + 1
+        avg_consultations_per_day = round(total_appointments / days_in_period, 1) if days_in_period > 0 else 0
+        duration_agg = appointments.filter(status='completed').aggregate(avg_dur=Avg('duration_minutes'))
+        avg_duration_minutes = int(duration_agg['avg_dur'] or 0)
+        occupation_rate = round(show_rate, 0)  # proxy: same as show rate when no slot data
+
+        # New patients in period (first appointment ever was in this period)
+        patient_ids_in_period = list(appointments.values_list('patient_id', flat=True).distinct())
+        from django.db.models import Min as MinAgg
+        new_patients_count = 0
+        if patient_ids_in_period:
+            first_dates = Appointment.objects.filter(
+                patient_id__in=patient_ids_in_period,
+                doctor=current_doctor
+            ).values('patient_id').annotate(first_ever=MinAgg('appointment_date'))
+            for fd in first_dates:
+                if fd['first_ever'] and start_date <= fd['first_ever'] <= end_date:
+                    new_patients_count += 1
+
+        avg_consultations_per_patient = round(
+            total_appointments / total_unique_patients, 1
+        ) if total_unique_patients > 0 else 0
+
+        # Monthly series for charts (5 months ending with selected month)
+        ref_date = end_date
+        monthly_agenda = []
+        monthly_patients = []
+        for i in range(4, -1, -1):
+            d = ref_date
+            for _ in range(i):
+                if d.month == 1:
+                    d = date(d.year - 1, 12, 1)
+                else:
+                    d = date(d.year, d.month - 1, 1)
+            month_start = date(d.year, d.month, 1)
+            if month_start.month == 12:
+                month_end = date(month_start.year, 12, 31)
+            else:
+                month_end = date(month_start.year, month_start.month + 1, 1) - timedelta(days=1)
+            month_appts = Appointment.objects.filter(
+                doctor=current_doctor,
+                appointment_date__gte=month_start,
+                appointment_date__lte=month_end
+            )
+            tot = month_appts.count()
+            ac = month_appts.filter(status='completed').count()
+            nc = month_appts.filter(status='no_show').count()
+            cc = month_appts.filter(status='cancelled').count()
+            oc = (ac / tot * 100) if tot else 0
+            ns = (nc / tot * 100) if tot else 0
+            ca = (cc / tot * 100) if tot else 0
+            vg = max(0, 100 - oc - ns - ca)
+            monthly_agenda.append({
+                'month': month_start.strftime('%b-%y'),
+                'ocupacao': round(oc, 1),
+                'vago': round(vg, 1),
+                'no_show': round(ns, 1),
+                'cancelamento': round(ca, 1),
             })
-        
-        # Add "Particular" as a provider
-        particular_appointments = appointments.filter(payment_type='particular')
-        particular_revenue = particular_appointments.aggregate(Sum('value'))['value__sum'] or Decimal('0')
-        particular_count_val = particular_appointments.count()
-        particular_avg = float(particular_revenue / particular_count_val) if particular_count_val > 0 else 0
-        
-        if particular_count_val > 0:
-            providers_data.insert(0, {
-                'name': 'Particular',
-                'total_appointments': particular_count_val,
-                'revenue': float(particular_revenue),
-                'avg_ticket': particular_avg
+            pc = month_appts.filter(payment_type='particular').count()
+            cv = month_appts.filter(payment_type='convenio').count()
+            monthly_patients.append({
+                'month': month_start.strftime('%b-%y'),
+                'particular': pc,
+                'convenio': cv,
             })
-        
+
+        # Previous month for trends (comparison vs month before selected period)
+        ref_year, ref_month = start_date.year, start_date.month
+        if ref_month == 1:
+            prev_start = date(ref_year - 1, 12, 1)
+            prev_end = date(ref_year - 1, 12, 31)
+        else:
+            prev_start = date(ref_year, ref_month - 1, 1)
+            prev_end = date(ref_year, ref_month, 1) - timedelta(days=1)
+        prev_appointments = Appointment.objects.filter(
+            doctor=current_doctor,
+            appointment_date__gte=prev_start,
+            appointment_date__lte=prev_end
+        )
+        prev_total = prev_appointments.count()
+        prev_attended = prev_appointments.filter(status='completed').count()
+        prev_no_show = prev_appointments.filter(status='no_show').count()
+        prev_cancelled = prev_appointments.filter(status='cancelled').count()
+        prev_show_rate = round((prev_attended / prev_total * 100) if prev_total else 0, 1)
+        prev_no_show_rate = round((prev_no_show / prev_total * 100) if prev_total else 0, 1)
+        prev_cancelled_rate = round((prev_cancelled / prev_total * 100) if prev_total else 0, 1)
+        prev_unique = prev_appointments.values('patient').distinct().count()
+        prev_new = 0
+        if prev_total:
+            pid_prev = list(prev_appointments.values_list('patient_id', flat=True).distinct())
+            first_prev = Appointment.objects.filter(
+                patient_id__in=pid_prev,
+                doctor=current_doctor
+            ).values('patient_id').annotate(first_ever=MinAgg('appointment_date'))
+            for fd in first_prev:
+                if fd['first_ever'] and prev_start <= fd['first_ever'] <= prev_end:
+                    prev_new += 1
+        prev_retention = 0
+        if prev_unique:
+            prev_multi = prev_appointments.values('patient').annotate(
+                appointment_count=Count('id')
+            ).filter(appointment_count__gt=1).count()
+            prev_retention = round(prev_multi / prev_unique * 100, 1)
+        prev_avg_per_patient = round(prev_total / prev_unique, 2) if prev_unique else 0
+
+        def pct_pt(a, b):
+            return round(a - b, 1)
+
+        trend_ocupacao_pp = pct_pt(show_rate, prev_show_rate)
+        trend_cancelamento_pp = pct_pt(cancelled_rate, prev_cancelled_rate)
+        trend_noshow_pp = pct_pt(no_show_rate, prev_no_show_rate)
+        trend_novos_pct = round(((new_patients_count - prev_new) / prev_new * 100) if prev_new else 0, 0)
+        trend_retencao_pp = pct_pt(retention_rate, prev_retention)
+        trend_media_consultas_pct = round(
+            ((avg_consultations_per_patient - prev_avg_per_patient) / prev_avg_per_patient * 100) if prev_avg_per_patient else 0, 0
+        )
+
         return JsonResponse({
             'success': True,
             'metrics': {
+                'total_appointments': total_appointments,
+                'total_retornos': total_retornos,
                 'show_rate': show_rate,
                 'no_show_rate': no_show_rate,
                 'cancelled_rate': cancelled_rate,
+                'vago_rate': vago_rate,
                 'total_patients': total_patients,
                 'private_pct': private_pct,
                 'insurance_pct': insurance_pct,
                 'retention_rate': retention_rate,
-                'providers': providers_data,
                 'attended_count': attended_count,
                 'no_show_count': no_show_count,
                 'cancelled_count': cancelled_count,
                 'particular_count': particular_count,
                 'convenio_count': convenio_count,
+                'avg_consultations_per_day': avg_consultations_per_day,
+                'avg_duration_minutes': avg_duration_minutes,
+                'occupation_rate': occupation_rate,
+                'new_patients_count': new_patients_count,
+                'total_unique_patients': total_unique_patients,
+                'avg_consultations_per_patient': avg_consultations_per_patient,
+                'monthly_agenda': monthly_agenda,
+                'monthly_patients': monthly_patients,
+                'trend_ocupacao_pp': trend_ocupacao_pp,
+                'trend_cancelamento_pp': trend_cancelamento_pp,
+                'trend_noshow_pp': trend_noshow_pp,
+                'trend_novos_pct': trend_novos_pct,
+                'trend_retencao_pp': trend_retencao_pp,
+                'trend_media_consultas_pct': trend_media_consultas_pct,
             }
         })
         

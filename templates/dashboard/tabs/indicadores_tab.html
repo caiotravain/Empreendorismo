@@ -1,452 +1,307 @@
-<!-- Indicadores Tab -->
+<!-- Indicadores Tab: Performance + Pacientes with live data -->
 <div id="indicadores-tab" class="tab-content" style="display: none;">
-    <!-- Control Bar -->
-    <div class="d-flex justify-content-between align-items-center mb-4">
-        <h1 class="text-slate-800 mb-0" style="font-size: 1.5rem; font-weight: 600;">Indicadores de Performance</h1>
-        <div class="position-relative">
-            <select class="form-select bg-white border border-slate-200 rounded-lg px-4 py-2" id="period-filter" style="min-width: 180px; appearance: none; padding-right: 2.5rem;">
-                <option value="30">Últimos 30 Dias</option>
-                <option value="month" selected>Este Mês</option>
-                <option value="quarter">Último Trimestre</option>
-                <option value="year">Este Ano</option>
-            </select>
-            <svg xmlns="http://www.w3.org/2000/svg" class="position-absolute top-50 end-0 translate-middle-y me-3 text-slate-400" style="pointer-events: none; right: 0;" width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-                <path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7" />
-            </svg>
-        </div>
-    </div>
-
-    <!-- Section 1: The "Pulse" - 4 KPI Cards -->
-    <div class="row mb-4">
-        <!-- Card 1: Show Rate -->
-        <div class="col-md-3 mb-3">
-            <div class="card border border-slate-200 rounded-xl shadow-sm bg-white">
-                <div class="card-body p-4">
-                    <div class="d-flex align-items-center justify-content-between">
-                        <div>
-                            <p class="text-slate-500 mb-1" style="font-size: 0.875rem; font-weight: 500;">Taxa de Comparecimento</p>
-                            <h3 class="mb-0 text-emerald-600 fw-bold" id="show-rate-value">
-                                0%
-                            </h3>
-                            <p class="text-slate-400 mb-0 mt-1" style="font-size: 0.75rem;">Meta: 95%</p>
-                        </div>
-                        <div class="bg-emerald-50 rounded-lg p-3">
-                            <svg xmlns="http://www.w3.org/2000/svg" class="text-emerald-600" width="24" height="24" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-                                <path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-                            </svg>
-                        </div>
+    <div class="indicadores-wrapper">
+        <div class="card shadow mb-4">
+            <div class="card-body">
+                <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
+                    <div class="d-flex align-items-center gap-2">
+                        <label for="indicadores-month-select" class="form-label mb-0 text-muted small">Mês</label>
+                        <select id="indicadores-month-select" class="form-select indicadores-dropdown" aria-label="Selecionar mês" style="max-width: 160px;"></select>
                     </div>
+                    <select id="indicadores-view-dropdown" class="form-select indicadores-dropdown" aria-label="Selecionar visão" style="max-width: 180px;">
+                        <option value="performance" selected>Performance</option>
+                        <option value="pacientes">Pacientes</option>
+                    </select>
                 </div>
-            </div>
-        </div>
 
-        <!-- Card 2: Total Patients -->
-        <div class="col-md-3 mb-3">
-            <div class="card border border-slate-200 rounded-xl shadow-sm bg-white">
-                <div class="card-body p-4">
-                    <div class="d-flex align-items-center justify-content-between">
-                        <div>
-                            <p class="text-slate-500 mb-1" style="font-size: 0.875rem; font-weight: 500;">Total de Pacientes</p>
-                            <h3 class="mb-0 text-slate-900 fw-bold" id="total-patients-value">
-                                0
-                            </h3>
-                            <p class="text-slate-400 mb-0 mt-1" style="font-size: 0.75rem;">Pacientes cadastrados</p>
-                        </div>
-                        <div class="bg-slate-50 rounded-lg p-3">
-                            <svg xmlns="http://www.w3.org/2000/svg" class="text-slate-600" width="24" height="24" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-                                <path stroke-linecap="round" stroke-linejoin="round" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
-                            </svg>
-                        </div>
+                <!-- View A: Performance -->
+                <div id="indicadores-view-performance" class="indicadores-view active">
+                    <div class="indicadores-main-grid">
+                        <section class="indicadores-chart-section">
+                            <h2 class="indicadores-chart-title">Agenda Mensal (%)</h2>
+                            <div class="indicadores-chart-wrap" style="min-height:280px; position:relative;">
+                                <canvas id="chart-performance" aria-label="Agenda mensal: Ocupação, Vago, No-show, Cancelamento"></canvas>
+                            </div>
+                        </section>
+                        <section class="indicadores-kpi-section">
+                            <h2 class="indicadores-kpi-title">Principais indicadores</h2>
+                            <div class="indicadores-kpi-grid">
+                                <div class="indicadores-kpi-item"><span class="indicadores-kpi-value" data-metric="total_consultas">—</span><div class="indicadores-kpi-label">Total Consultas</div></div>
+                                <div class="indicadores-kpi-item"><span class="indicadores-kpi-value" data-metric="total_retornos">—</span><div class="indicadores-kpi-label">Total Retornos</div></div>
+                                <div class="indicadores-kpi-item"><span class="indicadores-kpi-value" data-metric="media_consultas_dia">—</span><div class="indicadores-kpi-label">Média Consultas/Dia</div></div>
+                                <div class="indicadores-kpi-item"><span class="indicadores-kpi-value" data-metric="tempo_medio">—</span><div class="indicadores-kpi-label">Tempo médio Consulta (mm'ss")</div></div>
+                            </div>
+                        </section>
                     </div>
+                    <footer class="indicadores-footer">
+                        <div class="indicadores-footer-header">
+                            <h3 class="indicadores-footer-title">Tendência (vs mês anterior)</h3>
+                        </div>
+                        <div class="indicadores-trends">
+                            <div class="indicadores-trend-item">
+                                <div class="indicadores-trend-value-row"><span class="indicadores-trend-value" data-metric="trend_ocupacao_val">—</span><span class="indicadores-trend-delta" data-metric="trend_ocupacao_delta">—</span></div>
+                                <span class="indicadores-trend-label"><svg class="indicadores-trend-icon" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>Ocupação (%)</span>
+                            </div>
+                            <div class="indicadores-trend-item">
+                                <div class="indicadores-trend-value-row"><span class="indicadores-trend-value" data-metric="trend_cancelamento_val">—</span><span class="indicadores-trend-delta" data-metric="trend_cancelamento_delta">—</span></div>
+                                <span class="indicadores-trend-label"><svg class="indicadores-trend-icon" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>Cancelamentos (%)</span>
+                            </div>
+                            <div class="indicadores-trend-item">
+                                <div class="indicadores-trend-value-row"><span class="indicadores-trend-value" data-metric="trend_noshow_val">—</span><span class="indicadores-trend-delta" data-metric="trend_noshow_delta">—</span></div>
+                                <span class="indicadores-trend-label"><svg class="indicadores-trend-icon" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M9.172 16.172a4 4 0 015.656 0M9 10h.01M15 10h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>No-show (%)</span>
+                            </div>
+                        </div>
+                    </footer>
                 </div>
-            </div>
-        </div>
 
-        <!-- Card 3: Patient Mix -->
-        <div class="col-md-3 mb-3">
-            <div class="card border border-slate-200 rounded-xl shadow-sm bg-white">
-                <div class="card-body p-4">
-                    <div class="d-flex align-items-center justify-content-between">
-                        <div>
-                            <p class="text-slate-500 mb-1" style="font-size: 0.875rem; font-weight: 500;">Mix de Pacientes</p>
-                            <h3 class="mb-0 text-blue-600 fw-bold" id="patient-mix-value">
-                                0% Particular
-                            </h3>
-                            <p class="text-slate-400 mb-0 mt-1" style="font-size: 0.75rem;" id="insurance-pct-text">0% Convênio</p>
-                        </div>
-                        <div class="bg-blue-50 rounded-lg p-3">
-                            <svg xmlns="http://www.w3.org/2000/svg" class="text-blue-600" width="24" height="24" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-                                <path stroke-linecap="round" stroke-linejoin="round" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
-                            </svg>
-                        </div>
+                <!-- View B: Pacientes -->
+                <div id="indicadores-view-pacientes" class="indicadores-view">
+                    <div class="indicadores-main-grid">
+                        <section class="indicadores-chart-section">
+                            <h2 class="indicadores-chart-title">Segmentação Consultas - Particular e convênio</h2>
+                            <div class="indicadores-chart-wrap" style="min-height:280px; position:relative;">
+                                <canvas id="chart-pacientes" aria-label="Segmentação Particular e Convênio por mês"></canvas>
+                            </div>
+                        </section>
+                        <section class="indicadores-kpi-section">
+                            <h2 class="indicadores-kpi-title">Principais indicadores</h2>
+                            <div class="indicadores-kpi-grid">
+                                <div class="indicadores-kpi-item"><span class="indicadores-kpi-value" data-metric="pacientes_recorrentes">—</span><div class="indicadores-kpi-label">Pacientes Recorrentes</div></div>
+                                <div class="indicadores-kpi-item"><span class="indicadores-kpi-value" data-metric="total_consultas_pac">—</span><div class="indicadores-kpi-label">Total Consultas</div></div>
+                                <div class="indicadores-kpi-item"><span class="indicadores-kpi-value" data-metric="pacientes_particular">—</span><div class="indicadores-kpi-label">Pacientes Particular</div></div>
+                                <div class="indicadores-kpi-item"><span class="indicadores-kpi-value" data-metric="pacientes_convenio">—</span><div class="indicadores-kpi-label">Pacientes Convênio</div></div>
+                            </div>
+                        </section>
                     </div>
+                    <footer class="indicadores-footer">
+                        <div class="indicadores-footer-header">
+                            <h3 class="indicadores-footer-title">Tendência (vs mês anterior)</h3>
+                        </div>
+                        <div class="indicadores-trends">
+                            <div class="indicadores-trend-item">
+                                <div class="indicadores-trend-value-row"><span class="indicadores-trend-value" data-metric="trend_novos_val">—</span><span class="indicadores-trend-delta" data-metric="trend_novos_delta">—</span></div>
+                                <span class="indicadores-trend-label">Novos (%)</span>
+                            </div>
+                            <div class="indicadores-trend-item">
+                                <div class="indicadores-trend-value-row"><span class="indicadores-trend-value" data-metric="trend_retencao_val">—</span><span class="indicadores-trend-delta" data-metric="trend_retencao_delta">—</span></div>
+                                <span class="indicadores-trend-label">Retenção (%)</span>
+                            </div>
+                            <div class="indicadores-trend-item">
+                                <div class="indicadores-trend-value-row"><span class="indicadores-trend-value" data-metric="trend_media_val">—</span><span class="indicadores-trend-delta" data-metric="trend_media_delta">—</span></div>
+                                <span class="indicadores-trend-label">Média de Consultas/Paciente</span>
+                            </div>
+                        </div>
+                    </footer>
                 </div>
-            </div>
-        </div>
-
-        <!-- Card 4: Retention -->
-        <div class="col-md-3 mb-3">
-            <div class="card border border-slate-200 rounded-xl shadow-sm bg-white">
-                <div class="card-body p-4">
-                    <div class="d-flex align-items-center justify-content-between">
-                        <div>
-                            <p class="text-slate-500 mb-1" style="font-size: 0.875rem; font-weight: 500;">Retenção</p>
-                            <h3 class="mb-0 text-amber-600 fw-bold" id="retention-value">
-                                0%
-                            </h3>
-                            <p class="text-slate-400 mb-0 mt-1" style="font-size: 0.75rem;">Pacientes retornando</p>
-                        </div>
-                        <div class="bg-amber-50 rounded-lg p-3">
-                            <svg xmlns="http://www.w3.org/2000/svg" class="text-amber-600" width="24" height="24" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-                                <path stroke-linecap="round" stroke-linejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-                            </svg>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <!-- Section 2: Deep Dive - Charts -->
-    <div class="row mb-4">
-        <!-- Container 1: Attendance Breakdown (Donut Chart) -->
-        <div class="col-lg-6 mb-3">
-            <div class="card border border-slate-200 rounded-xl shadow-sm bg-white">
-                <div class="card-body p-4">
-                    <h6 class="text-slate-800 fw-semibold mb-3" style="font-size: 0.875rem;">Comparecimento vs. Faltas e Cancelamentos</h6>
-                    <div style="height: 300px; position: relative;">
-                        <canvas id="attendanceChart"></canvas>
-                    </div>
-                    <div class="d-flex justify-content-center gap-4 mt-3">
-                        <div class="d-flex align-items-center gap-2">
-                            <span class="rounded-circle d-inline-block" style="width: 12px; height: 12px; background-color: #10b981;"></span>
-                            <span class="text-slate-600" style="font-size: 0.875rem;">Comparecimento</span>
-                        </div>
-                        <div class="d-flex align-items-center gap-2">
-                            <span class="rounded-circle d-inline-block" style="width: 12px; height: 12px; background-color: #f43f5e;"></span>
-                            <span class="text-slate-600" style="font-size: 0.875rem;">Faltas</span>
-                        </div>
-                        <div class="d-flex align-items-center gap-2">
-                            <span class="rounded-circle d-inline-block" style="width: 12px; height: 12px; background-color: #6b7280;"></span>
-                            <span class="text-slate-600" style="font-size: 0.875rem;">Cancelados</span>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
-
-        <!-- Container 2: Financial Source (Horizontal Bar) -->
-        <div class="col-lg-6 mb-3">
-            <div class="card border border-slate-200 rounded-xl shadow-sm bg-white">
-                <div class="card-body p-4">
-                    <h6 class="text-slate-800 fw-semibold mb-3" style="font-size: 0.875rem;">Volume Particular vs. Convênio</h6>
-                    <div style="height: 300px; position: relative;">
-                        <canvas id="financialSourceChart"></canvas>
-                    </div>
-                    <div class="d-flex justify-content-center gap-4 mt-3">
-                        <div class="d-flex align-items-center gap-2">
-                            <span class="rounded-circle d-inline-block" style="width: 12px; height: 12px; background-color: #3b82f6;"></span>
-                            <span class="text-slate-600" style="font-size: 0.875rem;">Particular</span>
-                        </div>
-                        <div class="d-flex align-items-center gap-2">
-                            <span class="rounded-circle d-inline-block" style="width: 12px; height: 12px; background-color: #64748b;"></span>
-                            <span class="text-slate-600" style="font-size: 0.875rem;">Convênio</span>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <!-- Section 3: Detailed Insights Table -->
-    <div class="card border border-slate-200 rounded-xl shadow-sm bg-white">
-        <div class="card-body p-4">
-            <h6 class="text-slate-800 fw-semibold mb-3" style="font-size: 0.875rem;">Performance por Operadora de Convênio</h6>
-            <div class="table-responsive">
-                <table class="table table-hover mb-0">
-                    <thead class="bg-slate-50 border-bottom">
-                        <tr>
-                            <th class="text-slate-800 fw-medium border-0 py-3 px-4" style="font-size: 0.875rem;">Operadora</th>
-                            <th class="text-slate-800 fw-medium border-0 py-3 px-4 text-center" style="font-size: 0.875rem;">Total de Consultas</th>
-                            <th class="text-slate-800 fw-medium border-0 py-3 px-4 text-end" style="font-size: 0.875rem;">Receita Gerada</th>
-                            <th class="text-slate-800 fw-medium border-0 py-3 px-4 text-end" style="font-size: 0.875rem;">Ticket Médio</th>
-                        </tr>
-                    </thead>
-                    <tbody id="insurance-providers-table">
-                        <tr>
-                            <td colspan="4" class="text-center text-slate-500 py-4">Carregando dados...</td>
-                        </tr>
-                    </tbody>
-                </table>
             </div>
         </div>
     </div>
 </div>
 
 <script>
-// Initialize charts when indicadores tab is shown
-let attendanceChart = null;
-let financialSourceChart = null;
-let currentMetrics = null;
-
-// Load indicators data from API
-function loadIndicatorsData(period = 'month') {
-    fetch(`/dashboard/api/indicators/?period=${period}`)
-        .then(response => response.json())
-        .then(data => {
-            if (data.success) {
-                currentMetrics = data.metrics;
-                updateIndicatorsDisplay(data.metrics);
-                updateIndicatorsCharts(data.metrics);
-                updateInsuranceProvidersTable(data.metrics.providers || []);
-            } else {
-                console.error('Error loading indicators:', data.error);
-            }
-        })
-        .catch(error => {
-            console.error('Error loading indicators:', error);
-        });
-}
-
-// Update HTML elements with real data
-function updateIndicatorsDisplay(metrics) {
-    // Show Rate
-    const showRateEl = document.getElementById('show-rate-value');
-    if (showRateEl) {
-        showRateEl.textContent = (metrics.show_rate || 0).toFixed(1) + '%';
-    }
-    
-    // Total Patients
-    const totalPatientsEl = document.getElementById('total-patients-value');
-    if (totalPatientsEl) {
-        totalPatientsEl.textContent = metrics.total_patients || 0;
-    }
-    
-    // Patient Mix
-    const patientMixEl = document.getElementById('patient-mix-value');
-    if (patientMixEl) {
-        patientMixEl.textContent = (metrics.private_pct || 0).toFixed(1) + '% Particular';
-    }
-    const insurancePctEl = document.getElementById('insurance-pct-text');
-    if (insurancePctEl) {
-        insurancePctEl.textContent = (metrics.insurance_pct || 0).toFixed(1) + '% Convênio';
-    }
-    
-    // Retention
-    const retentionEl = document.getElementById('retention-value');
-    if (retentionEl) {
-        retentionEl.textContent = (metrics.retention_rate || 0).toFixed(1) + '%';
-    }
-}
-
-// Store counts globally for tooltip access
-let attendanceCounts = [0, 0, 0];
-let financialCounts = {'Particular': 0, 'Convênio': 0};
-
-// Update charts with real data
-function updateIndicatorsCharts(metrics) {
-    // Attendance Breakdown Donut Chart
-    const attendanceCtx = document.getElementById('attendanceChart');
-    if (attendanceCtx) {
-        if (attendanceChart) {
-            attendanceChart.destroy();
-        }
-        
-        // Store absolute counts for tooltip
-        attendanceCounts = [
-            metrics.attended_count || 0,
-            metrics.no_show_count || 0,
-            metrics.cancelled_count || 0
-        ];
-        
-        attendanceChart = new Chart(attendanceCtx, {
-            type: 'doughnut',
-            data: {
-                labels: ['Comparecimento', 'Faltas', 'Cancelados'],
-                datasets: [{
-                    data: [
-                        metrics.show_rate || 0,
-                        metrics.no_show_rate || 0,
-                        metrics.cancelled_rate || 0
-                    ],
-                    backgroundColor: [
-                        '#10b981', // Emerald for Show
-                        '#f43f5e', // Rose for No-Show
-                        '#6b7280'  // Gray for Cancelled
-                    ],
-                    borderWidth: 0
-                }]
-            },
-            options: {
-                responsive: true,
-                maintainAspectRatio: false,
-                plugins: {
-                    legend: {
-                        display: false
-                    },
-                    tooltip: {
-                        callbacks: {
-                            label: function(context) {
-                                const label = context.label || '';
-                                const percentage = context.parsed || 0;
-                                const index = context.dataIndex;
-                                const count = attendanceCounts[index] || 0;
-                                return label + ': ' + percentage.toFixed(1) + '% (' + count + ' consultas)';
-                            }
-                        }
-                    }
-                },
-                cutout: '60%'
-            }
+(function() {
+    var dropdown = document.getElementById('indicadores-view-dropdown');
+    var views = {
+        performance: document.getElementById('indicadores-view-performance'),
+        pacientes: document.getElementById('indicadores-view-pacientes')
+    };
+    function setActiveView(key) {
+        Object.keys(views).forEach(function(k) {
+            var el = views[k];
+            if (el) el.classList.toggle('active', k === key);
         });
     }
+    if (dropdown) dropdown.addEventListener('change', function() { setActiveView(this.value); });
 
-    // Financial Source Horizontal Bar Chart
-    const financialCtx = document.getElementById('financialSourceChart');
-    if (financialCtx) {
-        if (financialSourceChart) {
-            financialSourceChart.destroy();
+    var monthSelect = document.getElementById('indicadores-month-select');
+    var monthNames = ['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez'];
+    function buildMonthOptions() {
+        if (!monthSelect) return;
+        var now = new Date();
+        var html = '';
+        for (var i = 0; i < 24; i++) {
+            var d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+            var y = d.getFullYear();
+            var m = d.getMonth() + 1;
+            var val = y + '-' + (m < 10 ? '0' + m : m);
+            var label = monthNames[d.getMonth()] + ' ' + y;
+            var sel = i === 0 ? ' selected' : '';
+            html += '<option value="' + val + '"' + sel + '>' + label + '</option>';
         }
-        
-        // Store absolute counts for tooltip
-        financialCounts = {
-            'Particular': metrics.particular_count || 0,
-            'Convênio': metrics.convenio_count || 0
+        monthSelect.innerHTML = html;
+    }
+    buildMonthOptions();
+    if (monthSelect) monthSelect.addEventListener('change', function() { loadIndicatorsData(); });
+
+    var chartPerformance = null;
+    var chartPacientes = null;
+
+    function formatDuration(minutes) {
+        if (minutes == null || isNaN(minutes)) return "—";
+        var m = Math.floor(minutes);
+        var s = Math.round((minutes - m) * 60);
+        if (s >= 60) { s = 0; m += 1; }
+        return m + "'" + (s < 10 ? '0' : '') + s + '"';
+    }
+    function formatDelta(val, isPct) {
+        if (val == null || isNaN(val)) return '';
+        var s = val >= 0 ? '+' : '';
+        return s + (isPct ? val + '%' : val + 'p.p.');
+    }
+    function deltaClass(val) {
+        if (val == null) return '';
+        return val < 0 ? 'positive' : (val > 0 ? 'negative' : '');
+    }
+
+    function updatePerformanceKPIs(m) {
+        var map = {
+            'total_consultas': m.total_appointments,
+            'total_retornos': m.total_retornos,
+            'media_consultas_dia': m.avg_consultations_per_day,
+            'tempo_medio': formatDuration(m.avg_duration_minutes)
         };
-        
-        financialSourceChart = new Chart(financialCtx, {
-            type: 'bar',
-            data: {
-                labels: ['Volume'],
-                datasets: [
-                    {
-                        label: 'Particular',
-                        data: [metrics.private_pct || 0],
-                        backgroundColor: '#3b82f6',
-                        borderWidth: 0
-                    },
-                    {
-                        label: 'Convênio',
-                        data: [metrics.insurance_pct || 0],
-                        backgroundColor: '#64748b',
-                        borderWidth: 0
-                    }
-                ]
-            },
-            options: {
-                indexAxis: 'y',
-                responsive: true,
-                maintainAspectRatio: false,
-                plugins: {
-                    legend: {
-                        display: false
-                    },
-                    tooltip: {
-                        callbacks: {
-                            label: function(context) {
-                                const label = context.dataset.label || '';
-                                const percentage = context.parsed.x || 0;
-                                const count = financialCounts[label] || 0;
-                                return label + ': ' + percentage.toFixed(1) + '% (' + count + ' consultas)';
-                            }
-                        }
-                    }
+        Object.keys(map).forEach(function(key) {
+            var el = document.querySelector('.indicadores-view.active [data-metric="' + key + '"]');
+            if (el) el.textContent = map[key] != null && map[key] !== '' ? map[key] : '—';
+        });
+        var trendVal = { trend_ocupacao_val: m.show_rate, trend_cancelamento_val: m.cancelled_rate + '%', trend_noshow_val: m.no_show_rate + '%' };
+        var trendDelta = { trend_ocupacao_delta: m.trend_ocupacao_pp, trend_cancelamento_delta: m.trend_cancelamento_pp, trend_noshow_delta: m.trend_noshow_pp };
+        Object.keys(trendVal).forEach(function(k) {
+            var e = document.querySelector('#indicadores-view-performance [data-metric="' + k + '"]');
+            if (e) e.textContent = trendVal[k] != null ? trendVal[k] : '—';
+        });
+        Object.keys(trendDelta).forEach(function(k) {
+            var e = document.querySelector('#indicadores-view-performance [data-metric="' + k + '"]');
+            if (e) {
+                var v = trendDelta[k];
+                e.textContent = formatDelta(v, false);
+                var cls = 'indicadores-trend-delta ';
+                if (v != null && v !== 0) {
+                    if (k === 'trend_ocupacao_delta') cls += v > 0 ? 'positive' : 'negative';
+                    else if (k === 'trend_cancelamento_delta') cls += v > 0 ? 'negative' : 'positive';
+                    else if (k === 'trend_noshow_delta') cls += v < 0 ? 'positive' : 'negative';
+                }
+                e.className = cls;
+            }
+        });
+    }
+    function updatePacientesKPIs(m) {
+        var recorrentes = (m.total_unique_patients || 0) - (m.new_patients_count || 0);
+        var map = {
+            'pacientes_recorrentes': recorrentes,
+            'total_consultas_pac': m.total_appointments,
+            'pacientes_particular': m.particular_count,
+            'pacientes_convenio': m.convenio_count
+        };
+        Object.keys(map).forEach(function(key) {
+            var el = document.querySelector('#indicadores-view-pacientes [data-metric="' + key + '"]');
+            if (el) el.textContent = map[key] != null ? map[key] : '—';
+        });
+        var v1 = document.querySelector('#indicadores-view-pacientes [data-metric="trend_novos_val"]');
+        if (v1) v1.textContent = m.new_patients_count != null ? m.new_patients_count : '—';
+        var d1 = document.querySelector('#indicadores-view-pacientes [data-metric="trend_novos_delta"]');
+        if (d1) { d1.textContent = formatDelta(m.trend_novos_pct, true); d1.className = 'indicadores-trend-delta ' + (m.trend_novos_pct != null && m.trend_novos_pct >= 0 ? 'positive' : 'negative'); }
+        var v2 = document.querySelector('#indicadores-view-pacientes [data-metric="trend_retencao_val"]');
+        if (v2) v2.textContent = m.retention_rate != null ? m.retention_rate + '%' : '—';
+        var d2 = document.querySelector('#indicadores-view-pacientes [data-metric="trend_retencao_delta"]');
+        if (d2) { d2.textContent = formatDelta(m.trend_retencao_pp, false); d2.className = 'indicadores-trend-delta ' + (m.trend_retencao_pp != null && m.trend_retencao_pp <= 0 ? 'negative' : 'positive'); }
+        var v3 = document.querySelector('#indicadores-view-pacientes [data-metric="trend_media_val"]');
+        if (v3) v3.textContent = m.avg_consultations_per_patient != null ? m.avg_consultations_per_patient : '—';
+        var d3 = document.querySelector('#indicadores-view-pacientes [data-metric="trend_media_delta"]');
+        if (d3) { d3.textContent = formatDelta(m.trend_media_consultas_pct, true); d3.className = 'indicadores-trend-delta ' + (m.trend_media_consultas_pct != null && m.trend_media_consultas_pct >= 0 ? 'positive' : 'negative'); }
+    }
+
+    function drawCharts(m) {
+        if (typeof Chart === 'undefined') return;
+        var agenda = m.monthly_agenda || [];
+        var meses = agenda.map(function(x) { return x.month; });
+        if (chartPerformance) { chartPerformance.destroy(); chartPerformance = null; }
+        var canvasPerf = document.getElementById('chart-performance');
+        if (canvasPerf && meses.length) {
+            chartPerformance = new Chart(canvasPerf, {
+                type: 'bar',
+                data: {
+                    labels: meses,
+                    datasets: [
+                        { label: 'Ocupação', data: agenda.map(function(x) { return x.ocupacao; }), backgroundColor: '#34d399', borderWidth: 0 },
+                        { label: 'Vago', data: agenda.map(function(x) { return x.vago; }), backgroundColor: '#facc15', borderWidth: 0 },
+                        { label: 'No-show', data: agenda.map(function(x) { return x.no_show; }), backgroundColor: '#94a3b8', borderWidth: 0 },
+                        { label: 'Cancelamento', data: agenda.map(function(x) { return x.cancelamento; }), backgroundColor: '#f87171', borderWidth: 0 }
+                    ]
                 },
-                scales: {
-                    x: {
-                        stacked: true,
-                        max: 100,
-                        ticks: {
-                            callback: function(value) {
-                                return value + '%';
-                            },
-                            font: {
-                                size: 11
-                            }
-                        },
-                        grid: {
-                            display: false
-                        }
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: {
+                        x: { stacked: true },
+                        y: { stacked: true, max: 100, ticks: { callback: function(v) { return v + '%'; } } }
                     },
-                    y: {
-                        stacked: true,
-                        ticks: {
-                            display: false
-                        },
-                        grid: {
-                            display: false
-                        }
-                    }
+                    plugins: { legend: { display: true, position: 'top' } }
                 }
-            }
-        });
-    }
-}
-
-// Update insurance providers table
-function updateInsuranceProvidersTable(providers) {
-    const tableBody = document.getElementById('insurance-providers-table');
-    if (!tableBody) return;
-    
-    tableBody.innerHTML = '';
-    
-    if (providers.length === 0) {
-        tableBody.innerHTML = '<tr><td colspan="4" class="text-center text-slate-500 py-4">Nenhum dado disponível</td></tr>';
-        return;
-    }
-    
-    providers.forEach(provider => {
-        const row = document.createElement('tr');
-        row.className = 'border-bottom';
-        row.innerHTML = `
-            <td class="py-3 px-4">
-                <span class="text-slate-900 fw-medium">${provider.name}</span>
-            </td>
-            <td class="py-3 px-4 text-center text-slate-600">${provider.total_appointments}</td>
-            <td class="py-3 px-4 text-end">
-                <span class="text-slate-900 fw-medium">R$ ${provider.revenue.toLocaleString('pt-BR', {minimumFractionDigits: 2, maximumFractionDigits: 2})}</span>
-            </td>
-            <td class="py-3 px-4 text-end">
-                <span class="text-slate-600">R$ ${provider.avg_ticket.toLocaleString('pt-BR', {minimumFractionDigits: 2, maximumFractionDigits: 2})}</span>
-            </td>
-        `;
-        tableBody.appendChild(row);
-    });
-}
-
-// Initialize charts when tab becomes visible
-document.addEventListener('DOMContentLoaded', function() {
-    const indicadoresTab = document.getElementById('indicadores-tab');
-    const periodFilter = document.getElementById('period-filter');
-    
-    // Load data when period filter changes
-    if (periodFilter) {
-        periodFilter.addEventListener('change', function() {
-            loadIndicatorsData(this.value);
-        });
-    }
-    
-    if (indicadoresTab) {
-        const observer = new MutationObserver(function(mutations) {
-            if (indicadoresTab.style.display !== 'none') {
-                // Load data with current period filter value
-                const period = periodFilter ? periodFilter.value : 'month';
-                loadIndicatorsData(period);
-            }
-        });
-        observer.observe(indicadoresTab, { attributes: true, attributeFilter: ['style'] });
-        
-        // Also check on tab switch
-        const originalSwitchTab = window.switchTab;
-        if (originalSwitchTab) {
-            window.switchTab = function(tabName) {
-                originalSwitchTab(tabName);
-                if (tabName === 'indicadores') {
-                    const period = periodFilter ? periodFilter.value : 'month';
-                    setTimeout(() => loadIndicatorsData(period), 200);
+            });
+        }
+        var patients = m.monthly_patients || [];
+        var mesesP = patients.map(function(x) { return x.month; });
+        if (chartPacientes) { chartPacientes.destroy(); chartPacientes = null; }
+        var canvasPac = document.getElementById('chart-pacientes');
+        if (canvasPac && mesesP.length) {
+            chartPacientes = new Chart(canvasPac, {
+                type: 'line',
+                data: {
+                    labels: mesesP,
+                    datasets: [
+                        { label: 'Particular', data: patients.map(function(x) { return x.particular; }), borderColor: '#0A0A33', backgroundColor: 'rgba(10,10,51,0.06)', fill: true, tension: 0.4 },
+                        { label: 'Convênio', data: patients.map(function(x) { return x.convenio; }), borderColor: '#64748b', backgroundColor: 'rgba(100,116,139,0.08)', fill: true, tension: 0.4 }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: { x: {}, y: { beginAtZero: true } },
+                    plugins: { legend: { display: true, position: 'top' } }
                 }
-            };
+            });
         }
     }
-});
+
+    function loadIndicatorsData() {
+        var year = '', month = '';
+        if (monthSelect && monthSelect.value) {
+            var parts = monthSelect.value.split('-');
+            if (parts.length === 2) { year = parts[0]; month = parts[1]; }
+        }
+        var q = new URLSearchParams();
+        if (year && month) { q.set('year', year); q.set('month', month); }
+        else q.set('period', 'month');
+        fetch('/dashboard/api/indicators/?' + q.toString())
+            .then(function(r) { return r.json(); })
+            .then(function(data) {
+                if (!data.success || !data.metrics) {
+                    console.error('Indicadores:', data.error || 'Erro ao carregar');
+                    return;
+                }
+                var m = data.metrics;
+                updatePerformanceKPIs(m);
+                updatePacientesKPIs(m);
+                drawCharts(m);
+            })
+            .catch(function(err) { console.error('Indicadores:', err); });
+    }
+
+    var indicadoresTab = document.getElementById('indicadores-tab');
+    if (indicadoresTab) {
+        if (indicadoresTab.style.display !== 'none') loadIndicatorsData();
+        var obs = new MutationObserver(function() {
+            if (indicadoresTab.style.display !== 'none') loadIndicatorsData();
+        });
+        obs.observe(indicadoresTab, { attributes: true, attributeFilter: ['style'] });
+    }
+    if (typeof switchTab === 'function') {
+        var orig = window.switchTab;
+        window.switchTab = function(tabName) {
+            orig.apply(this, arguments);
+            if (tabName === 'indicadores') setTimeout(loadIndicatorsData, 100);
+        };
+    }
+})();
 </script>

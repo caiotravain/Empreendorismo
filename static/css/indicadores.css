@@ -1,0 +1,191 @@
+/* Indicadores tab – aligned with dashboard style (Bootstrap + primary color) */
+
+.indicadores-wrapper {
+    /* No custom background; matches other tabs */
+}
+
+/* Dropdown: use app primary when combined with form-select */
+.indicadores-wrapper .indicadores-dropdown.form-select {
+    border-color: var(--primary-color, #0A0A33);
+    color: var(--primary-color, #0A0A33);
+    font-weight: 600;
+}
+
+.indicadores-wrapper .indicadores-dropdown.form-select:focus {
+    border-color: var(--primary-color, #0A0A33);
+    box-shadow: 0 0 0 0.2rem rgba(10, 10, 51, 0.25);
+}
+
+/* Main two-column layout: chart (left) + KPIs (right) */
+.indicadores-main-grid {
+    display: grid;
+    grid-template-columns: 1fr 340px;
+    gap: 1.5rem;
+    align-items: start;
+    margin-bottom: 1.5rem;
+}
+
+@media (max-width: 900px) {
+    .indicadores-main-grid {
+        grid-template-columns: 1fr;
+    }
+}
+
+/* Chart section – light background like other dashboard cards */
+.indicadores-chart-section {
+    background: rgba(0, 0, 0, 0.03);
+    border-radius: 0.5rem;
+    padding: 1.25rem;
+    border: 1px solid rgba(0, 0, 0, 0.08);
+}
+
+.indicadores-chart-title {
+    font-size: 0.9375rem;
+    font-weight: 600;
+    color: var(--primary-color, #0A0A33);
+    margin: 0 0 1rem 0;
+}
+
+.indicadores-chart-legend {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 1rem;
+    margin-top: 0.75rem;
+}
+
+.indicadores-legend-item {
+    display: flex;
+    align-items: center;
+    gap: 0.35rem;
+    font-size: 0.8125rem;
+    color: #666;
+}
+
+.indicadores-legend-swatch {
+    width: 12px;
+    height: 12px;
+    border-radius: 3px;
+}
+
+/* KPI grid */
+.indicadores-kpi-section {
+    padding: 0.25rem 0;
+}
+
+.indicadores-kpi-title {
+    font-size: 0.9375rem;
+    font-weight: 600;
+    color: var(--primary-color, #0A0A33);
+    margin: 0 0 1rem 0;
+}
+
+.indicadores-kpi-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 1rem;
+}
+
+.indicadores-kpi-item {
+    background: rgba(0, 0, 0, 0.03);
+    border-radius: 0.5rem;
+    padding: 1rem;
+    border: 1px solid rgba(0, 0, 0, 0.06);
+}
+
+.indicadores-kpi-value {
+    font-size: 1.5rem;
+    font-weight: 700;
+    color: var(--primary-color, #0A0A33);
+    line-height: 1.2;
+}
+
+.indicadores-kpi-label {
+    font-size: 0.8125rem;
+    color: #666;
+    margin-top: 0.25rem;
+}
+
+/* View blocks (only one visible at a time) */
+.indicadores-view {
+    display: none;
+}
+
+.indicadores-view.active {
+    display: block;
+}
+
+/* Footer: trends bar */
+.indicadores-footer {
+    margin-top: 1.5rem;
+    padding: 1.25rem 0;
+    border-top: 1px solid rgba(0, 0, 0, 0.08);
+    background: rgba(0, 0, 0, 0.02);
+    border-radius: 0.5rem;
+}
+
+.indicadores-footer-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 1rem;
+}
+
+.indicadores-footer-title {
+    font-size: 0.9375rem;
+    font-weight: 600;
+    color: var(--primary-color, #0A0A33);
+    margin: 0;
+}
+
+/* Trends row */
+.indicadores-trends {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 1.5rem;
+}
+
+.indicadores-trend-item {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+}
+
+.indicadores-trend-value-row {
+    display: flex;
+    align-items: baseline;
+    gap: 0.5rem;
+}
+
+.indicadores-trend-value {
+    font-size: 1.5rem;
+    font-weight: 700;
+    color: var(--primary-color, #0A0A33);
+}
+
+.indicadores-trend-delta {
+    font-size: 0.875rem;
+    font-weight: 500;
+}
+
+.indicadores-trend-delta.positive {
+    color: #22c55e;
+}
+
+.indicadores-trend-delta.negative {
+    color: #ef4444;
+}
+
+.indicadores-trend-label {
+    display: flex;
+    align-items: center;
+    gap: 0.35rem;
+    font-size: 0.8125rem;
+    color: #666;
+    margin-top: 0.25rem;
+}
+
+.indicadores-trend-icon {
+    width: 18px;
+    height: 18px;
+    opacity: 0.8;
+}
