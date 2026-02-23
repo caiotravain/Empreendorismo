@@ -9,7 +9,7 @@ from django.db import models
 from django.db.models import Q
 from datetime import date, timedelta, datetime
 from decimal import Decimal, InvalidOperation
-from .models import Appointment, Patient, Doctor, MedicalRecord, Prescription, PrescriptionItem, PrescriptionTemplate, Expense, Income, Medication, WaitingListEntry, AppointmentSettings
+from .models import Appointment, Patient, Doctor, MedicalRecord, Prescription, PrescriptionItem, PrescriptionTemplate, Expense, Income, Medication, WaitingListEntry, AppointmentSettings, CalendarBlock
 from .waiting_list_views import api_waiting_list, api_waiting_list_entry, api_update_waiting_list_entry, api_convert_waitlist_to_appointment
 from accounts.utils import get_accessible_patients, get_user_role, has_access_to_patient, get_accessible_doctors, can_access_doctor
 
@@ -194,6 +194,9 @@ def home(request):
     
     # Get active tab from URL parameter, default to 'agenda'
     active_tab = request.GET.get('tab', 'agenda')
+    # Secretary can only access agenda tab
+    if get_user_role(request.user) == 'secretary':
+        active_tab = 'agenda'
     
     context = {
         'active_tab': active_tab,
@@ -697,6 +700,30 @@ def api_appointments(request):
                 'success': False,
                 'error': 'Já existe uma consulta agendada para este médico no horário selecionado'
             })
+
+        # Check for overlap with calendar blocks
+        try:
+            appt_date = datetime.strptime(appointment_date, '%Y-%m-%d').date()
+            appt_time = datetime.strptime(appointment_time, '%H:%M').time()
+        except ValueError:
+            appt_date = None
+            appt_time = None
+        if appt_date is not None and appt_time is not None:
+            duration_min = int(duration_minutes) if duration_minutes else 30
+            appt_start = timezone.make_aware(
+                datetime.combine(appt_date, appt_time),
+                timezone.get_current_timezone()
+            )
+            appt_end = appt_start + timedelta(minutes=duration_min)
+            if CalendarBlock.objects.filter(
+                doctor=current_doctor,
+                start__lt=appt_end,
+                end__gt=appt_start
+            ).exists():
+                return JsonResponse({
+                    'success': False,
+                    'error': 'Este horário está dentro de um período bloqueado na agenda. Escolha outro horário.'
+                })
         
         # Convert value to decimal if provided
         appointment_value = None
@@ -859,9 +886,41 @@ def api_week_appointments(request):
                 'is_first_appointment': is_first_appointment
             })
         
+        # Calendar blocks in the same date range (for the selected doctor(s))
+        range_start = timezone.make_aware(
+            datetime.combine(start_date, datetime.min.time()),
+            timezone.get_current_timezone()
+        )
+        range_end = timezone.make_aware(
+            datetime.combine(end_date, datetime.max.time().replace(microsecond=0)),
+            timezone.get_current_timezone()
+        )
+        if current_doctor:
+            blocks_qs = CalendarBlock.objects.filter(
+                doctor=current_doctor,
+                start__lt=range_end,
+                end__gt=range_start
+            ).order_by('start')
+        else:
+            blocks_qs = CalendarBlock.objects.filter(
+                start__lt=range_end,
+                end__gt=range_start
+            ).order_by('start')
+        blocks_data = [
+            {
+                'id': f'block-{b.id}',
+                'start': b.start.isoformat(),
+                'end': b.end.isoformat(),
+                'reason': b.reason or '',
+                'is_block': True
+            }
+            for b in blocks_qs
+        ]
+
         response_data = {
             'success': True,
             'appointments': appointments_data,
+            'blocks': blocks_data,
             'start_date': start_date.strftime('%Y-%m-%d'),
             'end_date': end_date.strftime('%Y-%m-%d'),
             'week_start': start_date.strftime('%Y-%m-%d'),  # Keep for backward compatibility
@@ -1281,6 +1340,126 @@ def api_bulk_cancel_appointments(request):
             'success': False,
             'error': f'Erro ao cancelar consultas: {str(e)}'
         })
+
+
+@login_required
+@require_POST
+def api_create_calendar_block(request):
+    """API endpoint to block the doctor's calendar for a specific period"""
+    try:
+        current_doctor = get_selected_doctor(request)
+        if not current_doctor:
+            return JsonResponse({
+                'success': False,
+                'error': 'Médico não encontrado ou sem permissão'
+            })
+        accessible_doctors = get_accessible_doctors(request.user)
+        if current_doctor not in accessible_doctors:
+            return JsonResponse({
+                'success': False,
+                'error': 'Você não tem permissão para bloquear a agenda deste médico'
+            })
+
+        from_date_str = request.POST.get('from_date')
+        until_date_str = request.POST.get('until_date')
+        from_time_str = request.POST.get('from_time')
+        until_time_str = request.POST.get('until_time')
+        reason = (request.POST.get('reason') or '').strip() or None
+
+        if not all([from_date_str, until_date_str, from_time_str, until_time_str]):
+            return JsonResponse({
+                'success': False,
+                'error': 'Data e horário inicial e final são obrigatórios'
+            })
+
+        try:
+            from_date = datetime.strptime(from_date_str, '%Y-%m-%d').date()
+            until_date = datetime.strptime(until_date_str, '%Y-%m-%d').date()
+        except ValueError:
+            return JsonResponse({
+                'success': False,
+                'error': 'Formato de data inválido. Use YYYY-MM-DD'
+            })
+        try:
+            from_time = datetime.strptime(from_time_str, '%H:%M').time()
+            until_time = datetime.strptime(until_time_str, '%H:%M').time()
+        except ValueError:
+            return JsonResponse({
+                'success': False,
+                'error': 'Formato de horário inválido. Use HH:MM'
+            })
+
+        now = timezone.localtime(timezone.now())
+        today = now.date()
+
+        if from_date < today:
+            return JsonResponse({
+                'success': False,
+                'error': 'A data inicial não pode ser no passado.'
+            })
+        if until_date < today:
+            return JsonResponse({
+                'success': False,
+                'error': 'A data final não pode ser no passado.'
+            })
+        # Do not compare start time with server time for "today" - server may be in UTC
+        # and user's morning would be in the past in UTC; client already validates local time
+        if from_date > until_date:
+            return JsonResponse({
+                'success': False,
+                'error': 'Data inicial não pode ser maior que data final'
+            })
+        if from_date == until_date and from_time >= until_time:
+            return JsonResponse({
+                'success': False,
+                'error': 'Horário final deve ser posterior ao horário inicial'
+            })
+
+        start_dt = timezone.make_aware(
+            datetime.combine(from_date, from_time),
+            timezone.get_current_timezone()
+        )
+        end_dt = timezone.make_aware(
+            datetime.combine(until_date, until_time),
+            timezone.get_current_timezone()
+        )
+
+        block = CalendarBlock.objects.create(
+            doctor=current_doctor,
+            start=start_dt,
+            end=end_dt,
+            reason=reason
+        )
+        return JsonResponse({
+            'success': True,
+            'message': 'Período bloqueado na agenda com sucesso.',
+            'block_id': block.id
+        })
+    except Exception as e:
+        return JsonResponse({
+            'success': False,
+            'error': str(e)
+        })
+
+
+@login_required
+@require_POST
+def api_delete_calendar_block(request, block_id):
+    """API endpoint to remove a calendar block"""
+    try:
+        accessible_doctors = get_accessible_doctors(request.user)
+        block = get_object_or_404(CalendarBlock, id=block_id, doctor__in=accessible_doctors)
+        block.delete()
+        return JsonResponse({
+            'success': True,
+            'message': 'Bloqueio removido da agenda.'
+        })
+    except Exception as e:
+        return JsonResponse({
+            'success': False,
+            'error': str(e)
+        })
+
 
 @login_required
 @require_POST
@@ -2705,10 +2884,18 @@ def api_indicators(request):
     """API endpoint to get real indicators/metrics data (Performance + Pacientes views)."""
     try:
         current_doctor = get_selected_doctor(request)
-        if not current_doctor:
+        accessible_doctors = get_accessible_doctors(request.user)
+        if current_doctor and current_doctor not in accessible_doctors:
             return JsonResponse({
                 'success': False,
-                'error': 'Nenhum médico selecionado ou usuário não é um médico válido'
+                'error': 'Você não tem permissão para ver os indicadores deste médico'
+            })
+        # "Todos": no doctor selected → aggregate all accessible doctors
+        doctors_filter = [current_doctor] if current_doctor else list(accessible_doctors)
+        if not doctors_filter:
+            return JsonResponse({
+                'success': False,
+                'error': 'Nenhum médico selecionado ou use Todos para ver os indicadores'
             })
 
         # Get period: optional year + month for specific month selection
@@ -2754,7 +2941,7 @@ def api_indicators(request):
             end_date = today
 
         appointments = Appointment.objects.filter(
-            doctor=current_doctor,
+            doctor__in=doctors_filter,
             appointment_date__gte=start_date,
             appointment_date__lte=end_date
         )
@@ -2771,7 +2958,7 @@ def api_indicators(request):
         # "Vago" = empty slots (we don't have slot data; use 0 or remainder)
         vago_rate = max(0, 100 - show_rate - no_show_rate - cancelled_rate)
 
-        total_patients = Patient.objects.filter(doctor=current_doctor, is_active=True).count()
+        total_patients = Patient.objects.filter(doctor__in=doctors_filter, is_active=True).count()
         particular_count = appointments.filter(payment_type='particular').count()
         convenio_count = appointments.filter(payment_type='convenio').count()
         total_payment_appointments = particular_count + convenio_count
@@ -2798,7 +2985,7 @@ def api_indicators(request):
         if patient_ids_in_period:
             first_dates = Appointment.objects.filter(
                 patient_id__in=patient_ids_in_period,
-                doctor=current_doctor
+                doctor__in=doctors_filter
             ).values('patient_id').annotate(first_ever=MinAgg('appointment_date'))
             for fd in first_dates:
                 if fd['first_ever'] and start_date <= fd['first_ever'] <= end_date:
@@ -2825,7 +3012,7 @@ def api_indicators(request):
             else:
                 month_end = date(month_start.year, month_start.month + 1, 1) - timedelta(days=1)
             month_appts = Appointment.objects.filter(
-                doctor=current_doctor,
+                doctor__in=doctors_filter,
                 appointment_date__gte=month_start,
                 appointment_date__lte=month_end
             )
@@ -2861,7 +3048,7 @@ def api_indicators(request):
             prev_start = date(ref_year, ref_month - 1, 1)
             prev_end = date(ref_year, ref_month, 1) - timedelta(days=1)
         prev_appointments = Appointment.objects.filter(
-            doctor=current_doctor,
+            doctor__in=doctors_filter,
             appointment_date__gte=prev_start,
             appointment_date__lte=prev_end
         )
@@ -2878,7 +3065,7 @@ def api_indicators(request):
             pid_prev = list(prev_appointments.values_list('patient_id', flat=True).distinct())
             first_prev = Appointment.objects.filter(
                 patient_id__in=pid_prev,
-                doctor=current_doctor
+                doctor__in=doctors_filter
             ).values('patient_id').annotate(first_ever=MinAgg('appointment_date'))
             for fd in first_prev:
                 if fd['first_ever'] and prev_start <= fd['first_ever'] <= prev_end:
@@ -2948,11 +3135,7 @@ def api_indicators(request):
 @login_required
 def finance(request):
     """Finance view with expense tracking and filtering"""
-    # Get current user's doctor profile
-    try:
-        current_doctor = Doctor.objects.get(user=request.user)
-    except Doctor.DoesNotExist:
-        current_doctor = None
+    current_doctor = get_selected_doctor(request)
     
     # Get filter parameters
     selected_year = request.GET.get('year', timezone.now().year)
@@ -2973,16 +3156,18 @@ def finance(request):
     total_income = 0
     expenses_by_category = {}
     incomes_by_category = {}
+    accessible_doctors = get_accessible_doctors(request.user)
+    doctors_filter = [current_doctor] if current_doctor else list(accessible_doctors)
     
-    if current_doctor:
+    if doctors_filter:
         expenses = Expense.objects.filter(
-            doctor=current_doctor,
+            doctor__in=doctors_filter,
             expense_date__year=selected_year,
             expense_date__month=selected_month
         ).order_by('-expense_date')
         
         incomes = Income.objects.filter(
-            doctor=current_doctor,
+            doctor__in=doctors_filter,
             income_date__year=selected_year,
             income_date__month=selected_month
         ).order_by('-income_date')
@@ -3008,15 +3193,15 @@ def finance(request):
     available_years = []
     available_months = []
     
-    if current_doctor:
+    if doctors_filter:
         # Get years with expenses
-        expense_years = Expense.objects.filter(doctor=current_doctor).values_list('expense_date__year', flat=True).distinct()
+        expense_years = Expense.objects.filter(doctor__in=doctors_filter).values_list('expense_date__year', flat=True).distinct()
         available_years = sorted(expense_years, reverse=True)
         
         # Get months for the selected year
         if selected_year:
             expense_months = Expense.objects.filter(
-                doctor=current_doctor,
+                doctor__in=doctors_filter,
                 expense_date__year=selected_year
             ).values_list('expense_date__month', flat=True).distinct()
             available_months = sorted(expense_months, reverse=True)
@@ -3053,13 +3238,21 @@ def finance(request):
 def api_incomes(request):
     """API endpoint to get incomes with filtering"""
     try:
-        # Get current user's doctor profile
-        try:
-            current_doctor = Doctor.objects.get(user=request.user)
-        except Doctor.DoesNotExist:
+        current_doctor = get_selected_doctor(request)
+        accessible_doctors = get_accessible_doctors(request.user)
+        if current_doctor and current_doctor not in accessible_doctors:
             return JsonResponse({
                 'success': False,
-                'error': 'Usuário não é um médico válido'
+                'error': 'Você não tem permissão para visualizar as receitas deste médico'
+            })
+        # "Todos": no doctor selected → use all accessible doctors; admin with none gets empty
+        doctors_filter = [current_doctor] if current_doctor else list(accessible_doctors)
+        if not doctors_filter:
+            if get_user_role(request.user) == 'admin':
+                return JsonResponse({'success': True, 'incomes': []})
+            return JsonResponse({
+                'success': False,
+                'error': 'Selecione um médico ou use Todos para visualizar as receitas'
             })
         
         # Get filter parameters
@@ -3067,7 +3260,7 @@ def api_incomes(request):
         selected_month = request.GET.get('month')
         
         # Build filter query
-        filter_query = {'doctor': current_doctor}
+        filter_query = {'doctor__in': doctors_filter}
         
         if selected_year:
             filter_query['income_date__year'] = int(selected_year)
@@ -3110,8 +3303,22 @@ def api_incomes(request):
 def api_expenses(request):
     """API endpoint to get expenses with filtering"""
     try:
-        # Get current user's doctor profile
-        current_doctor = Doctor.objects.get(user=request.user)
+        current_doctor = get_selected_doctor(request)
+        accessible_doctors = get_accessible_doctors(request.user)
+        if current_doctor and current_doctor not in accessible_doctors:
+            return JsonResponse({
+                'success': False,
+                'error': 'Você não tem permissão para visualizar as despesas deste médico'
+            })
+        # "Todos": no doctor selected → use all accessible doctors; admin with none gets empty
+        doctors_filter = [current_doctor] if current_doctor else list(accessible_doctors)
+        if not doctors_filter:
+            if get_user_role(request.user) == 'admin':
+                return JsonResponse({'success': True, 'expenses': []})
+            return JsonResponse({
+                'success': False,
+                'error': 'Selecione um médico ou use Todos para visualizar as despesas'
+            })
         
         # Get filter parameters
         year = request.GET.get('year')
@@ -3119,7 +3326,7 @@ def api_expenses(request):
         category = request.GET.get('category')
         
         # Build filter
-        filters = {'doctor': current_doctor}
+        filters = {'doctor__in': doctors_filter}
         
         if year:
             filters['expense_date__year'] = int(year)
@@ -3153,11 +3360,6 @@ def api_expenses(request):
             'expenses': expenses_data
         })
         
-    except Doctor.DoesNotExist:
-        return JsonResponse({
-            'success': False,
-            'error': 'Perfil de médico não encontrado'
-        })
     except Exception as e:
         return JsonResponse({
             'success': False,
@@ -3170,13 +3372,22 @@ def api_expenses(request):
 def api_create_income(request):
     """API endpoint to create a new income"""
     try:
-        # Get current user's doctor profile
-        try:
-            current_doctor = Doctor.objects.get(user=request.user)
-        except Doctor.DoesNotExist:
+        if get_user_role(request.user) == 'admin':
             return JsonResponse({
                 'success': False,
-                'error': 'Usuário não é um médico válido'
+                'error': 'Administradores não podem cadastrar receitas. Apenas médicos ou secretários podem adicionar.'
+            })
+        current_doctor = get_selected_doctor(request)
+        if not current_doctor:
+            return JsonResponse({
+                'success': False,
+                'error': 'Selecione um médico para cadastrar receita'
+            })
+        accessible_doctors = get_accessible_doctors(request.user)
+        if current_doctor not in accessible_doctors:
+            return JsonResponse({
+                'success': False,
+                'error': 'Você não tem permissão para cadastrar receita para este médico'
             })
         
         # Get form data
@@ -3320,8 +3531,23 @@ def api_create_income(request):
 def api_create_expense(request):
     """API endpoint to create a new expense"""
     try:
-        # Get current user's doctor profile
-        current_doctor = Doctor.objects.get(user=request.user)
+        if get_user_role(request.user) == 'admin':
+            return JsonResponse({
+                'success': False,
+                'error': 'Administradores não podem cadastrar despesas. Apenas médicos ou secretários podem adicionar.'
+            })
+        current_doctor = get_selected_doctor(request)
+        if not current_doctor:
+            return JsonResponse({
+                'success': False,
+                'error': 'Selecione um médico para cadastrar despesa'
+            })
+        accessible_doctors = get_accessible_doctors(request.user)
+        if current_doctor not in accessible_doctors:
+            return JsonResponse({
+                'success': False,
+                'error': 'Você não tem permissão para cadastrar despesa para este médico'
+            })
         
         # Get form data
         description = request.POST.get('description', '').strip()
@@ -3402,11 +3628,6 @@ def api_create_expense(request):
             }
         })
         
-    except Doctor.DoesNotExist:
-        return JsonResponse({
-            'success': False,
-            'error': 'Perfil de médico não encontrado'
-        })
     except Exception as e:
         return JsonResponse({
             'success': False,
@@ -3419,16 +3640,35 @@ def api_create_expense(request):
 def api_expense_totals(request):
     """API endpoint to get expense totals by period"""
     try:
-        # Get current user's doctor profile
-        current_doctor = Doctor.objects.get(user=request.user)
+        current_doctor = get_selected_doctor(request)
+        accessible_doctors = get_accessible_doctors(request.user)
+        if current_doctor and current_doctor not in accessible_doctors:
+            return JsonResponse({
+                'success': False,
+                'error': 'Você não tem permissão para visualizar os totais deste médico'
+            })
+        doctors_filter = [current_doctor] if current_doctor else list(accessible_doctors)
+        if not doctors_filter:
+            if get_user_role(request.user) == 'admin':
+                return JsonResponse({
+                    'success': True,
+                    'total_amount': 0,
+                    'formatted_total': 'R$ 0,00',
+                    'category_totals': {},
+                    'expense_count': 0
+                })
+            return JsonResponse({
+                'success': False,
+                'error': 'Selecione um médico ou use Todos para visualizar os totais'
+            })
         
         # Get filter parameters
         year = request.GET.get('year', timezone.now().year)
         month = request.GET.get('month', timezone.now().month)
         
-        # Get expenses for the period
+        # Get expenses for the period (one doctor or all)
         expenses = Expense.objects.filter(
-            doctor=current_doctor,
+            doctor__in=doctors_filter,
             expense_date__year=int(year),
             expense_date__month=int(month)
         )
@@ -3452,11 +3692,6 @@ def api_expense_totals(request):
             'expense_count': expenses.count()
         })
         
-    except Doctor.DoesNotExist:
-        return JsonResponse({
-            'success': False,
-            'error': 'Perfil de médico não encontrado'
-        })
     except Exception as e:
         return JsonResponse({
             'success': False,
@@ -3469,19 +3704,15 @@ def api_expense_totals(request):
 def api_delete_expense(request, expense_id):
     """API endpoint to delete an expense"""
     try:
-        # Get current user's doctor profile
-        current_doctor = Doctor.objects.get(user=request.user)
-        
-        # Get the expense
+        accessible_doctors = get_accessible_doctors(request.user)
         try:
-            expense = Expense.objects.get(id=expense_id, doctor=current_doctor)
+            expense = Expense.objects.get(id=expense_id, doctor__in=accessible_doctors)
         except Expense.DoesNotExist:
             return JsonResponse({
                 'success': False,
                 'error': 'Despesa não encontrada'
             })
         
-        # Delete the expense
         expense.delete()
         
         return JsonResponse({
@@ -3489,11 +3720,6 @@ def api_delete_expense(request, expense_id):
             'message': f'Despesa "{expense.description}" excluída com sucesso'
         })
         
-    except Doctor.DoesNotExist:
-        return JsonResponse({
-            'success': False,
-            'error': 'Perfil de médico não encontrado'
-        })
     except Exception as e:
         return JsonResponse({
             'success': False,
@@ -3506,19 +3732,15 @@ def api_delete_expense(request, expense_id):
 def api_delete_income(request, income_id):
     """API endpoint to delete an income"""
     try:
-        # Get current user's doctor profile
-        current_doctor = Doctor.objects.get(user=request.user)
-        
-        # Get the income
+        accessible_doctors = get_accessible_doctors(request.user)
         try:
-            income = Income.objects.get(id=income_id, doctor=current_doctor)
+            income = Income.objects.get(id=income_id, doctor__in=accessible_doctors)
         except Income.DoesNotExist:
             return JsonResponse({
                 'success': False,
                 'error': 'Receita não encontrada'
             })
         
-        # Delete the income
         income.delete()
         
         return JsonResponse({
@@ -3526,11 +3748,6 @@ def api_delete_income(request, income_id):
             'message': f'Receita "{income.description}" excluída com sucesso'
         })
         
-    except Doctor.DoesNotExist:
-        return JsonResponse({
-            'success': False,
-            'error': 'Perfil de médico não encontrado'
-        })
     except Exception as e:
         return JsonResponse({
             'success': False,
@@ -4395,10 +4612,13 @@ def get_selected_doctor(request):
         # Doctors see their own data
         return getattr(request.user, 'doctor_profile', None)
     elif role == 'secretary':
-        # Secretaries see their assigned doctor's data
+        # Secretaries can work for multiple doctors; use session or first doctor
         secretary_profile = getattr(request.user, 'secretary_profile', None)
-        if secretary_profile:
-            return secretary_profile.doctor
+        if secretary_profile and secretary_profile.doctors.exists():
+            selected_doctor_id = request.session.get('selected_doctor_id')
+            if selected_doctor_id and secretary_profile.doctors.filter(id=selected_doctor_id).exists():
+                return Doctor.objects.get(id=selected_doctor_id)
+            return secretary_profile.doctors.filter(is_active=True).first()
         return None
     
     return None

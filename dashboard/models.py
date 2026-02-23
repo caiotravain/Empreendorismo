@@ -198,14 +198,12 @@ class Doctor(models.Model):
         help_text="Django User object for the doctor"
     )
     
-    # Link to Admin (who manages this doctor)
-    admin = models.ForeignKey(
+    # Link to Admins (many-to-many: a doctor can be managed by multiple admins)
+    admins = models.ManyToManyField(
         Admin,
-        on_delete=models.SET_NULL,
-        null=True,
-        blank=True,
         related_name='doctors',
-        help_text="Admin who manages this doctor"
+        blank=True,
+        help_text="Admins who manage this doctor"
     )
     
     # Professional Information
@@ -261,7 +259,6 @@ class Doctor(models.Model):
             models.Index(fields=['medical_license']),
             models.Index(fields=['specialization']),
             models.Index(fields=['is_active']),
-            models.Index(fields=['admin']),
         ]
     
     def __str__(self):
@@ -325,12 +322,12 @@ class Secretary(models.Model):
         help_text="Django User object for the secretary"
     )
     
-    # Link to Doctor
-    doctor = models.ForeignKey(
+    # Link to Doctors (many-to-many: a secretary can work for multiple doctors)
+    doctors = models.ManyToManyField(
         Doctor,
-        on_delete=models.CASCADE,
         related_name='secretaries',
-        help_text="Doctor this secretary works for"
+        blank=True,
+        help_text="Doctors this secretary works for"
     )
     
     # Contact Information
@@ -360,12 +357,14 @@ class Secretary(models.Model):
         verbose_name_plural = "Secretaries"
         ordering = ['user__last_name', 'user__first_name']
         indexes = [
-            models.Index(fields=['doctor']),
             models.Index(fields=['is_active']),
         ]
     
     def __str__(self):
-        return f"Secretary: {self.user.get_full_name() or self.user.username} - Dr. {self.doctor.user.get_full_name()}"
+        doctor_names = ', '.join(d.user.get_full_name() or d.user.username for d in self.doctors.all()[:3])
+        if self.doctors.count() > 3:
+            doctor_names += '...'
+        return f"Secretary: {self.user.get_full_name() or self.user.username} - {doctor_names or 'No doctors'}"
     
     @property
     def full_name(self):
@@ -701,6 +700,40 @@ class Appointment(models.Model):
         self.appointment_time = new_time
         self.status = 'rescheduled'
         self.save()
+
+
+class CalendarBlock(models.Model):
+    """
+    Block a period in the doctor's calendar (unavailable / off).
+    Shown on the agenda and prevents new appointments in that period.
+    """
+    doctor = models.ForeignKey(
+        Doctor,
+        on_delete=models.CASCADE,
+        related_name='calendar_blocks',
+        help_text="Doctor whose calendar is blocked"
+    )
+    start = models.DateTimeField(help_text="Start of blocked period")
+    end = models.DateTimeField(help_text="End of blocked period")
+    reason = models.CharField(
+        max_length=200,
+        blank=True,
+        null=True,
+        help_text="Optional reason (e.g. Folga, Congresso)"
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        verbose_name = "Calendar Block"
+        verbose_name_plural = "Calendar Blocks"
+        ordering = ['start']
+        indexes = [
+            models.Index(fields=['doctor']),
+            models.Index(fields=['start', 'end']),
+        ]
+
+    def __str__(self):
+        return f"Bloqueio {self.start} - {self.end} ({self.doctor})"
 
 
 class PrescriptionTemplate(models.Model):

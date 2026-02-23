@@ -90,6 +90,15 @@ function initializeFullCalendar() {
             loadAppointmentsForCalendar(info.start, info.end, successCallback, failureCallback);
         },
         eventContent: function(arg) {
+            // Calendar blocks: show title only
+            if (arg.event.extendedProps.isBlock) {
+                const viewType = arg.view.type;
+                const title = arg.event.title;
+                if (viewType === 'timeGridWeek' || viewType === 'timeGridDay') {
+                    return { html: title };
+                }
+                return { html: title };
+            }
             // Custom event content to show dollar symbol for particular appointments and NOVO badge for first appointments
             const paymentType = arg.event.extendedProps.paymentType;
             const isFirstAppointment = !!arg.event.extendedProps.isFirstAppointment;
@@ -133,6 +142,13 @@ function initializeFullCalendar() {
             }
         },
         eventDidMount: function(info) {
+            // Calendar blocks: only set block styling, no appointment badges
+            if (info.event.extendedProps.isBlock) {
+                info.el.setAttribute('data-block', 'true');
+                info.el.style.setProperty('background-color', '#6c757d', 'important');
+                info.el.style.setProperty('border-color', '#6c757d', 'important');
+                return;
+            }
             // Add appointment type as description below the event
             const appointmentType = info.event.extendedProps.appointmentType;
             const status = info.event.extendedProps.status;
@@ -259,6 +275,10 @@ function initializeFullCalendar() {
             info.el.appendChild(description);
         },
         eventClick: function(info) {
+            if (info.event.extendedProps.isBlock) {
+                showBlockDetailsModal(info.event);
+                return;
+            }
             // Handle event click - show appointment details
             showAppointmentDetailsFromCalendar(info.event);
         },
@@ -351,9 +371,28 @@ function loadAppointmentsForCalendar(start, end, successCallback, failureCallbac
                             reason: appointment.reason,
                             notes: appointment.notes,
                             location: appointment.location,
-                            isFirstAppointment: !!appointment.is_first_appointment
+                            isFirstAppointment: !!appointment.is_first_appointment,
+                            isBlock: false
                         }
                     };
+                });
+                // Add calendar blocks (unavailable periods)
+                const blocks = data.blocks || [];
+                const blockColor = '#6c757d';
+                blocks.forEach(function(block) {
+                    events.push({
+                        id: block.id,
+                        title: block.reason ? 'Bloqueio: ' + block.reason : 'Bloqueio',
+                        start: block.start,
+                        end: block.end,
+                        backgroundColor: blockColor,
+                        borderColor: blockColor,
+                        editable: false,
+                        extendedProps: {
+                            isBlock: true,
+                            reason: block.reason || ''
+                        }
+                    });
                 });
                 successCallback(events);
             } else {

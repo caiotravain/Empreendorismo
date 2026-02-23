@@ -62,29 +62,32 @@ class PatientAdmin(admin.ModelAdmin):
 @admin.register(Doctor)
 class DoctorAdmin(admin.ModelAdmin):
     list_display = [
-        'full_name', 
-        'medical_license', 
-        'specialization', 
+        'full_name',
+        'admins_display',
+        'medical_license',
+        'specialization',
         'years_of_experience',
         'hospital_affiliation',
         'is_active',
         'created_at'
     ]
     list_filter = [
-        'specialization', 
-        'is_active', 
+        'specialization',
+        'is_active',
+        'admins',
         'created_at',
         'years_of_experience'
     ]
     search_fields = [
-        'user__first_name', 
-        'user__last_name', 
+        'user__first_name',
+        'user__last_name',
         'user__email',
         'medical_license',
         'specialization',
         'hospital_affiliation'
     ]
     readonly_fields = ['created_at', 'updated_at']
+    filter_horizontal = ['admins']
     date_hierarchy = 'created_at'
     ordering = ['user__last_name', 'user__first_name']
     
@@ -93,7 +96,7 @@ class DoctorAdmin(admin.ModelAdmin):
             'fields': ('user',)
         }),
         ('Administration', {
-            'fields': ('admin',)
+            'fields': ('admins',)
         }),
         ('Professional Information', {
             'fields': ('medical_license', 'specialization', 'years_of_experience', 'hospital_affiliation')
@@ -109,6 +112,10 @@ class DoctorAdmin(admin.ModelAdmin):
             'classes': ('collapse',)
         }),
     )
+
+    def admins_display(self, obj):
+        return ', '.join(a.full_name for a in obj.admins.all()[:5]) or '-'
+    admins_display.short_description = 'Admins'
 
 
 @admin.register(Admin)
@@ -438,12 +445,12 @@ class SecretaryAdmin(admin.ModelAdmin):
         'full_name',
         'email',
         'phone',
-        'doctor',
+        'doctors_display',
         'is_active',
         'created_at'
     ]
     list_filter = [
-        'doctor',
+        'doctors',
         'is_active',
         'created_at'
     ]
@@ -453,11 +460,12 @@ class SecretaryAdmin(admin.ModelAdmin):
         'user__email',
         'user__username',
         'phone',
-        'doctor__user__first_name',
-        'doctor__user__last_name',
-        'doctor__medical_license'
+        'doctors__user__first_name',
+        'doctors__user__last_name',
+        'doctors__medical_license'
     ]
     readonly_fields = ['created_at', 'updated_at']
+    filter_horizontal = ['doctors']
     date_hierarchy = 'created_at'
     ordering = ['user__last_name', 'user__first_name']
     
@@ -466,7 +474,7 @@ class SecretaryAdmin(admin.ModelAdmin):
             'fields': ('user',)
         }),
         ('Work Assignment', {
-            'fields': ('doctor',)
+            'fields': ('doctors',)
         }),
         ('Contact Information', {
             'fields': ('phone',)
@@ -479,6 +487,10 @@ class SecretaryAdmin(admin.ModelAdmin):
             'classes': ('collapse',)
         }),
     )
+
+    def doctors_display(self, obj):
+        return ', '.join(d.full_name for d in obj.doctors.all()[:5]) or '-'
+    doctors_display.short_description = 'Doctors'
 
 
 @admin.register(WaitingListEntry)

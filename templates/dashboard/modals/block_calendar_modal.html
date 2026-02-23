@@ -1,0 +1,50 @@
+<!-- Block Calendar Modal -->
+<div class="modal fade" id="blockCalendarModal" tabindex="-1" aria-labelledby="blockCalendarModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header bg-secondary text-white">
+                <h5 class="modal-title" id="blockCalendarModalLabel">
+                    <i class="fas fa-calendar-minus me-2"></i>Bloquear Agenda
+                </h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <p class="text-muted small mb-3">
+                    O período bloqueado aparecerá na agenda e não será possível agendar novas consultas nesse intervalo.
+                </p>
+                <form id="block-calendar-form">
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label for="block-from-date" class="form-label">Data Inicial <span class="text-danger">*</span></label>
+                            <input type="date" class="form-control" id="block-from-date" required>
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label for="block-from-time" class="form-label">Horário Inicial <span class="text-danger">*</span></label>
+                            <input type="time" class="form-control" id="block-from-time" required>
+                        </div>
+                    </div>
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label for="block-until-date" class="form-label">Data Final <span class="text-danger">*</span></label>
+                            <input type="date" class="form-control" id="block-until-date" required>
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label for="block-until-time" class="form-label">Horário Final <span class="text-danger">*</span></label>
+                            <input type="time" class="form-control" id="block-until-time" required>
+                        </div>
+                    </div>
+                    <div class="mb-3">
+                        <label for="block-reason" class="form-label">Motivo (opcional)</label>
+                        <input type="text" class="form-control" id="block-reason" placeholder="Ex: Folga, Congresso, Viagem">
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                <button type="button" class="btn btn-secondary" id="confirm-block-calendar-btn" onclick="confirmBlockCalendar()">
+                    <i class="fas fa-calendar-minus me-2"></i>Bloquear Período
+                </button>
+            </div>
+        </div>
+    </div>
+</div>

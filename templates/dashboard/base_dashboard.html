@@ -39,27 +39,27 @@
 
 <div class="row">
     <div class="col-12">
-        <div class="d-flex justify-content-between align-items-center mb-4">
-            <h1 class="h3 mb-0">
-                
-            </h1>
-            <!-- {% if is_admin and accessible_doctors|length > 0 %}
-            <div class="me-3">
-                <label for="doctor-selector" class="form-label mb-1">Ver como:</label>
-                <select id="doctor-selector" class="form-select form-select-sm" onchange="selectDoctor()">
+        <div class="d-flex flex-wrap justify-content-between align-items-center mb-4 gap-2">
+            {% if is_admin and accessible_doctors %}
+            <div class="d-flex align-items-center me-3">
+                <label for="doctor-selector" class="form-label mb-0 me-2 text-nowrap">Médico:</label>
+                <select id="doctor-selector" class="form-select form-select-sm" style="min-width: 180px;" onchange="selectDoctor()">
                     <option value="" {% if not selected_doctor_id %}selected{% endif %}>Todos</option>
                     {% for doctor in accessible_doctors %}
                     <option value="{{ doctor.id }}" {% if selected_doctor_id == doctor.id %}selected{% endif %}>{{ doctor.full_name }}</option>
                     {% endfor %}
                 </select>
             </div>
-            {% endif %} -->
-            
-            <!-- Doctor View Tabs -->
+            {% endif %}
+            <h1 class="h3 mb-0 flex-grow-1">
+                
+            </h1>
+            <!-- Doctor View Tabs (secretary sees only Agenda) -->
             <div class="btn-group doctor-tabs" role="group" id="doctor-tabs-group">
                 <button type="button" class="btn btn-primary" onclick="switchTab('agenda')">
                     <i class="fas fa-calendar-alt me-1"></i>Agenda
                 </button>
+                {% if not is_secretary %}
                 <button type="button" class="btn btn-outline-primary" id="pacientes-btn" onclick="switchTab('pacientes')">
                     <i class="fas fa-users me-1"></i>Pacientes
                 </button>
@@ -72,9 +72,11 @@
                 <button type="button" class="btn btn-outline-primary" id="waitlist-btn" onclick="switchTab('waitlist')">
                     <i class="fas fa-clock me-1"></i>Lista de Espera
                 </button>
+                {% endif %}
             </div>
             
-            <!-- Administrator View Tabs (visible in admin mode) -->
+            <!-- Administrator View Tabs (visible in admin mode; hidden for secretary) -->
+            {% if not is_secretary %}
             <div class="btn-group administrator-tabs" role="group" id="administrator-tabs-group" style="display: none;">
                 <button type="button" class="btn btn-primary" id="admin-indicadores-btn" onclick="switchTab('indicadores')">
                     <i class="fas fa-chart-line me-1"></i>Indicadores
@@ -89,6 +91,7 @@
                     <i class="fas fa-cog me-1"></i>Configurações
                 </button>
             </div>
+            {% endif %}
             
         </div>
     </div>
@@ -101,6 +104,11 @@
     {% endblock %}
 </div>
 
+<script>
+// Expose role flags for JS (e.g. secretary can only access agenda)
+window.is_secretary = {{ is_secretary|yesno:"true,false" }};
+</script>
+
 <!-- Include all modals -->
 {% include 'dashboard/modals/appointment_modal.html' %}
 {% include 'dashboard/modals/patient_modal.html' %}
@@ -109,6 +117,8 @@
 {% include 'dashboard/modals/record_popup_modal.html' %}
 {% include 'dashboard/modals/waitlist_modal.html' %}
 {% include 'dashboard/modals/bulk_cancel_modal.html' %}
+{% include 'dashboard/modals/block_calendar_modal.html' %}
+{% include 'dashboard/modals/block_details_modal.html' %}
 
 <!-- WhatsApp Test Modal -->
 <div class="modal fade" id="whatsappTestModal" tabindex="-1" aria-labelledby="whatsappTestModalLabel" aria-hidden="true">

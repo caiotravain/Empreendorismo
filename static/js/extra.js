@@ -3878,3 +3878,209 @@ function confirmBulkCancel() {
         confirmBtn.disabled = false;
     });
 }
+
+// ============================================================================
+// BLOCK CALENDAR (BLOQUEAR AGENDA) FUNCTIONS
+// ============================================================================
+
+function showBlockCalendarModal() {
+    const modal = new bootstrap.Modal(document.getElementById('blockCalendarModal'));
+    const form = document.getElementById('block-calendar-form');
+    if (form) {
+        form.reset();
+    }
+    const today = new Date();
+    const futureDate = new Date();
+    futureDate.setDate(today.getDate() + 7);
+    const todayStr = today.toISOString().split('T')[0];
+    const fromDateInput = document.getElementById('block-from-date');
+    const untilDateInput = document.getElementById('block-until-date');
+    const fromTimeInput = document.getElementById('block-from-time');
+    const untilTimeInput = document.getElementById('block-until-time');
+    if (fromDateInput) {
+        fromDateInput.value = todayStr;
+        fromDateInput.min = todayStr;
+    }
+    if (untilDateInput) {
+        untilDateInput.value = futureDate.toISOString().split('T')[0];
+        untilDateInput.min = todayStr;
+    }
+    if (fromTimeInput) {
+        fromTimeInput.value = '08:00';
+    }
+    if (untilTimeInput) {
+        untilTimeInput.value = '18:00';
+    }
+    modal.show();
+}
+
+function confirmBlockCalendar() {
+    const fromDateInput = document.getElementById('block-from-date');
+    const untilDateInput = document.getElementById('block-until-date');
+    const fromTimeInput = document.getElementById('block-from-time');
+    const untilTimeInput = document.getElementById('block-until-time');
+    const reasonInput = document.getElementById('block-reason');
+    const confirmBtn = document.getElementById('confirm-block-calendar-btn');
+    if (!fromDateInput || !untilDateInput || !fromTimeInput || !untilTimeInput) {
+        showNotification('Erro: Campos não encontrados', 'error');
+        return;
+    }
+    const fromDate = fromDateInput.value;
+    const untilDate = untilDateInput.value;
+    const fromTime = fromTimeInput.value;
+    const untilTime = untilTimeInput.value;
+    const reason = reasonInput ? reasonInput.value.trim() : '';
+    if (!fromDate || !untilDate || !fromTime || !untilTime) {
+        showNotification('Por favor, preencha data e horário inicial e final', 'error');
+        return;
+    }
+    // Use local date so "today" matches the user's calendar (toISOString is UTC)
+    const now = new Date();
+    const todayStr = now.getFullYear() + '-' + String(now.getMonth() + 1).padStart(2, '0') + '-' + String(now.getDate()).padStart(2, '0');
+    if (fromDate < todayStr) {
+        showNotification('A data inicial não pode ser no passado', 'error');
+        return;
+    }
+    if (untilDate < todayStr) {
+        showNotification('A data final não pode ser no passado', 'error');
+        return;
+    }
+    const currentTime = now.toTimeString().slice(0, 5);
+    if (fromDate === todayStr && fromTime < currentTime) {
+        showNotification('O horário inicial não pode ser no passado', 'error');
+        return;
+    }
+    if (fromDate === untilDate && fromTime >= untilTime) {
+        showNotification('O horário final deve ser posterior ao horário inicial', 'error');
+        return;
+    }
+    const originalText = confirmBtn.innerHTML;
+    confirmBtn.disabled = true;
+    confirmBtn.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i>Bloqueando...';
+    const formData = new FormData();
+    formData.append('from_date', fromDate);
+    formData.append('until_date', untilDate);
+    formData.append('from_time', fromTime);
+    formData.append('until_time', untilTime);
+    if (reason) {
+        formData.append('reason', reason);
+    }
+    fetch('/dashboard/api/calendar-block/create/', {
+        method: 'POST',
+        headers: {
+            'X-CSRFToken': getCookie('csrftoken')
+        },
+        body: formData
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            showNotification(data.message, 'success');
+            const modal = bootstrap.Modal.getInstance(document.getElementById('blockCalendarModal'));
+            if (modal) {
+                modal.hide();
+            }
+            if (typeof refreshCalendar === 'function') {
+                refreshCalendar();
+            } else if (typeof calendar !== 'undefined' && calendar && typeof calendar.refetchEvents === 'function') {
+                calendar.refetchEvents();
+            }
+            if (typeof refreshAgendaStats === 'function') {
+                refreshAgendaStats();
+            }
+        } else {
+            showNotification('Erro: ' + (data.error || 'Erro desconhecido'), 'error');
+        }
+    })
+    .catch(error => {
+        console.error('Error creating calendar block:', error);
+        showNotification('Erro ao bloquear agenda. Tente novamente.', 'error');
+    })
+    .finally(() => {
+        confirmBtn.innerHTML = originalText;
+        confirmBtn.disabled = false;
+    });
+}
+
+// Show block details modal when user clicks a calendar block
+function showBlockDetailsModal(blockEvent) {
+    const idStr = blockEvent.id;
+    const numericId = typeof idStr === 'string' && idStr.startsWith('block-')
+        ? parseInt(idStr.replace('block-', ''), 10)
+        : parseInt(idStr, 10);
+    if (isNaN(numericId)) {
+        showNotification('ID do bloqueio inválido', 'error');
+        return;
+    }
+    const start = blockEvent.start;
+    const end = blockEvent.end;
+    const reason = (blockEvent.extendedProps && blockEvent.extendedProps.reason) || '';
+
+    function formatDt(d) {
+        if (!d) return '-';
+        const date = d.getDate().toString().padStart(2, '0');
+        const month = (d.getMonth() + 1).toString().padStart(2, '0');
+        const year = d.getFullYear();
+        const hours = d.getHours().toString().padStart(2, '0');
+        const minutes = d.getMinutes().toString().padStart(2, '0');
+        return date + '/' + month + '/' + year + ' ' + hours + ':' + minutes;
+    }
+    const periodText = (start && end) ? (formatDt(start) + ' até ' + formatDt(end)) : '-';
+    const descriptionText = reason.trim() || 'Sem descrição';
+
+    document.getElementById('block-details-id').value = numericId;
+    document.getElementById('block-details-period').textContent = periodText;
+    document.getElementById('block-details-description').textContent = descriptionText;
+
+    const modal = new bootstrap.Modal(document.getElementById('blockDetailsModal'));
+    modal.show();
+}
+
+function confirmRemoveBlock() {
+    const idEl = document.getElementById('block-details-id');
+    const blockId = idEl ? idEl.value : null;
+    if (!blockId) {
+        showNotification('Bloqueio não encontrado', 'error');
+        return;
+    }
+    if (!confirm('Remover este bloqueio da agenda? O período voltará a ficar disponível para agendamentos.')) {
+        return;
+    }
+    const btn = document.getElementById('confirm-remove-block-btn');
+    const originalText = btn.innerHTML;
+    btn.disabled = true;
+    btn.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i>Removendo...';
+
+    const formData = new FormData();
+    formData.append('csrfmiddlewaretoken', getCookie('csrftoken'));
+
+    fetch('/dashboard/api/calendar-block/' + blockId + '/delete/', {
+        method: 'POST',
+        headers: {
+            'X-CSRFToken': getCookie('csrftoken')
+        },
+        body: formData
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            showNotification(data.message, 'success');
+            const modal = bootstrap.Modal.getInstance(document.getElementById('blockDetailsModal'));
+            if (modal) modal.hide();
+            if (typeof calendar !== 'undefined' && calendar && typeof calendar.refetchEvents === 'function') {
+                calendar.refetchEvents();
+            }
+            if (typeof refreshAgendaStats === 'function') refreshAgendaStats();
+        } else {
+            showNotification('Erro: ' + (data.error || 'Erro desconhecido'), 'error');
+        }
+    })
+    .catch(error => {
+        console.error('Error removing block:', error);
+        showNotification('Erro ao remover bloqueio. Tente novamente.', 'error');
+    })
+    .finally(() => {
+        btn.innerHTML = originalText;
+        btn.disabled = false;
+    });
+}

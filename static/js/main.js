@@ -43,6 +43,13 @@ function initializeTabs() {
 }
 
 function switchTab(tabName) {
+    // Secretary can only access the agenda tab
+    if (typeof window.is_secretary !== 'undefined' && window.is_secretary && tabName !== 'agenda') {
+        tabName = 'agenda';
+        const url = new URL(window.location);
+        url.searchParams.delete('tab');
+        window.history.replaceState({}, '', url);
+    }
     // Check if trying to access other tabs without selecting a patient
     // Allow access to 'agenda', 'pacientes', 'indicadores', 'finance', and 'waitlist' without patient selection
     // Only require patient selection for 'prontuarios' and 'prescricao' tabs

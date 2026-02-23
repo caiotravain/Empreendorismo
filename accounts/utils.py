@@ -37,7 +37,7 @@ def get_doctor_for_user(user):
     Get the doctor object for a user
     - If user is admin: returns None (admin can see all their doctors through admin.doctors)
     - If user is doctor: returns their doctor profile
-    - If user is secretary: returns their assigned doctor
+    - If user is secretary: returns first doctor they work for (or None)
     """
     if not user or not user.is_authenticated:
         return None
@@ -50,8 +50,8 @@ def get_doctor_for_user(user):
         return getattr(user, 'doctor_profile', None)
     elif role == 'secretary':
         secretary_profile = getattr(user, 'secretary_profile', None)
-        if secretary_profile and secretary_profile.doctor:
-            return secretary_profile.doctor
+        if secretary_profile and secretary_profile.doctors.exists():
+            return secretary_profile.doctors.filter(is_active=True).first()
         return None
     
     return None
@@ -81,7 +81,7 @@ def get_secretaries_for_doctor(doctor):
     if not doctor:
         return Secretary.objects.none()
     
-    return Secretary.objects.filter(doctor=doctor, is_active=True)
+    return Secretary.objects.filter(doctors=doctor, is_active=True)
 
 
 def can_access_doctor(user, target_doctor):
@@ -106,7 +106,7 @@ def can_access_doctor(user, target_doctor):
         return doctor_profile and doctor_profile.id == target_doctor.id
     elif role == 'secretary':
         secretary_profile = getattr(user, 'secretary_profile', None)
-        return secretary_profile and secretary_profile.doctor.id == target_doctor.id
+        return secretary_profile and secretary_profile.doctors.filter(id=target_doctor.id).exists()
     
     return False
 
@@ -132,8 +132,8 @@ def get_accessible_doctors(user):
         return Doctor.objects.none()
     elif role == 'secretary':
         secretary_profile = getattr(user, 'secretary_profile', None)
-        if secretary_profile and secretary_profile.doctor:
-            return Doctor.objects.filter(id=secretary_profile.doctor.id, is_active=True)
+        if secretary_profile:
+            return secretary_profile.doctors.filter(is_active=True)
         return Doctor.objects.none()
     
     return Doctor.objects.none()
@@ -162,7 +162,7 @@ def has_access_to_patient(user, patient):
         return doctor_profile and patient.doctor.id == doctor_profile.id
     elif role == 'secretary':
         secretary_profile = getattr(user, 'secretary_profile', None)
-        return secretary_profile and patient.doctor.id == secretary_profile.doctor.id
+        return secretary_profile and secretary_profile.doctors.filter(id=patient.doctor.id).exists()
     
     return False
 
@@ -191,8 +191,8 @@ def get_accessible_patients(user):
         return Patient.objects.none()
     elif role == 'secretary':
         secretary_profile = getattr(user, 'secretary_profile', None)
-        if secretary_profile and secretary_profile.doctor:
-            return Patient.objects.filter(doctor=secretary_profile.doctor)
+        if secretary_profile and secretary_profile.doctors.exists():
+            return Patient.objects.filter(doctor__in=secretary_profile.doctors.all())
         return Patient.objects.none()
     
     return Patient.objects.none()

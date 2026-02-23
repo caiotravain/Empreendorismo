@@ -34,10 +34,13 @@ def get_selected_doctor(request):
         # Doctors see their own data
         return getattr(request.user, 'doctor_profile', None)
     elif role == 'secretary':
-        # Secretaries see their assigned doctor's data
+        # Secretaries can work for multiple doctors; use session or first doctor
         secretary_profile = getattr(request.user, 'secretary_profile', None)
-        if secretary_profile:
-            return secretary_profile.doctor
+        if secretary_profile and secretary_profile.doctors.exists():
+            selected_doctor_id = request.session.get('selected_doctor_id')
+            if selected_doctor_id and secretary_profile.doctors.filter(id=selected_doctor_id).exists():
+                return Doctor.objects.get(id=selected_doctor_id)
+            return secretary_profile.doctors.filter(is_active=True).first()
         return None
     
     return None

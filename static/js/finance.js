@@ -1,6 +1,58 @@
 // Finance Tab Functions
 function loadFinanceData() {
-    // First, try to sync appointment income automatically
+    // Load expenses and income immediately so the tab never stays loading
+    const now = new Date();
+    const currentYear = now.getFullYear();
+    const currentMonth = now.getMonth() + 1;
+
+    Promise.all([
+        fetch(`/dashboard/api/expenses/?year=${currentYear}&month=${currentMonth}`).then(response => response.json()),
+        fetch(`/dashboard/api/incomes/?year=${currentYear}&month=${currentMonth}`).then(response => response.json())
+    ])
+    .then(([expensesData, incomesData]) => {
+        const expenses = expensesData.success ? (expensesData.expenses || []) : [];
+        const incomes = incomesData.success ? (incomesData.incomes || []) : [];
+
+        if (!expensesData.success) {
+            console.error('Error loading expenses:', expensesData.error);
+            showAlert('Erro ao carregar despesas: ' + (expensesData.error || ''), 'danger');
+        }
+        if (!incomesData.success) {
+            console.error('Error loading incomes:', incomesData.error);
+            showAlert('Erro ao carregar receitas: ' + (incomesData.error || ''), 'danger');
+        }
+
+        // Always update UI so spinners are cleared (use empty arrays on error)
+        updateExpensesList(expenses);
+        updateExpenseTotals(expenses);
+        updateIncomesList(incomes);
+        updateIncomeTotals(incomes);
+
+        if (typeof updateUnifiedTransactionsTable === 'function') {
+            updateUnifiedTransactionsTable(incomes, expenses);
+        }
+
+        updateCashFlowChart();
+        updateExpensesCategoryChart(expenses);
+        updateFilterDropdowns(expenses, incomes);
+        setupFilterEventListeners();
+        updateNetIncome(expenses, incomes);
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        showAlert('Erro ao carregar dados financeiros', 'danger');
+        // Clear loading state with empty data
+        updateExpensesList([]);
+        updateExpenseTotals([]);
+        updateIncomesList([]);
+        updateIncomeTotals([]);
+        if (typeof updateUnifiedTransactionsTable === 'function') {
+            updateUnifiedTransactionsTable([], []);
+        }
+        updateNetIncome([], []);
+    });
+
+    // Sync appointment income in background (do not block tab load)
     fetch('/dashboard/api/appointments/sync-income/', {
         method: 'POST',
         headers: {
@@ -10,68 +62,11 @@ function loadFinanceData() {
     .then(response => response.json())
     .then(syncData => {
         if (syncData.success && syncData.income_created_count > 0) {
-            console.log(`Auto-sync: ${syncData.income_created_count} receitas criadas automaticamente`);
+            console.log('Auto-sync: ' + syncData.income_created_count + ' receitas criadas automaticamente');
+            loadFinanceData(); // Reload to show new incomes
         }
     })
-    .catch(error => {
-        console.log('Auto-sync failed or no income to sync:', error);
-    })
-    .finally(() => {
-        // Get current month and year for default filtering
-        const now = new Date();
-        const currentYear = now.getFullYear();
-        const currentMonth = now.getMonth() + 1;
-        
-        // Then load expenses and income data via AJAX with current month filter
-        Promise.all([
-            fetch(`/dashboard/api/expenses/?year=${currentYear}&month=${currentMonth}`).then(response => response.json()),
-            fetch(`/dashboard/api/incomes/?year=${currentYear}&month=${currentMonth}`).then(response => response.json())
-        ])
-        .then(([expensesData, incomesData]) => {
-            const expenses = expensesData.success ? (expensesData.expenses || []) : [];
-            const incomes = incomesData.success ? (incomesData.incomes || []) : [];
-            
-            if (expensesData.success) {
-                updateExpensesList(expenses);
-                updateExpenseTotals(expenses);
-            } else {
-                console.error('Error loading expenses:', expensesData.error);
-                showAlert('Erro ao carregar despesas: ' + expensesData.error, 'danger');
-            }
-            
-            if (incomesData.success) {
-                updateIncomesList(incomes);
-                updateIncomeTotals(incomes);
-            } else {
-                console.error('Error loading incomes:', incomesData.error);
-                showAlert('Erro ao carregar receitas: ' + incomesData.error, 'danger');
-            }
-            
-            // Update unified transactions table
-            if (typeof updateUnifiedTransactionsTable === 'function') {
-                updateUnifiedTransactionsTable(incomes, expenses);
-            }
-            
-            // Update charts
-            // Cash flow chart always shows last 6 months, not filtered data
-            updateCashFlowChart();
-            // Expenses category chart uses filtered data
-            updateExpensesCategoryChart(expenses);
-            
-            // Update filter dropdowns with both expenses and incomes
-            updateFilterDropdowns(expenses, incomes);
-            
-            // Add event listeners to filter dropdowns
-            setupFilterEventListeners();
-            
-            // Update net income
-            updateNetIncome(expenses, incomes);
-        })
-        .catch(error => {
-            console.error('Error:', error);
-            showAlert('Erro ao carregar dados financeiros', 'danger');
-        });
-    });
+    .catch(() => {});
 }
 
 function updateFilterDropdowns(expenses, incomes = []) {
@@ -559,27 +554,19 @@ function initializeCashFlowChart() {
     });
 }
 
-// Initialize Expenses by Category Chart
+// Initialize Expenses by Category Chart (empty – used only when tab is shown before data loads)
 function initializeExpensesCategoryChart() {
     const ctx = document.getElementById('expensesCategoryChart');
     if (!ctx) return;
-    
+    if (typeof Chart === 'undefined') return;
+    if (expensesCategoryChart) return;
     expensesCategoryChart = new Chart(ctx, {
         type: 'doughnut',
         data: {
-            labels: [],
+            labels: ['Sem despesas'],
             datasets: [{
-                data: [],
-                backgroundColor: [
-                    '#ef4444', // Red
-                    '#f97316', // Orange
-                    '#10b981', // Green
-                    '#3b82f6', // Blue
-                    '#8b5cf6', // Purple
-                    '#ec4899', // Pink
-                    '#06b6d4', // Cyan
-                    '#f59e0b', // Amber
-                ],
+                data: [0],
+                backgroundColor: ['#e5e7eb'],
                 borderWidth: 0
             }]
         },
@@ -587,25 +574,14 @@ function initializeExpensesCategoryChart() {
             responsive: true,
             maintainAspectRatio: false,
             plugins: {
-                legend: {
-                    display: true,
-                    position: 'bottom',
-                    labels: {
-                        usePointStyle: true,
-                        padding: 10,
-                        font: {
-                            size: 11
-                        }
-                    }
-                },
+                legend: { display: true, position: 'bottom' },
                 tooltip: {
                     callbacks: {
                         label: function(context) {
-                            const label = context.label || '';
-                            const value = context.parsed || 0;
                             const total = context.dataset.data.reduce((a, b) => a + b, 0);
-                            const percentage = ((value / total) * 100).toFixed(1);
-                            return label + ': R$ ' + value.toFixed(2).replace('.', ',').replace(/\B(?=(\d{3})+(?!\d))/g, '.') + ' (' + percentage + '%)';
+                            if (total === 0) return context.label + ': R$ 0,00';
+                            const pct = ((context.parsed / total) * 100).toFixed(1);
+                            return context.label + ': R$ ' + context.parsed.toFixed(2).replace('.', ',').replace(/\B(?=(\d{3})+(?!\d))/g, '.') + ' (' + pct + '%)';
                         }
                     }
                 }
@@ -687,12 +663,15 @@ async function fetchCashFlowData() {
 
 // Update Expenses by Category Chart
 function updateExpensesCategoryChart(expenses) {
+    const ctx = document.getElementById('expensesCategoryChart');
+    if (!ctx) return;
+    
     if (!expensesCategoryChart) {
         initializeExpensesCategoryChart();
         if (!expensesCategoryChart) return;
     }
     
-    // Group expenses by category
+    // Group expenses by category (API sends category = display name, category_value = raw)
     const categoryTotals = {};
     (expenses || []).forEach(expense => {
         const category = expense.category_display || expense.category || 'Outros';
@@ -702,13 +681,28 @@ function updateExpensesCategoryChart(expenses) {
         categoryTotals[category] += parseFloat(expense.amount || 0);
     });
     
-    // Convert to arrays for chart
-    const labels = Object.keys(categoryTotals);
-    const data = Object.values(categoryTotals);
+    let labels = Object.keys(categoryTotals);
+    let data = Object.values(categoryTotals);
+    
+    // Chart.js doughnut needs at least one segment; use placeholder when empty
+    if (labels.length === 0) {
+        labels = ['Sem despesas'];
+        data = [0];
+    }
+    
+    const palette = [
+        '#ef4444', '#f97316', '#10b981', '#3b82f6', '#8b5cf6', '#ec4899', '#06b6d4', '#f59e0b',
+        '#84cc16', '#6366f1', '#14b8a6', '#e11d48'
+    ];
+    const backgroundColor = labels.map((_, i) => palette[i % palette.length]);
     
     expensesCategoryChart.data.labels = labels;
     expensesCategoryChart.data.datasets[0].data = data;
-    expensesCategoryChart.update();
+    expensesCategoryChart.data.datasets[0].backgroundColor = backgroundColor;
+    expensesCategoryChart.update('none'); // 'none' to avoid animation when only data changed
+    try {
+        expensesCategoryChart.resize();
+    } catch (e) { /* ignore */ }
 }
 
 // Initialize charts when finance tab is shown

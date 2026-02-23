@@ -1,0 +1,30 @@
+<!-- Block Details Modal (click on calendar block) -->
+<div class="modal fade" id="blockDetailsModal" tabindex="-1" aria-labelledby="blockDetailsModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header bg-secondary text-white">
+                <h5 class="modal-title" id="blockDetailsModalLabel">
+                    <i class="fas fa-calendar-minus me-2"></i>Detalhes do Bloqueio
+                </h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <input type="hidden" id="block-details-id" value="">
+                <div class="mb-3">
+                    <label class="form-label fw-bold">Período</label>
+                    <p id="block-details-period" class="mb-0 text-muted">-</p>
+                </div>
+                <div class="mb-3">
+                    <label class="form-label fw-bold">Descrição / Motivo</label>
+                    <p id="block-details-description" class="mb-0">-</p>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Fechar</button>
+                <button type="button" class="btn btn-danger" id="confirm-remove-block-btn" onclick="confirmRemoveBlock()">
+                    <i class="fas fa-trash-alt me-2"></i>Remover bloqueio
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
