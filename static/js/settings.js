@@ -528,7 +528,7 @@ function saveSettings() {
         type_choices: normalizedTypes,
         status_choices: normalizedStatuses,
         status_colors: appointmentSettings.status_colors || {},
-        location_options: appointmentSettings.location_options.filter(l => l.trim()),
+        location_options: (appointmentSettings.location_options || []).filter(l => l && String(l).trim()),
         insurance_operators: validOperators.map(o => String(o).trim()),
         cancellation_reasons: validCancellationReasons.map(r => String(r).trim()),
         convenio_prices: appointmentSettings.convenio_prices || {}

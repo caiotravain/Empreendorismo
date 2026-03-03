@@ -1466,18 +1466,73 @@ class AppointmentSettings(models.Model):
                 return f"{hours}h {mins}min"
 
 
+class FAQEntry(models.Model):
+    """
+    Base de conhecimento para dúvidas frequentes (FAQ) no chatbot WhatsApp.
+    """
+    question = models.CharField(max_length=500, help_text="Pergunta ou título")
+    answer = models.TextField(help_text="Resposta da base de conhecimento")
+    keywords = models.CharField(
+        max_length=500,
+        blank=True,
+        null=True,
+        help_text="Palavras-chave separadas por vírgula para busca"
+    )
+    is_active = models.BooleanField(default=True)
+    order = models.PositiveIntegerField(default=0, help_text="Ordem de exibição")
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name = "FAQ"
+        verbose_name_plural = "Base de Conhecimento (FAQ)"
+        ordering = ['order', 'question']
+
+    def __str__(self):
+        return self.question[:50]
+
+
 class WhatsAppConversation(models.Model):
     """
-    Model to track WhatsApp conversation state for appointment booking
+    Model to track WhatsApp conversation state for appointment booking and FAQ.
+    State machine: channel_choice -> main_menu -> (schedule | faq) -> loop_desire_more -> end
     """
     STATE_CHOICES = [
         ('initial', 'Inicial'),
+        ('channel_choice', 'Escolha de Canal (Texto/Ligação)'),
+        ('patient_cpf', 'Identificação por CPF'),
+        ('patient_register_name', 'Cadastro do paciente - nome'),
+        ('patient_register_phone', 'Cadastro do paciente - telefone'),
+        ('patient_register_gender', 'Cadastro do paciente - sexo'),
+        ('patient_register_birth', 'Cadastro do paciente - data nascimento'),
+        ('schedule_payment_type', 'Tipo de pagamento (particular/seguro)'),
+        ('schedule_select_insurance', 'Seleção de convênio/seguro'),
+        ('schedule_confirm_final', 'Confirmação final do agendamento'),
+        ('consult_cpf', 'Consultar/Desmarcar - CPF'),
+        ('consult_list', 'Consultar/Desmarcar - lista'),
+        ('consult_cancel_select', 'Consultar/Desmarcar - escolher qual desmarcar'),
+        ('consult_cancel_confirm', 'Consultar/Desmarcar - confirmar desmarque'),
+        ('main_menu', 'Menu Principal'),
+        ('schedule_alert', 'Alerta LGPD Agendamento'),
+        ('schedule_search_type', 'Tipo de Busca Agendamento'),
+        ('schedule_search_name', 'Busca por Nome'),
+        ('schedule_search_specialty', 'Busca por Especialidade'),
+        ('schedule_search_date', 'Busca por Data/Unidade'),
+        ('schedule_select_doctor', 'Escolha do Profissional (lista numerada)'),
+        ('schedule_select_date', 'Informar melhor data'),
+        ('schedule_list', 'Seleção de Horário/Profissional'),
+        ('schedule_confirm', 'Confirmação Agendamento'),
+        ('schedule_collecting_patient', 'Dados do Paciente'),
         ('selecting_doctor', 'Selecionando Médico'),
         ('selecting_date', 'Selecionando Data'),
         ('selecting_time', 'Selecionando Horário'),
         ('collecting_patient_info', 'Coletando Informações do Paciente'),
+        ('faq_question', 'Dúvida/FAQ'),
+        ('faq_resolved', 'Dúvida Resolvida?'),
+        ('loop_desire_more', 'Deseja algo mais?'),
         ('completed', 'Concluída'),
         ('cancelled', 'Cancelada'),
+        ('ended', 'Encerrada'),
     ]
     
     # WhatsApp user info
@@ -1531,6 +1586,16 @@ class WhatsAppConversation(models.Model):
         help_text="Patient phone number"
     )
     
+    # Paciente identificado no início (por CPF) ou criado no cadastro via chat
+    patient = models.ForeignKey(
+        'Patient',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='whatsapp_conversations',
+        help_text="Patient identified by CPF or registered at chat start"
+    )
+    
     # Created appointment
     appointment = models.ForeignKey(
         Appointment,
@@ -1539,6 +1604,13 @@ class WhatsAppConversation(models.Model):
         blank=True,
         related_name='whatsapp_conversation',
         help_text="Created appointment"
+    )
+    
+    # Contexto da máquina de estados (busca, lista de opções, FAQ, etc.)
+    context = models.JSONField(
+        default=dict,
+        blank=True,
+        help_text="Dados do fluxo: search_type, search_results, selected_slot, faq_answer, etc."
     )
     
     # Timestamps
@@ -1560,12 +1632,14 @@ class WhatsAppConversation(models.Model):
         return f"WhatsApp: {self.phone_number} - {self.get_state_display()}"
     
     def reset(self):
-        """Reset conversation to initial state"""
-        self.state = 'initial'
+        """Reset conversation to initial state (channel choice)"""
+        self.state = 'channel_choice'
         self.selected_doctor = None
         self.selected_date = None
         self.selected_time = None
         self.patient_name = None
         self.patient_phone = None
+        self.patient = None
         self.appointment = None
+        self.context = {}
         self.save()

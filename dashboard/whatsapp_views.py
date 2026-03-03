@@ -18,7 +18,8 @@ from .whatsapp_service import (
     get_available_dates_for_week,
     get_available_times,
     format_date_br,
-    WHATSAPP_VERIFY_TOKEN
+    WHATSAPP_VERIFY_TOKEN,
+    process_flow,
 )
 
 # Set up logger
@@ -141,13 +142,32 @@ def handle_whatsapp_message(message):
         traceback.print_exc()
 
 
+# Estados do novo fluxo (triagem → menu → agendamento/FAQ → loop)
+NEW_FLOW_STATES = {
+    'initial', 'channel_choice',     'patient_cpf', 'patient_register_name', 'patient_register_phone',
+    'patient_register_gender', 'patient_register_birth',
+    'schedule_payment_type', 'schedule_select_insurance', 'schedule_confirm_final',
+    'consult_cpf', 'consult_list', 'consult_cancel_select', 'consult_cancel_confirm',
+    'main_menu', 'schedule_alert', 'schedule_search_type',
+    'schedule_search_name', 'schedule_search_specialty', 'schedule_search_date',
+    'schedule_select_doctor', 'schedule_select_date', 'schedule_list', 'schedule_confirm', 'schedule_collecting_patient',
+    'faq_question', 'faq_resolved', 'loop_desire_more', 'ended', 'completed', 'cancelled',
+}
+
+
 def process_conversation(conversation, message_text):
     """
-    Process conversation based on current state
+    Process conversation based on current state.
+    Usa a máquina de estados do fluxo completo (canal → menu → agendamento/FAQ → loop)
+    ou os handlers legados (seleção direta de médico/data/hora).
     """
-    message_text_lower = message_text.lower()
-    
-    # Handle cancel/restart commands
+    # Novo fluxo: triagem de canal, menu principal, agendamento com busca, FAQ, encerramento
+    if conversation.state in NEW_FLOW_STATES:
+        process_flow(conversation, message_text)
+        return
+
+    # Fluxo legado (compatibilidade com conversas antigas)
+    message_text_lower = (message_text or '').lower()
     if message_text_lower in ['cancelar', 'cancel', 'inicio', 'começar', 'comecar', 'start']:
         conversation.reset()
         send_whatsapp_message(
@@ -155,11 +175,8 @@ def process_conversation(conversation, message_text):
             "✅ Conversa reiniciada! Como posso ajudá-lo hoje?"
         )
         return
-    
-    # State machine
-    if conversation.state == 'initial':
-        handle_initial_state(conversation, message_text)
-    elif conversation.state == 'selecting_doctor':
+
+    if conversation.state == 'selecting_doctor':
         handle_doctor_selection(conversation, message_text)
     elif conversation.state == 'selecting_date':
         handle_date_selection(conversation, message_text)
@@ -168,10 +185,10 @@ def process_conversation(conversation, message_text):
     elif conversation.state == 'collecting_patient_info':
         handle_patient_info(conversation, message_text)
     else:
-        send_whatsapp_message(
-            conversation.phone_number,
-            "Por favor, digite 'inicio' para começar uma nova conversa."
-        )
+        # Estado desconhecido: enviar para o novo fluxo (começa no channel_choice)
+        conversation.state = 'initial'
+        conversation.save()
+        process_flow(conversation, message_text)
 
 
 def handle_initial_state(conversation, message_text):

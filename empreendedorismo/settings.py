@@ -25,7 +25,7 @@ SECRET_KEY = 'django-insecure-gt5^f5&n)qzbjy4h!8p1n*&8&s9t_+=kce#wx18oi#_dnwu(za
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
-ALLOWED_HOSTS = ['7c5fa7b58241.ngrok-free.app', '2e8d5fb39c2c.ngrok-free.app', 'localhost', '127.0.0.1']
+ALLOWED_HOSTS = ['7c5fa7b58241.ngrok-free.app', 'f2e1-2804-14c-102-2850-84e8-7215-c5ad-8a74.ngrok-free.app', 'localhost', '127.0.0.1']
 
 
 # Application definition
@@ -146,6 +146,7 @@ CSRF_TRUSTED_ORIGINS = [
     'http://7c5fa7b58241.ngrok-free.app',
     'https://2e8d5fb39c2c.ngrok-free.app',
     'http://2e8d5fb39c2c.ngrok-free.app',
+    'https://f2e1-2804-14c-102-2850-84e8-7215-c5ad-8a74.ngrok-free.app',
 ]
 
 # Default primary key field type
