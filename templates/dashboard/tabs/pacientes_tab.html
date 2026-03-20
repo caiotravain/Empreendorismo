@@ -143,6 +143,9 @@
                                     <button class="btn btn-sm btn-link text-success p-1" onclick="accessPatientPrescription({{ patient.id }}, '{{ patient.full_name }}')" title="Acessar Prescrição">
                                         <i class="fas fa-prescription-bottle-alt"></i>
                                     </button>
+                                    <button class="btn btn-sm btn-link text-warning p-1" onclick="openPatientFiles({{ patient.id }})" title="Arquivos do Paciente">
+                                        <i class="fas fa-paperclip"></i>
+                                    </button>
                                     <button class="btn btn-sm btn-link text-slate-500 p-1" onclick="editPatient({{ patient.id }})" title="Editar">
                                         <svg xmlns="http://www.w3.org/2000/svg" class="icon-sm" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
                                             <path stroke-linecap="round" stroke-linejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
@@ -303,6 +306,9 @@
                 </button>
                 <button type="button" class="btn btn-outline-success" id="modal-prescricao-btn" onclick="accessPatientPrescriptionFromModal()" title="Acessar Prescrição">
                     <i class="fas fa-prescription-bottle-alt me-1"></i>Prescrição
+                </button>
+                <button type="button" class="btn btn-outline-warning" onclick="showPatientFilesSection()" title="Arquivos do Paciente">
+                    <i class="fas fa-paperclip me-1"></i>Arquivos
                 </button>
                 <button type="button" class="btn btn-primary" onclick="editPatientFromDetails()">Editar</button>
             </div>
@@ -797,77 +803,281 @@ function viewPatientDetails(patientId) {
 }
 
 function displayPatientDetails(patient) {
-    // Create comprehensive patient details content
+    const initials = patient.full_name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2);
     const content = `
-        <div class="row">
-            <div class="col-md-4">
-                <div class="text-center mb-3">
-                    <div class="avatar-lg bg-primary text-white rounded-circle d-flex align-items-center justify-content-center mx-auto mb-2" style="width: 80px; height: 80px;">
-                        ${patient.full_name.split(' ').map(n => n[0]).join('').toUpperCase()}
+        <ul class="nav nav-tabs mb-3" id="patientDetailsTabs" role="tablist">
+            <li class="nav-item" role="presentation">
+                <button class="nav-link active" id="tab-info-btn" data-bs-toggle="tab" data-bs-target="#tab-info" type="button" role="tab">
+                    <i class="fas fa-user me-1"></i>Informações
+                </button>
+            </li>
+            <li class="nav-item" role="presentation">
+                <button class="nav-link" id="tab-files-btn" data-bs-toggle="tab" data-bs-target="#tab-files" type="button" role="tab" onclick="loadPatientFiles(${patient.id})">
+                    <i class="fas fa-paperclip me-1"></i>Arquivos
+                </button>
+            </li>
+        </ul>
+
+        <div class="tab-content" id="patientDetailsTabContent">
+            <!-- INFO TAB -->
+            <div class="tab-pane fade show active" id="tab-info" role="tabpanel">
+                <div class="row">
+                    <div class="col-md-4">
+                        <div class="text-center mb-3">
+                            <div class="bg-primary text-white rounded-circle d-flex align-items-center justify-content-center mx-auto mb-2 fw-bold" style="width:80px;height:80px;font-size:1.5rem;">
+                                ${initials}
+                            </div>
+                            <h5 class="mb-0">${patient.full_name}</h5>
+                            <small class="text-muted">Paciente desde ${patient.created_at}</small>
+                            <div class="mt-2">
+                                ${patient.is_active ? '<span class="badge bg-success">Ativo</span>' : '<span class="badge bg-danger">Inativo</span>'}
+                            </div>
+                        </div>
                     </div>
-                    <h5 class="mb-0">${patient.full_name}</h5>
-                    <small class="text-muted">Paciente desde ${patient.created_at}</small>
-                    <div class="mt-2">
-                        ${patient.is_active ? 
-                            '<span class="badge bg-success">Ativo</span>' : 
-                            '<span class="badge bg-danger">Inativo</span>'
-                        }
+                    <div class="col-md-8">
+                        <div class="row">
+                            <div class="col-md-6">
+                                <h6><i class="fas fa-id-card me-2"></i>CPF</h6>
+                                <p class="text-muted">${patient.cpf || 'Não informado'}</p>
+                                <h6><i class="fas fa-envelope me-2"></i>Email</h6>
+                                <p class="text-muted">${patient.email || 'Não informado'}</p>
+                                <h6><i class="fas fa-phone me-2"></i>Telefone</h6>
+                                <p class="text-muted">${patient.phone || 'Não informado'}</p>
+                                <h6><i class="fas fa-birthday-cake me-2"></i>Data de Nascimento</h6>
+                                <p class="text-muted">${patient.date_of_birth ? new Date(patient.date_of_birth).toLocaleDateString('pt-BR') : 'Não informado'}</p>
+                                <h6><i class="fas fa-calendar-alt me-2"></i>Idade</h6>
+                                <p class="text-muted">${patient.age || 0} anos</p>
+                            </div>
+                            <div class="col-md-6">
+                                <h6><i class="fas fa-venus-mars me-2"></i>Sexo</h6>
+                                <p class="text-muted">${patient.gender === 'M' ? 'Masculino' : patient.gender === 'F' ? 'Feminino' : 'Outro'}</p>
+                                <h6><i class="fas fa-map-marker-alt me-2"></i>Endereço</h6>
+                                <p class="text-muted">${patient.address || 'Não informado'}</p>
+                                <h6><i class="fas fa-city me-2"></i>Cidade/Estado</h6>
+                                <p class="text-muted">${patient.city || 'Não informado'}${patient.state ? ', ' + patient.state : ''}</p>
+                                <h6><i class="fas fa-mail-bulk me-2"></i>CEP</h6>
+                                <p class="text-muted">${patient.zip_code || 'Não informado'}</p>
+                            </div>
+                        </div>
+                        <hr>
+                        <div class="row">
+                            <div class="col-md-6">
+                                <h6><i class="fas fa-user-friends me-2"></i>Contato de Emergência</h6>
+                                <p class="text-muted">${patient.emergency_contact_name || 'Não informado'}</p>
+                                <h6><i class="fas fa-phone-alt me-2"></i>Telefone de Emergência</h6>
+                                <p class="text-muted">${patient.emergency_contact_phone || 'Não informado'}</p>
+                            </div>
+                            <div class="col-md-6">
+                                <h6><i class="fas fa-heartbeat me-2"></i>Plano de Saúde</h6>
+                                <p class="text-muted">${patient.medical_insurance || 'Não informado'}</p>
+                            </div>
+                        </div>
                     </div>
                 </div>
             </div>
-            <div class="col-md-8">
-                <div class="row">
-                    <div class="col-md-6">
-                        <h6><i class="fas fa-id-card me-2"></i>CPF</h6>
-                        <p class="text-muted">${patient.cpf || 'Não informado'}</p>
-                        
-                        <h6><i class="fas fa-envelope me-2"></i>Email</h6>
-                        <p class="text-muted">${patient.email || 'Não informado'}</p>
-                        
-                        <h6><i class="fas fa-phone me-2"></i>Telefone</h6>
-                        <p class="text-muted">${patient.phone || 'Não informado'}</p>
-                        
-                        <h6><i class="fas fa-birthday-cake me-2"></i>Data de Nascimento</h6>
-                        <p class="text-muted">${patient.date_of_birth ? new Date(patient.date_of_birth).toLocaleDateString('pt-BR') : 'Não informado'}</p>
-                        
-                        <h6><i class="fas fa-calendar-alt me-2"></i>Idade</h6>
-                        <p class="text-muted">${patient.age || 0} anos</p>
-                    </div>
-                    <div class="col-md-6">
-                        <h6><i class="fas fa-venus-mars me-2"></i>Sexo</h6>
-                        <p class="text-muted">${patient.gender === 'M' ? 'Masculino' : patient.gender === 'F' ? 'Feminino' : 'Outro'}</p>
-                        
-                        <h6><i class="fas fa-map-marker-alt me-2"></i>Endereço</h6>
-                        <p class="text-muted">${patient.address || 'Não informado'}</p>
-                        
-                        <h6><i class="fas fa-city me-2"></i>Cidade/Estado</h6>
-                        <p class="text-muted">${patient.city || 'Não informado'}${patient.state ? ', ' + patient.state : ''}</p>
-                        
-                        <h6><i class="fas fa-mail-bulk me-2"></i>CEP</h6>
-                        <p class="text-muted">${patient.zip_code || 'Não informado'}</p>
+
+            <!-- FILES TAB -->
+            <div class="tab-pane fade" id="tab-files" role="tabpanel">
+                <!-- Upload Form -->
+                <div class="card mb-3 border-0 bg-light">
+                    <div class="card-body py-2 px-3">
+                        <form id="patient-file-upload-form" onsubmit="uploadPatientFile(event, ${patient.id})">
+                            <div class="row g-2 align-items-end">
+                                <div class="col-md-5">
+                                    <label class="form-label small mb-1">Arquivo (imagem ou PDF, máx. 20 MB)</label>
+                                    <input type="file" class="form-control form-control-sm" id="patient-file-input"
+                                           accept="image/*,.pdf" required>
+                                </div>
+                                <div class="col-md-5">
+                                    <label class="form-label small mb-1">Descrição (opcional)</label>
+                                    <input type="text" class="form-control form-control-sm" id="patient-file-description"
+                                           placeholder="Ex: Exame de sangue, Raio-X...">
+                                </div>
+                                <div class="col-md-2">
+                                    <button type="submit" class="btn btn-primary btn-sm w-100" id="patient-file-upload-btn">
+                                        <i class="fas fa-upload me-1"></i>Enviar
+                                    </button>
+                                </div>
+                            </div>
+                        </form>
                     </div>
                 </div>
-                
-                <hr>
-                
-                <div class="row">
-                    <div class="col-md-6">
-                        <h6><i class="fas fa-user-friends me-2"></i>Contato de Emergência</h6>
-                        <p class="text-muted">${patient.emergency_contact_name || 'Não informado'}</p>
-                        
-                        <h6><i class="fas fa-phone-alt me-2"></i>Telefone de Emergência</h6>
-                        <p class="text-muted">${patient.emergency_contact_phone || 'Não informado'}</p>
-                    </div>
-                    <div class="col-md-6">
-                        <h6><i class="fas fa-heartbeat me-2"></i>Plano de Saúde</h6>
-                        <p class="text-muted">${patient.medical_insurance || 'Não informado'}</p>
+
+                <!-- File list -->
+                <div id="patient-files-list">
+                    <div class="text-center py-3 text-muted">
+                        <div class="spinner-border spinner-border-sm me-2" role="status"></div>
+                        Carregando arquivos...
                     </div>
                 </div>
             </div>
         </div>
     `;
-    
+
     document.getElementById('patientDetailsContent').innerHTML = content;
+}
+
+// ─── Patient Files ────────────────────────────────────────────────────────────
+
+function showPatientFilesSection() {
+    const tabBtn = document.getElementById('tab-files-btn');
+    if (tabBtn) tabBtn.click();
+}
+
+function openPatientFiles(patientId) {
+    // Open the patient details modal and jump straight to the files tab
+    viewPatientDetails(patientId);
+    // Wait for modal content to render, then switch to files tab
+    const switchToFiles = () => {
+        const tabBtn = document.getElementById('tab-files-btn');
+        if (tabBtn) {
+            tabBtn.click();
+        } else {
+            setTimeout(switchToFiles, 150);
+        }
+    };
+    setTimeout(switchToFiles, 400);
+}
+
+function loadPatientFiles(patientId) {
+    const listEl = document.getElementById('patient-files-list');
+    if (!listEl) return;
+
+    listEl.innerHTML = `<div class="text-center py-3 text-muted"><div class="spinner-border spinner-border-sm me-2" role="status"></div>Carregando arquivos...</div>`;
+
+    fetch(`/dashboard/api/patients/${patientId}/files/`)
+        .then(r => r.json())
+        .then(data => {
+            if (!data.success) {
+                listEl.innerHTML = `<div class="alert alert-danger py-2">${data.error}</div>`;
+                return;
+            }
+            renderPatientFilesList(listEl, patientId, data.files);
+        })
+        .catch(() => {
+            listEl.innerHTML = `<div class="alert alert-danger py-2">Erro ao carregar arquivos.</div>`;
+        });
+}
+
+function renderPatientFilesList(listEl, patientId, files) {
+    if (files.length === 0) {
+        listEl.innerHTML = `
+            <div class="text-center py-4 text-muted">
+                <i class="fas fa-folder-open fa-2x mb-2 d-block"></i>
+                Nenhum arquivo cadastrado para este paciente.
+            </div>`;
+        return;
+    }
+
+    const iconFor = type => {
+        if (type === 'pdf') return '<i class="fas fa-file-pdf text-danger fa-lg"></i>';
+        if (type === 'image') return '<i class="fas fa-file-image text-primary fa-lg"></i>';
+        return '<i class="fas fa-file-alt text-secondary fa-lg"></i>';
+    };
+
+    const rows = files.map(f => `
+        <div class="d-flex align-items-center border-bottom py-2 px-1 gap-2" id="file-row-${f.id}">
+            <div class="flex-shrink-0" style="width:32px;text-align:center;">
+                ${iconFor(f.file_type)}
+            </div>
+            <div class="flex-grow-1 overflow-hidden">
+                <div class="fw-medium text-truncate" style="font-size:0.875rem;" title="${f.original_name}">
+                    <a href="${f.url}" target="_blank" rel="noopener" class="text-decoration-none">${f.original_name}</a>
+                </div>
+                <div class="text-muted" style="font-size:0.75rem;">
+                    ${f.description ? `<span class="me-2">${f.description}</span>` : ''}
+                    <i class="fas fa-user-md me-1"></i>${f.uploaded_by}
+                    <span class="ms-2"><i class="fas fa-clock me-1"></i>${f.created_at}</span>
+                </div>
+            </div>
+            <div class="flex-shrink-0">
+                <a href="${f.url}" target="_blank" rel="noopener" class="btn btn-sm btn-outline-primary me-1" title="Visualizar">
+                    <i class="fas fa-eye"></i>
+                </a>
+                <a href="${f.url}" download="${f.original_name}" class="btn btn-sm btn-outline-secondary me-1" title="Baixar">
+                    <i class="fas fa-download"></i>
+                </a>
+                <button class="btn btn-sm btn-outline-danger" onclick="deletePatientFile(${patientId}, ${f.id})" title="Excluir">
+                    <i class="fas fa-trash"></i>
+                </button>
+            </div>
+        </div>
+    `).join('');
+
+    listEl.innerHTML = `<div class="border rounded bg-white">${rows}</div>`;
+}
+
+async function uploadPatientFile(event, patientId) {
+    event.preventDefault();
+    const fileInput = document.getElementById('patient-file-input');
+    const descInput = document.getElementById('patient-file-description');
+    const btn = document.getElementById('patient-file-upload-btn');
+
+    if (!fileInput.files.length) return;
+
+    const formData = new FormData();
+    formData.append('file', fileInput.files[0]);
+    formData.append('description', descInput.value.trim());
+
+    btn.disabled = true;
+    btn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span>Enviando...';
+
+    const csrfToken = document.cookie.match(/csrftoken=([^;]+)/)?.[1] || '';
+
+    try {
+        const resp = await fetch(`/dashboard/api/patients/${patientId}/files/`, {
+            method: 'POST',
+            headers: { 'X-CSRFToken': csrfToken },
+            body: formData,
+        });
+        const data = await resp.json();
+
+        if (data.success) {
+            fileInput.value = '';
+            descInput.value = '';
+            // Reload file list
+            loadPatientFiles(patientId);
+        } else {
+            alert('Erro ao enviar arquivo: ' + data.error);
+        }
+    } catch (e) {
+        alert('Erro ao enviar arquivo.');
+    } finally {
+        btn.disabled = false;
+        btn.innerHTML = '<i class="fas fa-upload me-1"></i>Enviar';
+    }
+}
+
+async function deletePatientFile(patientId, fileId) {
+    if (!confirm('Excluir este arquivo? Esta ação não pode ser desfeita.')) return;
+
+    const csrfToken = document.cookie.match(/csrftoken=([^;]+)/)?.[1] || '';
+
+    try {
+        const resp = await fetch(`/dashboard/api/patients/${patientId}/files/${fileId}/delete/`, {
+            method: 'DELETE',
+            headers: { 'X-CSRFToken': csrfToken },
+        });
+        const data = await resp.json();
+
+        if (data.success) {
+            const row = document.getElementById(`file-row-${fileId}`);
+            if (row) row.remove();
+            // Show empty state if no rows left
+            const list = document.getElementById('patient-files-list');
+            if (list && !list.querySelector('[id^="file-row-"]')) {
+                list.innerHTML = `
+                    <div class="text-center py-4 text-muted">
+                        <i class="fas fa-folder-open fa-2x mb-2 d-block"></i>
+                        Nenhum arquivo cadastrado para este paciente.
+                    </div>`;
+            }
+        } else {
+            alert('Erro ao excluir arquivo: ' + data.error);
+        }
+    } catch (e) {
+        alert('Erro ao excluir arquivo.');
+    }
 }
 
 function editPatient(patientId) {

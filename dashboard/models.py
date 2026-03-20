@@ -4,18 +4,75 @@ from django.utils import timezone
 from django.core.validators import RegexValidator
 
 
+class Clinic(models.Model):
+    """
+    Clinic model - top-level entity that groups doctors and patients.
+    Doctors and secretaries belong to a clinic; patients are shared within a clinic.
+    """
+    name = models.CharField(max_length=200, help_text="Clinic name")
+    phone = models.CharField(
+        max_length=20,
+        blank=True,
+        null=True,
+        validators=[RegexValidator(
+            regex=r'^\+?1?\d{9,15}$',
+            message="Phone number must be entered in the format: '+999999999'. Up to 15 digits allowed."
+        )],
+        help_text="Clinic phone number"
+    )
+    email = models.EmailField(blank=True, null=True, help_text="Clinic email address")
+    address = models.TextField(blank=True, null=True, help_text="Clinic address")
+    is_active = models.BooleanField(default=True, help_text="Whether the clinic is currently active")
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name = "Clinic"
+        verbose_name_plural = "Clinics"
+        ordering = ['name']
+        indexes = [
+            models.Index(fields=['name']),
+            models.Index(fields=['is_active']),
+        ]
+
+    def __str__(self):
+        return self.name
+
+    @property
+    def active_doctors(self):
+        return self.doctors.filter(is_active=True)
+
+    @property
+    def doctors_count(self):
+        return self.doctors.filter(is_active=True).count()
+
+    @property
+    def patients_count(self):
+        return self.patients.filter(is_active=True).count()
+
+    def get_doctors(self):
+        return self.doctors.all()
+
+    def get_active_doctors(self):
+        return self.doctors.filter(is_active=True)
+
+    def get_clinic_admins(self):
+        return self.doctors.filter(is_clinic_admin=True, is_active=True)
+
+
 class Patient(models.Model):
     """
-    Patient model to store patient information
+    Patient model to store patient information.
+    Patients are shared within a clinic and not tied to a specific doctor.
     """
-    # Link to Doctor (who manages this patient)
-    doctor = models.ForeignKey(
-        'Doctor',
+    # Link to Clinic (patients are shared within a clinic)
+    clinic = models.ForeignKey(
+        'Clinic',
         on_delete=models.CASCADE,
         related_name='patients',
         null=True,
         blank=True,
-        help_text="Doctor who manages this patient"
+        help_text="Clinic this patient belongs to"
     )
     
     # Basic Information
@@ -79,7 +136,7 @@ class Patient(models.Model):
         verbose_name_plural = "Patients"
         ordering = ['last_name', 'first_name']
         indexes = [
-            models.Index(fields=['doctor']),
+            models.Index(fields=['clinic']),
             models.Index(fields=['last_name', 'first_name']),
             models.Index(fields=['email']),
             models.Index(fields=['phone']),
@@ -113,79 +170,6 @@ class Patient(models.Model):
         return today.year - birth_date.year - ((today.month, today.day) < (birth_date.month, birth_date.day))
 
 
-class Admin(models.Model):
-    """
-    Admin model to store admin information
-    Admins can manage multiple doctors
-    """
-    # Link to Django User
-    user = models.OneToOneField(
-        User,
-        on_delete=models.CASCADE,
-        related_name='admin_profile',
-        help_text="Django User object for the admin"
-    )
-    
-    # Contact Information
-    phone = models.CharField(
-        max_length=20,
-        blank=True,
-        null=True,
-        validators=[RegexValidator(
-            regex=r'^\+?1?\d{9,15}$',
-            message="Phone number must be entered in the format: '+999999999'. Up to 15 digits allowed."
-        )],
-        help_text="Admin's phone number"
-    )
-    
-    # Status
-    is_active = models.BooleanField(
-        default=True,
-        help_text="Whether the admin is currently active"
-    )
-    
-    # Timestamps
-    created_at = models.DateTimeField(auto_now_add=True, help_text="When this admin profile was created")
-    updated_at = models.DateTimeField(auto_now=True, help_text="When this admin profile was last updated")
-    
-    class Meta:
-        verbose_name = "Admin"
-        verbose_name_plural = "Admins"
-        ordering = ['user__last_name', 'user__first_name']
-        indexes = [
-            models.Index(fields=['is_active']),
-        ]
-    
-    def __str__(self):
-        return f"Admin: {self.user.get_full_name() or self.user.username}"
-    
-    @property
-    def full_name(self):
-        return f"{self.user.get_full_name() or self.user.username}"
-    
-    @property
-    def email(self):
-        return self.user.email
-    
-    @property
-    def doctors_count(self):
-        """Get the number of doctors managed by this admin"""
-        return self.doctors.filter(is_active=True).count()
-    
-    @property
-    def active_doctors(self):
-        """Get all active doctors managed by this admin"""
-        return self.doctors.filter(is_active=True)
-    
-    def get_doctors(self):
-        """Get all doctors (active and inactive) managed by this admin"""
-        return self.doctors.all()
-    
-    def get_active_doctors(self):
-        """Get only active doctors"""
-        return self.doctors.filter(is_active=True)
-
-
 class Doctor(models.Model):
     """
     Doctor model to store doctor information
@@ -197,15 +181,23 @@ class Doctor(models.Model):
         related_name='doctor_profile',
         help_text="Django User object for the doctor"
     )
-    
-    # Link to Admins (many-to-many: a doctor can be managed by multiple admins)
-    admins = models.ManyToManyField(
-        Admin,
-        related_name='doctors',
+
+    # Link to Clinic
+    clinic = models.ForeignKey(
+        Clinic,
+        on_delete=models.SET_NULL,
+        null=True,
         blank=True,
-        help_text="Admins who manage this doctor"
+        related_name='doctors',
+        help_text="Clinic this doctor belongs to"
     )
-    
+
+    # Whether this doctor also has clinic admin privileges
+    is_clinic_admin = models.BooleanField(
+        default=False,
+        help_text="Whether this doctor also acts as a clinic administrator"
+    )
+
     # Professional Information
     medical_license = models.CharField(
         max_length=50,
@@ -285,34 +277,42 @@ class Doctor(models.Model):
     def get_secretaries(self):
         """Get all secretaries (active and inactive)"""
         return self.secretaries.all()
-    
+
     def get_active_secretaries(self):
         """Get only active secretaries"""
         return self.secretaries.filter(is_active=True)
-    
+
     @property
     def patients_count(self):
-        """Get the number of patients for this doctor"""
-        return self.patients.filter(is_active=True).count()
-    
+        """Get the number of active patients in this doctor's clinic"""
+        if self.clinic:
+            return self.clinic.patients.filter(is_active=True).count()
+        return 0
+
     @property
     def active_patients(self):
-        """Get all active patients for this doctor"""
-        return self.patients.filter(is_active=True)
-    
+        """Get all active patients in this doctor's clinic"""
+        if self.clinic:
+            return self.clinic.patients.filter(is_active=True)
+        return Patient.objects.none()
+
     def get_patients(self):
-        """Get all patients for this doctor"""
-        return self.patients.all()
-    
+        """Get all patients in this doctor's clinic"""
+        if self.clinic:
+            return self.clinic.patients.all()
+        return Patient.objects.none()
+
     def get_active_patients(self):
-        """Get only active patients"""
-        return self.patients.filter(is_active=True)
+        """Get only active patients in this doctor's clinic"""
+        if self.clinic:
+            return self.clinic.patients.filter(is_active=True)
+        return Patient.objects.none()
 
 
 class Secretary(models.Model):
     """
     Secretary model to store secretary information
-    Each secretary works for one doctor
+    Each secretary belongs to a clinic and can work for multiple doctors within it.
     """
     # Link to Django User
     user = models.OneToOneField(
@@ -321,7 +321,17 @@ class Secretary(models.Model):
         related_name='secretary_profile',
         help_text="Django User object for the secretary"
     )
-    
+
+    # Link to Clinic
+    clinic = models.ForeignKey(
+        Clinic,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='secretaries',
+        help_text="Clinic this secretary belongs to"
+    )
+
     # Link to Doctors (many-to-many: a secretary can work for multiple doctors)
     doctors = models.ManyToManyField(
         Doctor,
@@ -1464,6 +1474,242 @@ class AppointmentSettings(models.Model):
                 return f"{hours} horas"
             else:
                 return f"{hours}h {mins}min"
+
+
+class ConsultationRecord(models.Model):
+    """
+    Structured consultation record created when a doctor starts an appointment.
+    Stores vital signs, anamnesis, physical exam, diagnosis and treatment plan.
+    The linked MedicalRecord is created/updated on save/complete.
+    """
+    appointment = models.OneToOneField(
+        'Appointment',
+        on_delete=models.CASCADE,
+        related_name='consultation_record',
+        help_text="Appointment this consultation belongs to"
+    )
+    patient = models.ForeignKey(
+        'Patient',
+        on_delete=models.CASCADE,
+        related_name='consultation_records',
+        help_text="Patient being consulted"
+    )
+    doctor = models.ForeignKey(
+        'Doctor',
+        on_delete=models.CASCADE,
+        related_name='consultation_records',
+        help_text="Doctor conducting the consultation"
+    )
+
+    # ── Vital Signs ──────────────────────────────────────────────────────────
+    blood_pressure_systolic = models.PositiveIntegerField(null=True, blank=True, help_text="Systolic pressure (mmHg)")
+    blood_pressure_diastolic = models.PositiveIntegerField(null=True, blank=True, help_text="Diastolic pressure (mmHg)")
+    heart_rate = models.PositiveIntegerField(null=True, blank=True, help_text="Heart rate (bpm)")
+    respiratory_rate = models.PositiveIntegerField(null=True, blank=True, help_text="Respiratory rate (rpm)")
+    temperature = models.DecimalField(max_digits=4, decimal_places=1, null=True, blank=True, help_text="Temperature (°C)")
+    oxygen_saturation = models.PositiveIntegerField(null=True, blank=True, help_text="SpO₂ (%)")
+    weight = models.DecimalField(max_digits=5, decimal_places=2, null=True, blank=True, help_text="Weight (kg)")
+    height = models.DecimalField(max_digits=5, decimal_places=2, null=True, blank=True, help_text="Height (cm)")
+
+    # ── Anamnesis ────────────────────────────────────────────────────────────
+    chief_complaint = models.TextField(blank=True, null=True, help_text="Queixa Principal")
+    hda = models.TextField(blank=True, null=True, help_text="História da Doença Atual (HDA)")
+    past_history = models.TextField(blank=True, null=True, help_text="Antecedentes pessoais e familiares")
+    allergies = models.TextField(blank=True, null=True, help_text="Alergias e reações adversas")
+    current_medications = models.TextField(blank=True, null=True, help_text="Medicamentos em uso")
+    systems_review = models.TextField(blank=True, null=True, help_text="Revisão de sistemas")
+
+    # ── Physical Exam ────────────────────────────────────────────────────────
+    physical_exam = models.TextField(blank=True, null=True, help_text="Exame Físico")
+
+    # ── Diagnosis ────────────────────────────────────────────────────────────
+    diagnostic_hypothesis = models.TextField(blank=True, null=True, help_text="Hipótese Diagnóstica")
+    cid10_code = models.CharField(max_length=10, blank=True, null=True, help_text="Código CID-10")
+    cid10_description = models.CharField(max_length=300, blank=True, null=True, help_text="Descrição CID-10")
+
+    # ── Treatment Plan ───────────────────────────────────────────────────────
+    conduct = models.TextField(blank=True, null=True, help_text="Conduta e Plano Terapêutico")
+    exam_requests = models.TextField(blank=True, null=True, help_text="Solicitação de Exames e Procedimentos")
+    return_instructions = models.TextField(blank=True, null=True, help_text="Orientações de retorno")
+
+    # ── Lifecycle ────────────────────────────────────────────────────────────
+    started_at = models.DateTimeField(auto_now_add=True, help_text="When the consultation was started")
+    completed_at = models.DateTimeField(null=True, blank=True, help_text="When the consultation was concluded")
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name = "Consultation Record"
+        verbose_name_plural = "Consultation Records"
+        ordering = ['-started_at']
+        indexes = [
+            models.Index(fields=['appointment']),
+            models.Index(fields=['patient']),
+            models.Index(fields=['doctor']),
+        ]
+
+    def __str__(self):
+        return f"Consulta: {self.patient.full_name} — {self.appointment.appointment_date}"
+
+    @property
+    def bmi(self):
+        """Calculate BMI if weight and height are available."""
+        if self.weight and self.height and self.height > 0:
+            h_m = float(self.height) / 100
+            return round(float(self.weight) / (h_m ** 2), 1)
+        return None
+
+    def build_medical_record_content(self):
+        """Generate structured text for MedicalRecord from this consultation."""
+        parts = []
+        if self.chief_complaint:
+            parts.append(f"QUEIXA PRINCIPAL:\n{self.chief_complaint}")
+        if self.hda:
+            parts.append(f"HISTÓRIA DA DOENÇA ATUAL:\n{self.hda}")
+        if self.allergies:
+            parts.append(f"ALERGIAS:\n{self.allergies}")
+        if self.current_medications:
+            parts.append(f"MEDICAMENTOS EM USO:\n{self.current_medications}")
+        if self.past_history:
+            parts.append(f"ANTECEDENTES:\n{self.past_history}")
+        if self.systems_review:
+            parts.append(f"REVISÃO DE SISTEMAS:\n{self.systems_review}")
+
+        vitals = []
+        if self.blood_pressure_systolic and self.blood_pressure_diastolic:
+            vitals.append(f"PA: {self.blood_pressure_systolic}/{self.blood_pressure_diastolic} mmHg")
+        if self.heart_rate:
+            vitals.append(f"FC: {self.heart_rate} bpm")
+        if self.respiratory_rate:
+            vitals.append(f"FR: {self.respiratory_rate} rpm")
+        if self.temperature:
+            vitals.append(f"Temp: {self.temperature}°C")
+        if self.oxygen_saturation:
+            vitals.append(f"SpO₂: {self.oxygen_saturation}%")
+        if self.weight:
+            vitals.append(f"Peso: {self.weight} kg")
+        if self.height:
+            vitals.append(f"Altura: {self.height} cm")
+        if self.bmi:
+            vitals.append(f"IMC: {self.bmi}")
+        if vitals:
+            parts.append("SINAIS VITAIS:\n" + " | ".join(vitals))
+
+        if self.physical_exam:
+            parts.append(f"EXAME FÍSICO:\n{self.physical_exam}")
+        if self.diagnostic_hypothesis:
+            diag = self.diagnostic_hypothesis
+            if self.cid10_code:
+                diag += f" (CID-10: {self.cid10_code}"
+                if self.cid10_description:
+                    diag += f" — {self.cid10_description}"
+                diag += ")"
+            parts.append(f"HIPÓTESE DIAGNÓSTICA:\n{diag}")
+        if self.conduct:
+            parts.append(f"CONDUTA:\n{self.conduct}")
+        if self.exam_requests:
+            parts.append(f"SOLICITAÇÃO DE EXAMES:\n{self.exam_requests}")
+        if self.return_instructions:
+            parts.append(f"ORIENTAÇÕES DE RETORNO:\n{self.return_instructions}")
+        return "\n\n".join(parts)
+
+
+def patient_file_upload_to(instance, filename):
+    """
+    Dynamic upload path: clinic_<id>/patient_<id>/<original_filename>
+    Works for both local filesystem and cloud storage.
+    """
+    import os
+    from django.utils.text import slugify
+    clinic_id = instance.patient.clinic_id or 0
+    patient_id = instance.patient_id or 0
+    name, ext = os.path.splitext(filename)
+    safe_name = slugify(name) or 'file'
+    return f'clinic_{clinic_id}/patient_{patient_id}/{safe_name}{ext.lower()}'
+
+
+class PatientFile(models.Model):
+    """
+    Files attached to a patient (images, PDFs, or other documents).
+    Stores who uploaded the file (doctor) and supports both local and cloud storage.
+    """
+    FILE_TYPE_CHOICES = [
+        ('image', 'Imagem'),
+        ('pdf', 'PDF'),
+        ('other', 'Outro'),
+    ]
+
+    patient = models.ForeignKey(
+        Patient,
+        on_delete=models.CASCADE,
+        related_name='files',
+        help_text="Patient this file belongs to"
+    )
+
+    uploaded_by = models.ForeignKey(
+        Doctor,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='uploaded_patient_files',
+        help_text="Doctor who uploaded this file"
+    )
+
+    file = models.FileField(
+        upload_to=patient_file_upload_to,
+        help_text="The uploaded file (image or PDF)"
+    )
+
+    original_name = models.CharField(
+        max_length=255,
+        help_text="Original filename as uploaded by the user"
+    )
+
+    file_type = models.CharField(
+        max_length=10,
+        choices=FILE_TYPE_CHOICES,
+        default='other',
+        help_text="Detected file type"
+    )
+
+    description = models.TextField(
+        blank=True,
+        null=True,
+        help_text="Optional description or notes about this file"
+    )
+
+    created_at = models.DateTimeField(auto_now_add=True, help_text="When the file was uploaded")
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name = "Patient File"
+        verbose_name_plural = "Patient Files"
+        ordering = ['-created_at']
+        indexes = [
+            models.Index(fields=['patient']),
+            models.Index(fields=['uploaded_by']),
+            models.Index(fields=['file_type']),
+        ]
+
+    def __str__(self):
+        return f"{self.original_name} — {self.patient.full_name}"
+
+    @property
+    def uploaded_by_name(self):
+        if self.uploaded_by:
+            return self.uploaded_by.full_name
+        return "Desconhecido"
+
+    @classmethod
+    def detect_file_type(cls, filename):
+        """Return 'image', 'pdf', or 'other' based on filename extension."""
+        import os
+        ext = os.path.splitext(filename)[1].lower()
+        if ext in ('.jpg', '.jpeg', '.png', '.gif', '.bmp', '.webp', '.svg'):
+            return 'image'
+        if ext == '.pdf':
+            return 'pdf'
+        return 'other'
 
 
 class FAQEntry(models.Model):

@@ -1,15 +1,49 @@
 from django.contrib import admin
-from .models import Admin, Patient, Doctor, Secretary, MedicalRecord, Appointment, Expense, Income, WaitingListEntry, WhatsAppConversation, FAQEntry
+from .models import Clinic, Patient, Doctor, Secretary, MedicalRecord, Appointment, Expense, Income, WaitingListEntry, WhatsAppConversation, FAQEntry, PatientFile, ConsultationRecord
+
+
+@admin.register(Clinic)
+class ClinicAdmin(admin.ModelAdmin):
+    list_display = [
+        'name',
+        'email',
+        'phone',
+        'doctors_count',
+        'patients_count',
+        'is_active',
+        'created_at'
+    ]
+    list_filter = ['is_active', 'created_at']
+    search_fields = ['name', 'email', 'phone', 'address']
+    readonly_fields = ['created_at', 'updated_at', 'doctors_count', 'patients_count']
+    ordering = ['name']
+
+    fieldsets = (
+        ('Clinic Information', {
+            'fields': ('name', 'email', 'phone', 'address')
+        }),
+        ('Status', {
+            'fields': ('is_active',)
+        }),
+        ('Statistics', {
+            'fields': ('doctors_count', 'patients_count'),
+            'classes': ('collapse',)
+        }),
+        ('Timestamps', {
+            'fields': ('created_at', 'updated_at'),
+            'classes': ('collapse',)
+        }),
+    )
 
 
 @admin.register(Patient)
 class PatientAdmin(admin.ModelAdmin):
     list_display = [
         'full_name',
-        'doctor',
+        'clinic',
         'cpf',
-        'email', 
-        'phone', 
+        'email',
+        'phone',
         'date_of_birth',
         'age',
         'gender',
@@ -17,16 +51,16 @@ class PatientAdmin(admin.ModelAdmin):
         'created_at'
     ]
     list_filter = [
-        'doctor',
-        'gender', 
+        'clinic',
+        'gender',
         'is_active',
-        'created_at', 
+        'created_at',
         'city',
         'state'
     ]
     search_fields = [
-        'first_name', 
-        'last_name', 
+        'first_name',
+        'last_name',
         'cpf',
         'email',
         'phone',
@@ -35,10 +69,10 @@ class PatientAdmin(admin.ModelAdmin):
     readonly_fields = ['created_at', 'updated_at', 'age']
     date_hierarchy = 'created_at'
     ordering = ['last_name', 'first_name']
-    
+
     fieldsets = (
-        ('Doctor Assignment', {
-            'fields': ('doctor',)
+        ('Clinic Assignment', {
+            'fields': ('clinic',)
         }),
         ('Personal Information', {
             'fields': ('first_name', 'last_name', 'cpf', 'date_of_birth', 'gender')
@@ -63,7 +97,8 @@ class PatientAdmin(admin.ModelAdmin):
 class DoctorAdmin(admin.ModelAdmin):
     list_display = [
         'full_name',
-        'admins_display',
+        'clinic',
+        'is_clinic_admin',
         'medical_license',
         'specialization',
         'years_of_experience',
@@ -72,9 +107,10 @@ class DoctorAdmin(admin.ModelAdmin):
         'created_at'
     ]
     list_filter = [
+        'clinic',
+        'is_clinic_admin',
         'specialization',
         'is_active',
-        'admins',
         'created_at',
         'years_of_experience'
     ]
@@ -87,16 +123,15 @@ class DoctorAdmin(admin.ModelAdmin):
         'hospital_affiliation'
     ]
     readonly_fields = ['created_at', 'updated_at']
-    filter_horizontal = ['admins']
     date_hierarchy = 'created_at'
     ordering = ['user__last_name', 'user__first_name']
-    
+
     fieldsets = (
         ('User Account', {
             'fields': ('user',)
         }),
-        ('Administration', {
-            'fields': ('admins',)
+        ('Clinic & Role', {
+            'fields': ('clinic', 'is_clinic_admin')
         }),
         ('Professional Information', {
             'fields': ('medical_license', 'specialization', 'years_of_experience', 'hospital_affiliation')
@@ -113,72 +148,26 @@ class DoctorAdmin(admin.ModelAdmin):
         }),
     )
 
-    def admins_display(self, obj):
-        return ', '.join(a.full_name for a in obj.admins.all()[:5]) or '-'
-    admins_display.short_description = 'Admins'
-
-
-@admin.register(Admin)
-class AdminAdmin(admin.ModelAdmin):
-    list_display = [
-        'full_name',
-        'email',
-        'phone',
-        'doctors_count',
-        'is_active',
-        'created_at'
-    ]
-    list_filter = [
-        'is_active',
-        'created_at'
-    ]
-    search_fields = [
-        'user__first_name',
-        'user__last_name',
-        'user__email',
-        'user__username',
-        'phone'
-    ]
-    readonly_fields = ['created_at', 'updated_at', 'doctors_count']
-    date_hierarchy = 'created_at'
-    ordering = ['user__last_name', 'user__first_name']
-    
-    fieldsets = (
-        ('User Account', {
-            'fields': ('user',)
-        }),
-        ('Contact Information', {
-            'fields': ('phone',)
-        }),
-        ('Status', {
-            'fields': ('is_active',)
-        }),
-        ('Timestamps', {
-            'fields': ('created_at', 'updated_at', 'doctors_count'),
-            'classes': ('collapse',)
-        }),
-    )
-
 
 @admin.register(MedicalRecord)
 class MedicalRecordAdmin(admin.ModelAdmin):
     list_display = [
-        'patient_name', 
-        'doctor_name', 
-        'datetime', 
+        'patient_name',
+        'doctor_name',
+        'datetime',
         'created_at',
         'content_preview'
     ]
     list_filter = [
-        'datetime', 
-        'created_at', 
-        'patient', 
+        'datetime',
+        'created_at',
+        'patient',
         'doctor',
         'doctor__specialization'
     ]
     search_fields = [
-        'patient__first_name', 
-        'patient__last_name', 
+        'patient__first_name',
+        'patient__last_name',
         'doctor__user__first_name',
         'doctor__user__last_name',
         'doctor__medical_license',
@@ -187,7 +176,7 @@ class MedicalRecordAdmin(admin.ModelAdmin):
     readonly_fields = ['created_at', 'updated_at']
     date_hierarchy = 'datetime'
     ordering = ['-datetime']
-    
+
     fieldsets = (
         ('Basic Information', {
             'fields': ('datetime', 'patient', 'doctor')
@@ -200,9 +189,8 @@ class MedicalRecordAdmin(admin.ModelAdmin):
             'classes': ('collapse',)
         }),
     )
-    
+
     def content_preview(self, obj):
-        """Show a preview of the content"""
         if len(obj.content) > 100:
             return obj.content[:100] + "..."
         return obj.content
@@ -253,7 +241,7 @@ class AppointmentAdmin(admin.ModelAdmin):
     ]
     date_hierarchy = 'appointment_date'
     ordering = ['appointment_date', 'appointment_time']
-    
+
     fieldsets = (
         ('Appointment Details', {
             'fields': (
@@ -294,34 +282,28 @@ class AppointmentAdmin(admin.ModelAdmin):
             'classes': ('collapse',)
         }),
     )
-    
+
     actions = ['mark_as_completed', 'mark_as_cancelled', 'send_reminders']
-    
+
     def mark_as_completed(self, request, queryset):
-        """Mark selected appointments as completed"""
         updated = queryset.update(status='completed')
         self.message_user(request, f'{updated} appointments marked as completed.')
     mark_as_completed.short_description = "Mark selected appointments as completed"
-    
+
     def mark_as_cancelled(self, request, queryset):
-        """Mark selected appointments as cancelled and remove associated income records"""
         income_deleted_count = 0
         for appointment in queryset:
-            # Count and delete associated income records
             associated_incomes = appointment.incomes.all()
             income_deleted_count += associated_incomes.count()
             associated_incomes.delete()
-        
         updated = queryset.update(status='cancelled')
         message = f'{updated} appointments marked as cancelled'
         if income_deleted_count > 0:
             message += f' and {income_deleted_count} income records removed'
         self.message_user(request, message)
     mark_as_cancelled.short_description = "Mark selected appointments as cancelled"
-    
+
     def send_reminders(self, request, queryset):
-        """Send reminders for selected appointments"""
-        # This would integrate with your email/notification system
         updated = queryset.update(reminder_sent=True)
         self.message_user(request, f'Reminders sent for {updated} appointments.')
     send_reminders.short_description = "Send reminders for selected appointments"
@@ -358,7 +340,7 @@ class ExpenseAdmin(admin.ModelAdmin):
     readonly_fields = ['created_at', 'updated_at', 'formatted_amount']
     date_hierarchy = 'expense_date'
     ordering = ['-expense_date', '-created_at']
-    
+
     fieldsets = (
         ('Expense Information', {
             'fields': ('doctor', 'description', 'amount', 'formatted_amount', 'category', 'expense_date')
@@ -376,12 +358,10 @@ class ExpenseAdmin(admin.ModelAdmin):
             'classes': ('collapse',)
         }),
     )
-    
+
     actions = ['export_expenses']
-    
+
     def export_expenses(self, request, queryset):
-        """Export selected expenses to CSV"""
-        # This would implement CSV export functionality
         self.message_user(request, f'Export functionality for {queryset.count()} expenses would be implemented here.')
     export_expenses.short_description = "Export selected expenses to CSV"
 
@@ -389,30 +369,30 @@ class ExpenseAdmin(admin.ModelAdmin):
 @admin.register(Income)
 class IncomeAdmin(admin.ModelAdmin):
     list_display = [
-        'description', 
-        'amount', 
-        'category', 
-        'income_date', 
-        'doctor_name', 
+        'description',
+        'amount',
+        'category',
+        'income_date',
+        'doctor_name',
         'payment_method',
         'created_at'
     ]
     list_filter = [
-        'category', 
-        'income_date', 
+        'category',
+        'income_date',
         'payment_method',
         'created_at',
         'doctor'
     ]
     search_fields = [
-        'description', 
-        'notes', 
-        'doctor__first_name', 
+        'description',
+        'notes',
+        'doctor__first_name',
         'doctor__last_name'
     ]
     date_hierarchy = 'income_date'
     ordering = ['-income_date', '-created_at']
-    
+
     fieldsets = (
         ('Informações Básicas', {
             'fields': ('doctor', 'description', 'amount', 'category')
@@ -429,12 +409,10 @@ class IncomeAdmin(admin.ModelAdmin):
             'classes': ('collapse',)
         }),
     )
-    
+
     actions = ['export_incomes']
-    
+
     def export_incomes(self, request, queryset):
-        """Export selected incomes to CSV"""
-        # This would implement CSV export functionality
         self.message_user(request, f'Export functionality for {queryset.count()} incomes would be implemented here.')
     export_incomes.short_description = "Export selected incomes to CSV"
 
@@ -445,11 +423,13 @@ class SecretaryAdmin(admin.ModelAdmin):
         'full_name',
         'email',
         'phone',
+        'clinic',
         'doctors_display',
         'is_active',
         'created_at'
     ]
     list_filter = [
+        'clinic',
         'doctors',
         'is_active',
         'created_at'
@@ -468,13 +448,13 @@ class SecretaryAdmin(admin.ModelAdmin):
     filter_horizontal = ['doctors']
     date_hierarchy = 'created_at'
     ordering = ['user__last_name', 'user__first_name']
-    
+
     fieldsets = (
         ('User Account', {
             'fields': ('user',)
         }),
-        ('Work Assignment', {
-            'fields': ('doctors',)
+        ('Clinic & Work Assignment', {
+            'fields': ('clinic', 'doctors')
         }),
         ('Contact Information', {
             'fields': ('phone',)
@@ -521,7 +501,7 @@ class WaitingListEntryAdmin(admin.ModelAdmin):
     readonly_fields = ['created_at', 'updated_at', 'contact_info', 'is_active']
     date_hierarchy = 'created_at'
     ordering = ['-urgency_level', 'created_at']
-    
+
     fieldsets = (
         ('Basic Information', {
             'fields': ('doctor', 'patient', 'patient_name')
@@ -544,26 +524,86 @@ class WaitingListEntryAdmin(admin.ModelAdmin):
             'classes': ('collapse',)
         }),
     )
-    
+
     actions = ['mark_as_scheduled', 'mark_as_archived', 'mark_as_pending']
-    
+
     def mark_as_scheduled(self, request, queryset):
-        """Mark selected entries as scheduled"""
         updated = queryset.update(status='scheduled')
         self.message_user(request, f'{updated} entries marked as scheduled.')
     mark_as_scheduled.short_description = "Mark selected entries as scheduled"
-    
+
     def mark_as_archived(self, request, queryset):
-        """Mark selected entries as archived"""
         updated = queryset.update(status='archived')
         self.message_user(request, f'{updated} entries marked as archived.')
     mark_as_archived.short_description = "Mark selected entries as archived"
-    
+
     def mark_as_pending(self, request, queryset):
-        """Mark selected entries as pending"""
         updated = queryset.update(status='pending')
         self.message_user(request, f'{updated} entries marked as pending.')
     mark_as_pending.short_description = "Mark selected entries as pending"
+
+
+@admin.register(ConsultationRecord)
+class ConsultationRecordAdmin(admin.ModelAdmin):
+    list_display = ['patient', 'doctor', 'appointment', 'started_at', 'completed_at']
+    list_filter = ['doctor', 'started_at', 'completed_at']
+    search_fields = ['patient__first_name', 'patient__last_name', 'doctor__user__first_name', 'chief_complaint', 'cid10_code']
+    readonly_fields = ['started_at', 'created_at', 'updated_at', 'bmi']
+    date_hierarchy = 'started_at'
+    ordering = ['-started_at']
+
+    fieldsets = (
+        ('Appointment', {'fields': ('appointment', 'patient', 'doctor')}),
+        ('Vital Signs', {'fields': ('blood_pressure_systolic', 'blood_pressure_diastolic', 'heart_rate', 'respiratory_rate', 'temperature', 'oxygen_saturation', 'weight', 'height', 'bmi')}),
+        ('Anamnesis', {'fields': ('chief_complaint', 'hda', 'past_history', 'allergies', 'current_medications', 'systems_review'), 'classes': ('collapse',)}),
+        ('Physical Exam', {'fields': ('physical_exam',), 'classes': ('collapse',)}),
+        ('Diagnosis', {'fields': ('diagnostic_hypothesis', 'cid10_code', 'cid10_description'), 'classes': ('collapse',)}),
+        ('Treatment Plan', {'fields': ('conduct', 'exam_requests', 'return_instructions'), 'classes': ('collapse',)}),
+        ('Lifecycle', {'fields': ('started_at', 'completed_at', 'created_at', 'updated_at'), 'classes': ('collapse',)}),
+    )
+
+
+@admin.register(PatientFile)
+class PatientFileAdmin(admin.ModelAdmin):
+    list_display = [
+        'original_name',
+        'patient',
+        'file_type',
+        'uploaded_by',
+        'description_preview',
+        'created_at',
+    ]
+    list_filter = ['file_type', 'created_at', 'uploaded_by']
+    search_fields = [
+        'original_name',
+        'patient__first_name',
+        'patient__last_name',
+        'uploaded_by__user__first_name',
+        'uploaded_by__user__last_name',
+        'description',
+    ]
+    readonly_fields = ['created_at', 'updated_at', 'original_name', 'file_type']
+    date_hierarchy = 'created_at'
+    ordering = ['-created_at']
+
+    fieldsets = (
+        ('File Information', {
+            'fields': ('patient', 'file', 'original_name', 'file_type')
+        }),
+        ('Upload Info', {
+            'fields': ('uploaded_by', 'description')
+        }),
+        ('Timestamps', {
+            'fields': ('created_at', 'updated_at'),
+            'classes': ('collapse',)
+        }),
+    )
+
+    def description_preview(self, obj):
+        if obj.description and len(obj.description) > 60:
+            return obj.description[:60] + '...'
+        return obj.description or '-'
+    description_preview.short_description = 'Descrição'
 
 
 @admin.register(FAQEntry)
@@ -602,7 +642,7 @@ class WhatsAppConversationAdmin(admin.ModelAdmin):
     readonly_fields = ['created_at', 'updated_at', 'completed_at', 'context']
     date_hierarchy = 'created_at'
     ordering = ['-updated_at']
-    
+
     fieldsets = (
         ('Conversation Info', {
             'fields': ('phone_number', 'state', 'context')

@@ -110,7 +110,7 @@
             </div>
         </div>
         
-        <!-- Action Buttons (hidden for admins: admins can only view, not add revenue/expense) -->
+        <!-- Action Buttons (hidden for clinic admins in overview mode: clinic admins can only view, not add revenue/expense) -->
         <div class="d-flex gap-2">
             {% if not is_admin %}
             <button class="btn btn-warning btn-sm" onclick="syncAppointmentIncome()">

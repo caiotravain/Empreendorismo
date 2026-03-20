@@ -82,6 +82,15 @@ urlpatterns = [
     
     # API endpoint for indicators
     path('api/indicators/', views.api_indicators, name='api_indicators'),
+
+    # API endpoints for patient files
+    path('api/patients/<int:patient_id>/files/', views.api_patient_files, name='api_patient_files'),
+    path('api/patients/<int:patient_id>/files/<int:file_id>/delete/', views.api_patient_file_delete, name='api_patient_file_delete'),
+
+    # Consultation (atendimento) page and APIs
+    path('consulta/<int:appointment_id>/', views.consulta, name='consulta'),
+    path('api/consulta/<int:appointment_id>/save/', views.api_save_consulta, name='api_save_consulta'),
+    path('api/consulta/<int:appointment_id>/complete/', views.api_complete_consulta, name='api_complete_consulta'),
     
     # WhatsApp webhook (with and without trailing slash to handle both cases)
     path('whatsapp/webhook/', whatsapp_views.whatsapp_webhook, name='whatsapp_webhook'),

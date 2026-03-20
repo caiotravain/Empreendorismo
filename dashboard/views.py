@@ -9,7 +9,7 @@ from django.db import models
 from django.db.models import Q
 from datetime import date, timedelta, datetime
 from decimal import Decimal, InvalidOperation
-from .models import Appointment, Patient, Doctor, MedicalRecord, Prescription, PrescriptionItem, PrescriptionTemplate, Expense, Income, Medication, WaitingListEntry, AppointmentSettings, CalendarBlock
+from .models import Appointment, Patient, Doctor, Clinic, MedicalRecord, Prescription, PrescriptionItem, PrescriptionTemplate, Expense, Income, Medication, WaitingListEntry, AppointmentSettings, CalendarBlock, PatientFile, ConsultationRecord
 from .waiting_list_views import api_waiting_list, api_waiting_list_entry, api_update_waiting_list_entry, api_convert_waitlist_to_appointment
 from accounts.utils import get_accessible_patients, get_user_role, has_access_to_patient, get_accessible_doctors, can_access_doctor
 
@@ -517,16 +517,11 @@ def api_patients(request):
         # Get current doctor (from selection for admins, or user's doctor)
         current_doctor = get_selected_doctor(request)
         
-        # Get patients based on role and doctor selection
-        if current_doctor:
-            # If doctor is selected (or user is a doctor/secretary), show their patients
-            patients = Patient.objects.filter(doctor=current_doctor, is_active=True).order_by('last_name', 'first_name')
-        else:
-            # For admins without doctor selection, show all accessible patients
-            patients = get_accessible_patients(request.user).filter(is_active=True).order_by('last_name', 'first_name')
-        
+        # Patients are shared within a clinic — return all accessible patients
+        patients = get_accessible_patients(request.user).filter(is_active=True).order_by('last_name', 'first_name')
+
         patients_data = []
-        
+
         for patient in patients:
             patients_data.append({
                 'id': patient.id,
@@ -537,7 +532,7 @@ def api_patients(request):
                 'cpf': patient.cpf or '',
                 'full_name': patient.full_name
             })
-        
+
         response_data = {
             'success': True,
             'patients': patients_data,
@@ -546,8 +541,6 @@ def api_patients(request):
                 'current_doctor': str(current_doctor) if current_doctor else 'None',
                 'role': get_user_role(request.user),
                 'total_patients_in_db': Patient.objects.filter(is_active=True).count(),
-                'patients_with_doctors': Patient.objects.filter(doctor__isnull=False, is_active=True).count(),
-                'patients_without_doctors': Patient.objects.filter(doctor__isnull=True, is_active=True).count()
             }
         }
         
@@ -2958,7 +2951,9 @@ def api_indicators(request):
         # "Vago" = empty slots (we don't have slot data; use 0 or remainder)
         vago_rate = max(0, 100 - show_rate - no_show_rate - cancelled_rate)
 
-        total_patients = Patient.objects.filter(doctor__in=doctors_filter, is_active=True).count()
+        from accounts.utils import get_clinic_for_user
+        user_clinic = get_clinic_for_user(request.user)
+        total_patients = Patient.objects.filter(clinic=user_clinic, is_active=True).count() if user_clinic else 0
         particular_count = appointments.filter(payment_type='particular').count()
         convenio_count = appointments.filter(payment_type='convenio').count()
         total_payment_appointments = particular_count + convenio_count
@@ -3868,35 +3863,21 @@ def api_create_patient(request):
                 'error': 'Nome, sobrenome, data de nascimento e sexo são obrigatórios'
             })
         
-        # Get the current doctor for the user
-        from accounts.utils import get_user_role
-        from accounts.utils import get_doctor_for_user
-        
-        role = get_user_role(request.user)
-        doctor = None
-        
-        if role == 'admin':
-            # For admins, first check if they have a doctor_profile (some admins are also doctors)
-            if hasattr(request.user, 'doctor_profile'):
-                doctor = request.user.doctor_profile
-            else:
-                # Otherwise, use get_selected_doctor which checks session
-                doctor = get_selected_doctor(request)
-        else:
-            doctor = get_doctor_for_user(request.user)
-        
-        if not doctor:
-            error_msg = 'Usuário não tem um perfil de médico associado'
-            if role == 'admin':
-                error_msg += ' ou nenhum médico foi selecionado'
+        # Get the current doctor and clinic for the user
+        from accounts.utils import get_user_role, get_doctor_for_user, get_clinic_for_user
+
+        doctor = get_selected_doctor(request)
+        clinic = get_clinic_for_user(request.user)
+
+        if not doctor and not clinic:
             return JsonResponse({
                 'success': False,
-                'error': error_msg
+                'error': 'Usuário não tem um perfil de médico ou clínica associada'
             })
-        
-        # Create the patient assigned to the current doctor
+
+        # Create the patient assigned to the clinic (patients are shared within a clinic)
         patient = Patient.objects.create(
-            doctor=doctor,
+            clinic=clinic,
             first_name=first_name,
             last_name=last_name,
             email=email if email else None,
@@ -4037,14 +4018,13 @@ def api_update_patient(request):
 @login_required
 @require_POST
 def select_doctor(request):
-    """API endpoint for admin to select a doctor to view as"""
+    """API endpoint for clinic admin to select a doctor to view as"""
     try:
-        # Check if user is admin
         role = get_user_role(request.user)
-        if role != 'admin':
+        if role != 'clinic_admin':
             return JsonResponse({
                 'success': False,
-                'error': 'Apenas administradores podem selecionar médicos'
+                'error': 'Apenas administradores da clínica podem selecionar médicos'
             })
         
         # Get doctor ID from request
@@ -4596,23 +4576,22 @@ def api_generate_pdf_report(request):
 def get_selected_doctor(request):
     """Helper function to get the selected doctor from session"""
     role = get_user_role(request.user)
-    
-    if role == 'admin':
-        # Admins can select a doctor to view as
+
+    if role == 'clinic_admin':
+        # Clinic admins can select a doctor from their clinic to view as
         selected_doctor_id = request.session.get('selected_doctor_id')
         if selected_doctor_id:
             try:
                 doctor = Doctor.objects.get(id=selected_doctor_id)
-                # Verify admin still has access to this doctor
                 if can_access_doctor(request.user, doctor):
                     return doctor
             except Doctor.DoesNotExist:
                 pass
+        # If no specific doctor selected, return their own doctor profile
+        return getattr(request.user, 'doctor_profile', None)
     elif role == 'doctor':
-        # Doctors see their own data
         return getattr(request.user, 'doctor_profile', None)
     elif role == 'secretary':
-        # Secretaries can work for multiple doctors; use session or first doctor
         secretary_profile = getattr(request.user, 'secretary_profile', None)
         if secretary_profile and secretary_profile.doctors.exists():
             selected_doctor_id = request.session.get('selected_doctor_id')
@@ -4620,5 +4599,287 @@ def get_selected_doctor(request):
                 return Doctor.objects.get(id=selected_doctor_id)
             return secretary_profile.doctors.filter(is_active=True).first()
         return None
-    
+
     return None
+
+
+# ─── Patient File API ─────────────────────────────────────────────────────────
+
+@login_required
+@require_http_methods(["GET", "POST"])
+def api_patient_files(request, patient_id):
+    """
+    GET  – list all files for a patient
+    POST – upload a new file for a patient
+    """
+    from accounts.utils import has_access_to_patient, get_doctor_for_user
+
+    patient = get_object_or_404(Patient, id=patient_id)
+
+    if not has_access_to_patient(request.user, patient):
+        return JsonResponse({'success': False, 'error': 'Acesso negado a este paciente'}, status=403)
+
+    if request.method == 'GET':
+        files = patient.files.select_related('uploaded_by__user').order_by('-created_at')
+        return JsonResponse({
+            'success': True,
+            'files': [
+                {
+                    'id': f.id,
+                    'original_name': f.original_name,
+                    'file_type': f.file_type,
+                    'description': f.description or '',
+                    'uploaded_by': f.uploaded_by_name,
+                    'url': f.file.url,
+                    'created_at': f.created_at.strftime('%d/%m/%Y %H:%M'),
+                }
+                for f in files
+            ],
+        })
+
+    # POST – upload
+    uploaded = request.FILES.get('file')
+    if not uploaded:
+        return JsonResponse({'success': False, 'error': 'Nenhum arquivo enviado'}, status=400)
+
+    max_bytes = getattr(__import__('django.conf', fromlist=['settings']).settings, 'PATIENT_FILE_MAX_SIZE_MB', 20) * 1024 * 1024
+    if uploaded.size > max_bytes:
+        from django.conf import settings as _s
+        return JsonResponse({
+            'success': False,
+            'error': f'Arquivo muito grande. Tamanho máximo: {_s.PATIENT_FILE_MAX_SIZE_MB} MB'
+        }, status=400)
+
+    description = request.POST.get('description', '').strip()
+    doctor = get_doctor_for_user(request.user)
+    file_type = PatientFile.detect_file_type(uploaded.name)
+
+    patient_file = PatientFile.objects.create(
+        patient=patient,
+        uploaded_by=doctor,
+        file=uploaded,
+        original_name=uploaded.name,
+        file_type=file_type,
+        description=description or None,
+    )
+
+    return JsonResponse({
+        'success': True,
+        'file': {
+            'id': patient_file.id,
+            'original_name': patient_file.original_name,
+            'file_type': patient_file.file_type,
+            'description': patient_file.description or '',
+            'uploaded_by': patient_file.uploaded_by_name,
+            'url': patient_file.file.url,
+            'created_at': patient_file.created_at.strftime('%d/%m/%Y %H:%M'),
+        },
+    }, status=201)
+
+
+@login_required
+@require_http_methods(["DELETE"])
+def api_patient_file_delete(request, patient_id, file_id):
+    """Delete a specific patient file. Only the uploader or a clinic admin can delete."""
+    from accounts.utils import has_access_to_patient, get_user_role
+
+    patient = get_object_or_404(Patient, id=patient_id)
+
+    if not has_access_to_patient(request.user, patient):
+        return JsonResponse({'success': False, 'error': 'Acesso negado'}, status=403)
+
+    patient_file = get_object_or_404(PatientFile, id=file_id, patient=patient)
+
+    role = get_user_role(request.user)
+    doctor = getattr(request.user, 'doctor_profile', None)
+
+    # Allow deletion if: clinic admin, or the doctor who uploaded it
+    can_delete = (
+        role == 'clinic_admin'
+        or (doctor and patient_file.uploaded_by_id == doctor.id)
+    )
+    if not can_delete:
+        return JsonResponse({'success': False, 'error': 'Apenas o médico que enviou ou o administrador pode excluir este arquivo'}, status=403)
+
+    patient_file.file.delete(save=False)
+    patient_file.delete()
+
+    return JsonResponse({'success': True, 'message': 'Arquivo excluído com sucesso'})
+
+
+# ─── Consultation (Atendimento) ───────────────────────────────────────────────
+
+@login_required
+def consulta(request, appointment_id):
+    """
+    Full-page consultation view. Opens (or resumes) a ConsultationRecord for the
+    given appointment and sets the appointment status to 'in_progress'.
+    """
+    from accounts.utils import can_access_doctor
+
+    appointment = get_object_or_404(Appointment, id=appointment_id)
+
+    # Only the appointment's doctor (or a clinic admin of the same clinic) may open the consultation
+    if not can_access_doctor(request.user, appointment.doctor):
+        from django.http import HttpResponseForbidden
+        return HttpResponseForbidden("Acesso negado a esta consulta.")
+
+    # Get or create the ConsultationRecord
+    consultation, _ = ConsultationRecord.objects.get_or_create(
+        appointment=appointment,
+        defaults={
+            'patient': appointment.patient,
+            'doctor': appointment.doctor,
+        }
+    )
+
+    # Advance status to in_progress when first opened
+    if appointment.status in ('scheduled', 'confirmed'):
+        appointment.status = 'in_progress'
+        appointment.save(update_fields=['status'])
+
+    # Recent appointments for this patient (for the sidebar history)
+    recent_appointments = Appointment.objects.filter(
+        patient=appointment.patient,
+        status='completed'
+    ).exclude(id=appointment.id).order_by('-appointment_date')[:5]
+
+    # Previous medical records
+    previous_records = MedicalRecord.objects.filter(
+        patient=appointment.patient
+    ).order_by('-datetime')[:5]
+
+    # Previous consultation records
+    previous_consultations = ConsultationRecord.objects.filter(
+        patient=appointment.patient
+    ).exclude(id=consultation.id).order_by('-started_at')[:3]
+
+    # Prescriptions for quick access
+    recent_prescriptions = Prescription.objects.filter(
+        patient=appointment.patient
+    ).order_by('-prescription_date')[:3]
+
+    context = {
+        'appointment': appointment,
+        'consultation': consultation,
+        'patient': appointment.patient,
+        'doctor': appointment.doctor,
+        'recent_appointments': recent_appointments,
+        'previous_records': previous_records,
+        'previous_consultations': previous_consultations,
+        'recent_prescriptions': recent_prescriptions,
+    }
+    return render(request, 'dashboard/consulta.html', context)
+
+
+@login_required
+@require_POST
+def api_save_consulta(request, appointment_id):
+    """Save (draft) a consultation record without completing the appointment."""
+    import json
+    from accounts.utils import can_access_doctor
+
+    appointment = get_object_or_404(Appointment, id=appointment_id)
+
+    if not can_access_doctor(request.user, appointment.doctor):
+        return JsonResponse({'success': False, 'error': 'Acesso negado'}, status=403)
+
+    consultation, _ = ConsultationRecord.objects.get_or_create(
+        appointment=appointment,
+        defaults={'patient': appointment.patient, 'doctor': appointment.doctor}
+    )
+
+    data = request.POST
+
+    # Vital signs
+    def _int(key):
+        v = data.get(key, '').strip()
+        return int(v) if v else None
+
+    def _dec(key):
+        v = data.get(key, '').strip().replace(',', '.')
+        from decimal import Decimal, InvalidOperation
+        try:
+            return Decimal(v) if v else None
+        except InvalidOperation:
+            return None
+
+    consultation.blood_pressure_systolic = _int('blood_pressure_systolic')
+    consultation.blood_pressure_diastolic = _int('blood_pressure_diastolic')
+    consultation.heart_rate = _int('heart_rate')
+    consultation.respiratory_rate = _int('respiratory_rate')
+    consultation.temperature = _dec('temperature')
+    consultation.oxygen_saturation = _int('oxygen_saturation')
+    consultation.weight = _dec('weight')
+    consultation.height = _dec('height')
+
+    # Anamnesis
+    consultation.chief_complaint = data.get('chief_complaint', '').strip() or None
+    consultation.hda = data.get('hda', '').strip() or None
+    consultation.past_history = data.get('past_history', '').strip() or None
+    consultation.allergies = data.get('allergies', '').strip() or None
+    consultation.current_medications = data.get('current_medications', '').strip() or None
+    consultation.systems_review = data.get('systems_review', '').strip() or None
+
+    # Physical exam
+    consultation.physical_exam = data.get('physical_exam', '').strip() or None
+
+    # Diagnosis
+    consultation.diagnostic_hypothesis = data.get('diagnostic_hypothesis', '').strip() or None
+    consultation.cid10_code = data.get('cid10_code', '').strip() or None
+    consultation.cid10_description = data.get('cid10_description', '').strip() or None
+
+    # Plan
+    consultation.conduct = data.get('conduct', '').strip() or None
+    consultation.exam_requests = data.get('exam_requests', '').strip() or None
+    consultation.return_instructions = data.get('return_instructions', '').strip() or None
+
+    consultation.save()
+
+    return JsonResponse({'success': True, 'message': 'Consulta salva com sucesso'})
+
+
+@login_required
+@require_POST
+def api_complete_consulta(request, appointment_id):
+    """
+    Complete the consultation: save all data, create/update MedicalRecord,
+    and mark the appointment as completed.
+    """
+    from django.utils import timezone as tz
+    from accounts.utils import can_access_doctor
+
+    appointment = get_object_or_404(Appointment, id=appointment_id)
+
+    if not can_access_doctor(request.user, appointment.doctor):
+        return JsonResponse({'success': False, 'error': 'Acesso negado'}, status=403)
+
+    # Re-use the save logic
+    save_response = api_save_consulta(request, appointment_id)
+    if not save_response.status_code == 200:
+        return save_response
+
+    # Re-fetch after save
+    consultation = get_object_or_404(ConsultationRecord, appointment=appointment)
+    consultation.completed_at = tz.now()
+    consultation.save(update_fields=['completed_at'])
+
+    # Create or update the linked MedicalRecord
+    content = consultation.build_medical_record_content()
+    if content:
+        MedicalRecord.objects.update_or_create(
+            patient=appointment.patient,
+            doctor=appointment.doctor,
+            datetime=consultation.started_at,
+            defaults={'content': content},
+        )
+
+    # Complete the appointment
+    appointment.status = 'completed'
+    appointment.save(update_fields=['status'])
+
+    return JsonResponse({
+        'success': True,
+        'message': 'Consulta concluída com sucesso',
+        'redirect': '/dashboard/'
+    })

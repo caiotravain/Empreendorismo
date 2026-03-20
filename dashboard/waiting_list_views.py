@@ -10,31 +10,24 @@ from .models import WaitingListEntry, Patient, Doctor
 # We'll define a local version to avoid circular import
 def get_selected_doctor(request):
     """Get the currently selected doctor for the request"""
-    from accounts.utils import get_user_role
+    from accounts.utils import get_user_role, can_access_doctor
     from .models import Doctor
-    
+
     role = get_user_role(request.user)
-    
-    if role == 'admin':
-        # For admins, first check if they have a doctor_profile (some admins are also doctors)
-        if hasattr(request.user, 'doctor_profile'):
-            return request.user.doctor_profile
-        # Otherwise, admins can select a doctor to view as
+
+    if role == 'clinic_admin':
         selected_doctor_id = request.session.get('selected_doctor_id')
         if selected_doctor_id:
             try:
                 doctor = Doctor.objects.get(id=selected_doctor_id)
-                # Verify admin still has access to this doctor
-                from accounts.utils import can_access_doctor
                 if can_access_doctor(request.user, doctor):
                     return doctor
             except Doctor.DoesNotExist:
                 pass
+        return getattr(request.user, 'doctor_profile', None)
     elif role == 'doctor':
-        # Doctors see their own data
         return getattr(request.user, 'doctor_profile', None)
     elif role == 'secretary':
-        # Secretaries can work for multiple doctors; use session or first doctor
         secretary_profile = getattr(request.user, 'secretary_profile', None)
         if secretary_profile and secretary_profile.doctors.exists():
             selected_doctor_id = request.session.get('selected_doctor_id')
@@ -42,7 +35,7 @@ def get_selected_doctor(request):
                 return Doctor.objects.get(id=selected_doctor_id)
             return secretary_profile.doctors.filter(is_active=True).first()
         return None
-    
+
     return None
 
 

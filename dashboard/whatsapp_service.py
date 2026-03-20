@@ -721,7 +721,7 @@ def _handle_patient_register_phone(conversation, msg):
     cpf_formatted = f"{cpf_digits[:3]}.{cpf_digits[3:6]}.{cpf_digits[6:9]}-{cpf_digits[9:]}"
     try:
         patient = Patient.objects.create(
-            doctor=None,
+            clinic=conversation.selected_doctor.clinic if conversation.selected_doctor else None,
             first_name=first_name,
             last_name=last_name,
             cpf=cpf_formatted or None,
@@ -1037,7 +1037,7 @@ def _handle_schedule_confirm_final(conversation, msg_lower):
                 birth_date = timezone.now().date() - timedelta(days=365 * 30)
             try:
                 patient = Patient.objects.create(
-                    doctor=conversation.selected_doctor,
+                    clinic=conversation.selected_doctor.clinic if conversation.selected_doctor else None,
                     first_name=first_name,
                     last_name=last_name,
                     cpf=cpf_formatted or None,
@@ -1764,9 +1764,8 @@ def _handle_schedule_collecting_patient(conversation, msg):
     try:
         patient = Patient.objects.filter(phone__icontains=conversation.patient_phone).first()
         if not patient:
-            doctor = conversation.selected_doctor
             patient = Patient.objects.create(
-                doctor=doctor,
+                clinic=conversation.selected_doctor.clinic if conversation.selected_doctor else None,
                 first_name=(conversation.patient_name or 'Paciente').split()[0],
                 last_name=' '.join((conversation.patient_name or '').split()[1:]) or '',
                 phone=conversation.patient_phone,

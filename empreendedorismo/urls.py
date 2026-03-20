@@ -18,12 +18,16 @@ from django.contrib import admin
 from django.urls import path, include
 from django.shortcuts import redirect
 from django.contrib.auth.decorators import login_required
+from django.conf import settings
+from django.conf.urls.static import static
 from dashboard import whatsapp_views
+
 
 def home_redirect(request):
     if request.user.is_authenticated:
         return redirect('dashboard:home')
     return redirect('accounts:login')
+
 
 urlpatterns = [
     path('', home_redirect, name='home'),
@@ -34,3 +38,7 @@ urlpatterns = [
     path('whatsapp/webhook/', whatsapp_views.whatsapp_webhook, name='whatsapp_webhook_root'),
     path('whatsapp/webhook', whatsapp_views.whatsapp_webhook, name='whatsapp_webhook_root_no_slash'),
 ]
+
+# Serve uploaded media files locally when not using cloud storage
+if not settings.USE_CLOUD_STORAGE:
+    urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)

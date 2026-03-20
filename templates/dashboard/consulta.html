@@ -1,0 +1,702 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Consulta — {{ patient.full_name }}</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        :root {
+            --sidebar-w: 280px;
+            --topbar-h: 56px;
+            --blue: #1a6bcc;
+            --blue-light: #e8f0fb;
+            --green: #16a34a;
+            --border: #e2e8f0;
+            --text: #1e293b;
+            --muted: #64748b;
+            --bg: #f1f5f9;
+        }
+
+        * { box-sizing: border-box; }
+        body { margin: 0; font-family: 'Segoe UI', system-ui, sans-serif; background: var(--bg); color: var(--text); }
+
+        /* ── Top Bar ── */
+        #topbar {
+            position: fixed; top: 0; left: 0; right: 0; z-index: 1000;
+            height: var(--topbar-h);
+            background: #fff;
+            border-bottom: 1px solid var(--border);
+            display: flex; align-items: center; padding: 0 1.25rem; gap: 1rem;
+        }
+        #topbar .back-btn {
+            color: var(--muted); text-decoration: none; display: flex; align-items: center; gap: .4rem;
+            font-size: .875rem; white-space: nowrap;
+        }
+        #topbar .back-btn:hover { color: var(--blue); }
+        #topbar .patient-header { flex: 1; min-width: 0; }
+        #topbar .patient-header h1 {
+            font-size: 1rem; font-weight: 700; margin: 0; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+        }
+        #topbar .patient-header small { color: var(--muted); font-size: .78rem; }
+        #topbar .status-badge { font-size: .72rem; padding: .25rem .55rem; border-radius: 20px; white-space: nowrap; }
+        .btn-save { background: var(--bg); border: 1px solid var(--border); color: var(--text); }
+        .btn-complete { background: var(--green); border: none; color: #fff; }
+        .btn-complete:hover { background: #15803d; color: #fff; }
+        .btn-save:hover { background: #e2e8f0; }
+
+        /* ── Layout ── */
+        #layout { display: flex; margin-top: var(--topbar-h); min-height: calc(100vh - var(--topbar-h)); }
+
+        /* ── Sidebar ── */
+        #sidebar {
+            width: var(--sidebar-w); flex-shrink: 0;
+            background: #fff; border-right: 1px solid var(--border);
+            overflow-y: auto; padding: 1rem .875rem 2rem;
+            position: sticky; top: var(--topbar-h); height: calc(100vh - var(--topbar-h));
+        }
+        .patient-avatar {
+            width: 60px; height: 60px; border-radius: 50%;
+            background: var(--blue); color: #fff;
+            display: flex; align-items: center; justify-content: center;
+            font-size: 1.4rem; font-weight: 700; margin: 0 auto .75rem;
+        }
+        .sidebar-section { margin-bottom: 1.25rem; }
+        .sidebar-section-title {
+            font-size: .68rem; font-weight: 700; letter-spacing: .07em;
+            text-transform: uppercase; color: var(--muted); margin-bottom: .5rem;
+        }
+        .info-row { display: flex; align-items: flex-start; gap: .5rem; margin-bottom: .35rem; font-size: .8rem; }
+        .info-row i { color: var(--blue); width: 14px; flex-shrink: 0; margin-top: 2px; }
+        .info-row span { color: var(--text); }
+        .info-row .label { color: var(--muted); margin-right: .2rem; }
+
+        .history-item {
+            border-left: 3px solid var(--blue-light); padding: .35rem .5rem .35rem .65rem;
+            margin-bottom: .5rem; border-radius: 0 4px 4px 0; font-size: .78rem;
+        }
+        .history-item .date { color: var(--muted); font-size: .72rem; }
+
+        /* ── Main content ── */
+        #main { flex: 1; min-width: 0; padding: 1.25rem 1.5rem 3rem; }
+
+        /* ── Section cards ── */
+        .consult-card {
+            background: #fff; border: 1px solid var(--border); border-radius: 10px;
+            margin-bottom: 1rem; overflow: hidden;
+        }
+        .consult-card-header {
+            display: flex; align-items: center; gap: .6rem;
+            padding: .65rem 1rem; border-bottom: 1px solid var(--border);
+            cursor: pointer; user-select: none;
+        }
+        .consult-card-header .icon { color: var(--blue); width: 18px; text-align: center; }
+        .consult-card-header h2 { font-size: .875rem; font-weight: 700; margin: 0; flex: 1; }
+        .consult-card-header .toggle-icon { color: var(--muted); transition: transform .2s; }
+        .consult-card-header.collapsed .toggle-icon { transform: rotate(-90deg); }
+        .consult-card-body { padding: .875rem 1rem 1rem; }
+
+        /* ── Vital signs grid ── */
+        .vitals-grid {
+            display: grid; grid-template-columns: repeat(auto-fill, minmax(130px, 1fr)); gap: .75rem;
+        }
+        .vital-box {
+            background: var(--bg); border: 1px solid var(--border); border-radius: 8px;
+            padding: .55rem .75rem;
+        }
+        .vital-box label { font-size: .7rem; color: var(--muted); margin-bottom: .2rem; display: block; font-weight: 600; }
+        .vital-box input {
+            width: 100%; border: none; background: transparent; font-size: 1rem;
+            font-weight: 700; color: var(--text); outline: none; padding: 0;
+        }
+        .vital-box input:focus { color: var(--blue); }
+        .vital-box .unit { font-size: .72rem; color: var(--muted); }
+        .bp-group { display: flex; align-items: center; gap: .3rem; }
+        .bp-group input { width: 45px; }
+        .bp-sep { font-weight: 700; color: var(--muted); }
+
+        /* ── Textareas ── */
+        .consult-textarea {
+            width: 100%; border: 1px solid var(--border); border-radius: 8px;
+            padding: .65rem .875rem; font-size: .875rem; line-height: 1.6;
+            resize: vertical; min-height: 90px; outline: none; font-family: inherit;
+            transition: border-color .15s;
+        }
+        .consult-textarea:focus { border-color: var(--blue); box-shadow: 0 0 0 3px rgba(26,107,204,.12); }
+        .field-label { font-size: .78rem; font-weight: 600; color: var(--muted); margin-bottom: .3rem; }
+
+        /* ── CID-10 ── */
+        .cid-row { display: flex; gap: .5rem; align-items: flex-start; }
+        .cid-code-input { width: 110px; flex-shrink: 0; }
+        .cid-desc-input { flex: 1; }
+        .cid-code-input, .cid-desc-input {
+            border: 1px solid var(--border); border-radius: 8px; padding: .55rem .75rem;
+            font-size: .875rem; outline: none; transition: border-color .15s; width: 100%;
+        }
+        .cid-code-input:focus, .cid-desc-input:focus { border-color: var(--blue); box-shadow: 0 0 0 3px rgba(26,107,204,.12); }
+
+        /* ── Quick links ── */
+        .quick-link-row { display: flex; gap: .5rem; flex-wrap: wrap; }
+        .quick-link {
+            display: inline-flex; align-items: center; gap: .4rem;
+            font-size: .8rem; padding: .4rem .8rem; border-radius: 6px;
+            text-decoration: none; border: 1px solid var(--border);
+            color: var(--text); background: #fff; cursor: pointer;
+            transition: background .15s;
+        }
+        .quick-link:hover { background: var(--blue-light); border-color: var(--blue); color: var(--blue); }
+
+        /* ── Save bar ── */
+        #save-bar {
+            position: fixed; bottom: 0; left: var(--sidebar-w); right: 0;
+            background: #fff; border-top: 1px solid var(--border);
+            padding: .65rem 1.5rem; display: flex; align-items: center; gap: .75rem;
+            z-index: 900;
+        }
+        #save-bar .save-msg { font-size: .8rem; color: var(--muted); flex: 1; }
+
+        /* ── Toast ── */
+        #toast-container { position: fixed; bottom: 70px; right: 1.25rem; z-index: 2000; }
+        .toast-msg {
+            background: #1e293b; color: #fff; padding: .6rem 1rem;
+            border-radius: 8px; font-size: .85rem; margin-top: .4rem;
+            animation: fadeInUp .25s ease;
+        }
+        .toast-msg.success { background: var(--green); }
+        .toast-msg.error { background: #dc2626; }
+        @keyframes fadeInUp {
+            from { opacity: 0; transform: translateY(10px); }
+            to   { opacity: 1; transform: translateY(0); }
+        }
+
+        @media (max-width: 768px) {
+            #sidebar { display: none; }
+            #save-bar { left: 0; }
+        }
+    </style>
+</head>
+<body>
+
+<!-- ── Top Bar ────────────────────────────────────────────────────────── -->
+<header id="topbar">
+    <a href="/dashboard/" class="back-btn">
+        <i class="fas fa-arrow-left"></i> Agenda
+    </a>
+    <div class="patient-header">
+        <h1><i class="fas fa-stethoscope me-2 text-primary" style="font-size:.85rem;"></i>{{ patient.full_name }}</h1>
+        <small>
+            {{ appointment.appointment_date|date:"d/m/Y" }} às {{ appointment.appointment_time|time:"H:i" }}
+            &nbsp;·&nbsp; Dr(a). {{ doctor.full_name }}
+            &nbsp;·&nbsp; {{ appointment.get_appointment_type_display }}
+        </small>
+    </div>
+    <span class="status-badge badge
+        {% if appointment.status == 'in_progress' %}bg-warning text-dark
+        {% elif appointment.status == 'completed' %}bg-success
+        {% else %}bg-secondary{% endif %}">
+        {{ appointment.get_status_display }}
+    </span>
+    <button class="btn btn-sm btn-save px-3" onclick="saveConsulta(false)">
+        <i class="fas fa-save me-1"></i>Salvar
+    </button>
+    {% if appointment.status != 'completed' %}
+    <button class="btn btn-sm btn-complete px-3" onclick="confirmCompleteConsulta()">
+        <i class="fas fa-check-double me-1"></i>Concluir Consulta
+    </button>
+    {% else %}
+    <span class="text-success fw-semibold" style="font-size:.85rem;"><i class="fas fa-check-circle me-1"></i>Consulta concluída</span>
+    {% endif %}
+</header>
+
+<!-- ── Layout ────────────────────────────────────────────────────────── -->
+<div id="layout">
+
+    <!-- ── Sidebar ── -->
+    <aside id="sidebar">
+        <div class="text-center mb-3">
+            <div class="patient-avatar">
+                {{ patient.full_name|slice:":1" }}{% if patient.last_name %}{{ patient.last_name|slice:":1" }}{% endif %}
+            </div>
+            <div class="fw-bold" style="font-size:.9rem;">{{ patient.full_name }}</div>
+            <div class="text-muted" style="font-size:.75rem;">
+                {% if patient.date_of_birth %}{{ patient.age }} anos{% endif %}
+                {% if patient.gender %}&nbsp;·&nbsp;
+                    {% if patient.gender == 'M' %}Masc.{% elif patient.gender == 'F' %}Fem.{% else %}Outro{% endif %}
+                {% endif %}
+            </div>
+        </div>
+
+        <div class="sidebar-section">
+            <div class="sidebar-section-title">Informações</div>
+            {% if patient.phone %}
+            <div class="info-row"><i class="fas fa-phone"></i><span><span class="label">Tel:</span>{{ patient.phone }}</span></div>
+            {% endif %}
+            {% if patient.email %}
+            <div class="info-row"><i class="fas fa-envelope"></i><span><span class="label">Email:</span>{{ patient.email }}</span></div>
+            {% endif %}
+            {% if patient.medical_insurance %}
+            <div class="info-row"><i class="fas fa-heartbeat"></i><span><span class="label">Plano:</span>{{ patient.medical_insurance }}</span></div>
+            {% endif %}
+            {% if appointment.payment_type %}
+            <div class="info-row">
+                <i class="fas fa-credit-card"></i>
+                <span><span class="label">Pagamento:</span>{{ appointment.get_payment_type_display }}
+                    {% if appointment.insurance_operator %}&nbsp;({{ appointment.insurance_operator }}){% endif %}
+                </span>
+            </div>
+            {% endif %}
+            {% if patient.emergency_contact_name %}
+            <div class="info-row"><i class="fas fa-user-shield"></i><span><span class="label">Emergência:</span>{{ patient.emergency_contact_name }}{% if patient.emergency_contact_phone %} · {{ patient.emergency_contact_phone }}{% endif %}</span></div>
+            {% endif %}
+        </div>
+
+        {% if consultation.allergies %}
+        <div class="sidebar-section">
+            <div class="sidebar-section-title" style="color:#dc2626;">⚠ Alergias</div>
+            <div style="font-size:.8rem; color:#dc2626; background:#fef2f2; border-radius:6px; padding:.45rem .6rem;">
+                {{ consultation.allergies }}
+            </div>
+        </div>
+        {% endif %}
+
+        <!-- Quick links -->
+        <div class="sidebar-section">
+            <div class="sidebar-section-title">Acesso Rápido</div>
+            <div class="quick-link-row" style="flex-direction:column;">
+                <a class="quick-link" href="/dashboard/?tab=prontuarios&patient_id={{ patient.id }}" target="_blank">
+                    <i class="fas fa-file-medical text-primary"></i> Prontuários
+                </a>
+                <a class="quick-link" href="/dashboard/?tab=prescricao&patient_id={{ patient.id }}" target="_blank">
+                    <i class="fas fa-prescription-bottle-alt text-success"></i> Prescrições
+                </a>
+                <a class="quick-link" href="/dashboard/?tab=pacientes" target="_blank">
+                    <i class="fas fa-user text-secondary"></i> Ficha do Paciente
+                </a>
+            </div>
+        </div>
+
+        <!-- Appointment history -->
+        {% if recent_appointments %}
+        <div class="sidebar-section">
+            <div class="sidebar-section-title">Últimas Consultas</div>
+            {% for apt in recent_appointments %}
+            <div class="history-item">
+                <div class="fw-semibold" style="font-size:.78rem;">{{ apt.get_appointment_type_display }}</div>
+                <div class="date">{{ apt.appointment_date|date:"d/m/Y" }} — Dr. {{ apt.doctor.user.get_full_name|default:apt.doctor.user.username }}</div>
+            </div>
+            {% endfor %}
+        </div>
+        {% endif %}
+
+        <!-- Previous consultation notes -->
+        {% if previous_consultations %}
+        <div class="sidebar-section">
+            <div class="sidebar-section-title">Últimas Evoluções</div>
+            {% for prev in previous_consultations %}
+            <div class="history-item">
+                {% if prev.chief_complaint %}
+                <div style="font-size:.78rem;" class="text-truncate" title="{{ prev.chief_complaint }}">{{ prev.chief_complaint|truncatechars:60 }}</div>
+                {% endif %}
+                {% if prev.diagnostic_hypothesis %}
+                <div style="font-size:.75rem;" class="text-muted text-truncate">Diag: {{ prev.diagnostic_hypothesis|truncatechars:50 }}</div>
+                {% endif %}
+                <div class="date">{{ prev.started_at|date:"d/m/Y" }}</div>
+            </div>
+            {% endfor %}
+        </div>
+        {% endif %}
+    </aside>
+
+    <!-- ── Main ── -->
+    <main id="main">
+        <form id="consulta-form">
+            {% csrf_token %}
+
+            <!-- ── 1. Sinais Vitais ── -->
+            <div class="consult-card">
+                <div class="consult-card-header" onclick="toggleCard(this)">
+                    <span class="icon"><i class="fas fa-heartbeat"></i></span>
+                    <h2>Sinais Vitais</h2>
+                    <i class="fas fa-chevron-down toggle-icon"></i>
+                </div>
+                <div class="consult-card-body">
+                    <div class="vitals-grid">
+                        <div class="vital-box" style="min-width:160px;">
+                            <label>Pressão Arterial</label>
+                            <div class="bp-group">
+                                <input type="number" name="blood_pressure_systolic" id="v-pas"
+                                       placeholder="120" min="50" max="250"
+                                       value="{{ consultation.blood_pressure_systolic|default:'' }}">
+                                <span class="bp-sep">/</span>
+                                <input type="number" name="blood_pressure_diastolic" id="v-pad"
+                                       placeholder="80" min="30" max="150"
+                                       value="{{ consultation.blood_pressure_diastolic|default:'' }}">
+                            </div>
+                            <span class="unit">mmHg</span>
+                        </div>
+                        <div class="vital-box">
+                            <label>Freq. Cardíaca</label>
+                            <input type="number" name="heart_rate" placeholder="72" min="20" max="250"
+                                   value="{{ consultation.heart_rate|default:'' }}">
+                            <span class="unit">bpm</span>
+                        </div>
+                        <div class="vital-box">
+                            <label>Freq. Respiratória</label>
+                            <input type="number" name="respiratory_rate" placeholder="16" min="5" max="60"
+                                   value="{{ consultation.respiratory_rate|default:'' }}">
+                            <span class="unit">rpm</span>
+                        </div>
+                        <div class="vital-box">
+                            <label>Temperatura</label>
+                            <input type="number" name="temperature" placeholder="36.5" min="30" max="42" step="0.1"
+                                   value="{{ consultation.temperature|default:'' }}">
+                            <span class="unit">°C</span>
+                        </div>
+                        <div class="vital-box">
+                            <label>SpO₂</label>
+                            <input type="number" name="oxygen_saturation" placeholder="98" min="50" max="100"
+                                   value="{{ consultation.oxygen_saturation|default:'' }}">
+                            <span class="unit">%</span>
+                        </div>
+                        <div class="vital-box">
+                            <label>Peso</label>
+                            <input type="number" name="weight" placeholder="70" min="1" max="300" step="0.1"
+                                   value="{{ consultation.weight|default:'' }}">
+                            <span class="unit">kg</span>
+                        </div>
+                        <div class="vital-box">
+                            <label>Altura</label>
+                            <input type="number" name="height" placeholder="170" min="30" max="250"
+                                   value="{{ consultation.height|default:'' }}">
+                            <span class="unit">cm</span>
+                        </div>
+                        <div class="vital-box" id="imc-box">
+                            <label>IMC calculado</label>
+                            <div id="imc-value" style="font-size:1rem;font-weight:700;color:var(--text);">
+                                {% if consultation.bmi %}{{ consultation.bmi }}{% else %}—{% endif %}
+                            </div>
+                            <span class="unit" id="imc-class"></span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ── 2. Anamnese ── -->
+            <div class="consult-card">
+                <div class="consult-card-header" onclick="toggleCard(this)">
+                    <span class="icon"><i class="fas fa-comment-medical"></i></span>
+                    <h2>Anamnese</h2>
+                    <i class="fas fa-chevron-down toggle-icon"></i>
+                </div>
+                <div class="consult-card-body">
+                    <div class="mb-3">
+                        <div class="field-label">Queixa Principal *</div>
+                        <textarea class="consult-textarea" name="chief_complaint" rows="2"
+                                  placeholder="Descreva a queixa principal do paciente...">{{ consultation.chief_complaint|default:'' }}</textarea>
+                    </div>
+                    <div class="mb-3">
+                        <div class="field-label">História da Doença Atual (HDA)</div>
+                        <textarea class="consult-textarea" name="hda" rows="4"
+                                  placeholder="Início, localização, caráter, irradiação, intensidade, fatores de melhora/piora, evolução...">{{ consultation.hda|default:'' }}</textarea>
+                    </div>
+                    <div class="row g-3">
+                        <div class="col-md-6">
+                            <div class="field-label">Alergias</div>
+                            <textarea class="consult-textarea" name="allergies" rows="2"
+                                      placeholder="Medicamentos, alimentos, outras alergias...">{{ consultation.allergies|default:'' }}</textarea>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="field-label">Medicamentos em Uso</div>
+                            <textarea class="consult-textarea" name="current_medications" rows="2"
+                                      placeholder="Nome, dose, frequência...">{{ consultation.current_medications|default:'' }}</textarea>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="field-label">Antecedentes Pessoais e Familiares</div>
+                            <textarea class="consult-textarea" name="past_history" rows="3"
+                                      placeholder="Doenças preexistentes, cirurgias, histórico familiar...">{{ consultation.past_history|default:'' }}</textarea>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="field-label">Revisão de Sistemas</div>
+                            <textarea class="consult-textarea" name="systems_review" rows="3"
+                                      placeholder="Cardiovascular, respiratório, digestivo, neurológico...">{{ consultation.systems_review|default:'' }}</textarea>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ── 3. Exame Físico ── -->
+            <div class="consult-card">
+                <div class="consult-card-header" onclick="toggleCard(this)">
+                    <span class="icon"><i class="fas fa-user-md"></i></span>
+                    <h2>Exame Físico</h2>
+                    <i class="fas fa-chevron-down toggle-icon"></i>
+                </div>
+                <div class="consult-card-body">
+                    <textarea class="consult-textarea" name="physical_exam" rows="6"
+                              placeholder="Estado geral, mucosas, ausculta cardíaca e pulmonar, abdômen, extremidades, neurológico...">{{ consultation.physical_exam|default:'' }}</textarea>
+                </div>
+            </div>
+
+            <!-- ── 4. Diagnóstico ── -->
+            <div class="consult-card">
+                <div class="consult-card-header" onclick="toggleCard(this)">
+                    <span class="icon"><i class="fas fa-diagnoses"></i></span>
+                    <h2>Hipótese Diagnóstica</h2>
+                    <i class="fas fa-chevron-down toggle-icon"></i>
+                </div>
+                <div class="consult-card-body">
+                    <div class="mb-3">
+                        <div class="field-label">Hipótese Diagnóstica</div>
+                        <textarea class="consult-textarea" name="diagnostic_hypothesis" rows="3"
+                                  placeholder="Descreva a(s) hipótese(s) diagnóstica(s)...">{{ consultation.diagnostic_hypothesis|default:'' }}</textarea>
+                    </div>
+                    <div class="field-label mb-1">CID-10</div>
+                    <div class="cid-row">
+                        <input type="text" class="cid-code-input" name="cid10_code" id="cid10-code"
+                               placeholder="Ex: J00" maxlength="10"
+                               value="{{ consultation.cid10_code|default:'' }}"
+                               oninput="lookupCid(this.value)">
+                        <input type="text" class="cid-desc-input" name="cid10_description" id="cid10-desc"
+                               placeholder="Descrição do CID-10"
+                               value="{{ consultation.cid10_description|default:'' }}">
+                    </div>
+                </div>
+            </div>
+
+            <!-- ── 5. Conduta ── -->
+            <div class="consult-card">
+                <div class="consult-card-header" onclick="toggleCard(this)">
+                    <span class="icon"><i class="fas fa-clipboard-list"></i></span>
+                    <h2>Conduta e Plano Terapêutico</h2>
+                    <i class="fas fa-chevron-down toggle-icon"></i>
+                </div>
+                <div class="consult-card-body">
+                    <div class="mb-3">
+                        <div class="field-label">Conduta</div>
+                        <textarea class="consult-textarea" name="conduct" rows="4"
+                                  placeholder="Tratamento, orientações, encaminhamentos...">{{ consultation.conduct|default:'' }}</textarea>
+                    </div>
+                    <div class="mb-3">
+                        <div class="field-label">Solicitação de Exames e Procedimentos</div>
+                        <textarea class="consult-textarea" name="exam_requests" rows="3"
+                                  placeholder="Hemograma, glicemia, raio-X, ECG, ultrassonografia...">{{ consultation.exam_requests|default:'' }}</textarea>
+                    </div>
+                    <div>
+                        <div class="field-label">Orientações de Retorno</div>
+                        <textarea class="consult-textarea" name="return_instructions" rows="2"
+                                  placeholder="Retornar em X dias, em caso de piora procurar pronto-socorro...">{{ consultation.return_instructions|default:'' }}</textarea>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ── 6. Prescrição quick-access ── -->
+            <div class="consult-card">
+                <div class="consult-card-header" onclick="toggleCard(this)">
+                    <span class="icon"><i class="fas fa-prescription-bottle-alt"></i></span>
+                    <h2>Prescrição</h2>
+                    <i class="fas fa-chevron-down toggle-icon"></i>
+                </div>
+                <div class="consult-card-body">
+                    {% if recent_prescriptions %}
+                    <div class="mb-3">
+                        <div class="field-label">Prescrições Recentes</div>
+                        {% for rx in recent_prescriptions %}
+                        <div class="history-item mb-2">
+                            <div class="fw-semibold" style="font-size:.78rem;">{{ rx.prescription_date|date:"d/m/Y" }}</div>
+                            {% for item in rx.items.all|slice:":3" %}
+                            <div style="font-size:.75rem;" class="text-muted">· {{ item.medication_name }} — {{ item.dosage|truncatechars:50 }}</div>
+                            {% endfor %}
+                        </div>
+                        {% endfor %}
+                    </div>
+                    {% endif %}
+                    <div class="quick-link-row">
+                        <a class="quick-link" href="/dashboard/?tab=prescricao&patient_id={{ patient.id }}" target="_blank">
+                            <i class="fas fa-external-link-alt text-success"></i> Abrir módulo de prescrição
+                        </a>
+                    </div>
+                </div>
+            </div>
+
+        </form><!-- /consulta-form -->
+    </main>
+</div><!-- /layout -->
+
+<!-- ── Bottom Save Bar ── -->
+<div id="save-bar">
+    <span class="save-msg" id="save-msg">Alterações não salvas</span>
+    <button class="btn btn-sm btn-save px-4" onclick="saveConsulta(false)">
+        <i class="fas fa-save me-1"></i>Salvar Rascunho
+    </button>
+    {% if appointment.status != 'completed' %}
+    <button class="btn btn-sm btn-complete px-4" onclick="confirmCompleteConsulta()">
+        <i class="fas fa-check-double me-1"></i>Concluir Consulta
+    </button>
+    {% endif %}
+</div>
+
+<!-- ── Completion Confirm Modal ── -->
+<div class="modal fade" id="completeModal" tabindex="-1">
+    <div class="modal-dialog modal-sm">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title"><i class="fas fa-check-double me-2 text-success"></i>Concluir Consulta</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body" style="font-size:.875rem;">
+                Salvar todos os dados e marcar a consulta como <strong>Concluída</strong>?
+                <br><small class="text-muted mt-1 d-block">O prontuário será atualizado automaticamente.</small>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Cancelar</button>
+                <button type="button" class="btn btn-success btn-sm" onclick="completeConsulta()">
+                    <i class="fas fa-check me-1"></i>Confirmar
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- ── Toast container ── -->
+<div id="toast-container"></div>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+<script>
+const APPOINTMENT_ID = {{ appointment.id }};
+const CSRF = document.cookie.match(/csrftoken=([^;]+)/)?.[1] || '';
+let isDirty = false;
+
+// Mark form dirty on any change
+document.getElementById('consulta-form').addEventListener('input', () => {
+    isDirty = true;
+    document.getElementById('save-msg').textContent = 'Alterações não salvas';
+});
+
+// ── Collapsible cards ──────────────────────────────────────────
+function toggleCard(header) {
+    header.classList.toggle('collapsed');
+    const body = header.nextElementSibling;
+    body.style.display = header.classList.contains('collapsed') ? 'none' : '';
+}
+
+// ── BMI live calculation ──────────────────────────────────────
+function calcBMI() {
+    const w = parseFloat(document.querySelector('[name=weight]').value);
+    const h = parseFloat(document.querySelector('[name=height]').value);
+    const el = document.getElementById('imc-value');
+    const cls = document.getElementById('imc-class');
+    if (w > 0 && h > 0) {
+        const bmi = (w / Math.pow(h / 100, 2)).toFixed(1);
+        el.textContent = bmi;
+        const b = parseFloat(bmi);
+        if (b < 18.5)      { el.style.color = '#2563eb'; cls.textContent = 'Abaixo do peso'; }
+        else if (b < 25)   { el.style.color = '#16a34a'; cls.textContent = 'Peso normal'; }
+        else if (b < 30)   { el.style.color = '#d97706'; cls.textContent = 'Sobrepeso'; }
+        else                { el.style.color = '#dc2626'; cls.textContent = 'Obeso'; }
+    } else {
+        el.textContent = '—'; cls.textContent = ''; el.style.color = '';
+    }
+}
+document.querySelector('[name=weight]').addEventListener('input', calcBMI);
+document.querySelector('[name=height]').addEventListener('input', calcBMI);
+
+// ── CID-10 lookup (public API) ────────────────────────────────
+let cidTimer = null;
+function lookupCid(code) {
+    clearTimeout(cidTimer);
+    const codeClean = code.trim().toUpperCase();
+    if (codeClean.length < 3) return;
+    cidTimer = setTimeout(async () => {
+        try {
+            const r = await fetch(`https://cid10.cdc.gov/api/2015/concepts/search?query=${encodeURIComponent(codeClean)}&df=code,name&count=1`);
+            if (!r.ok) return;
+            const data = await r.json();
+            // fallback: just fill the code in uppercase
+            document.getElementById('cid10-code').value = codeClean;
+        } catch {}
+    }, 500);
+}
+
+// ── Collect form data ─────────────────────────────────────────
+function collectFormData() {
+    const fd = new FormData(document.getElementById('consulta-form'));
+    fd.append('csrfmiddlewaretoken', CSRF);
+    return fd;
+}
+
+// ── Save (draft) ──────────────────────────────────────────────
+async function saveConsulta(silent = false) {
+    const btn = event?.currentTarget;
+    if (btn) { btn.disabled = true; }
+    try {
+        const r = await fetch(`/dashboard/api/consulta/${APPOINTMENT_ID}/save/`, {
+            method: 'POST',
+            headers: { 'X-CSRFToken': CSRF },
+            body: collectFormData(),
+        });
+        const data = await r.json();
+        if (data.success) {
+            isDirty = false;
+            document.getElementById('save-msg').textContent = 'Salvo — ' + new Date().toLocaleTimeString('pt-BR', {hour:'2-digit',minute:'2-digit'});
+            if (!silent) showToast('Rascunho salvo', 'success');
+        } else {
+            showToast(data.error || 'Erro ao salvar', 'error');
+        }
+    } catch {
+        showToast('Erro de conexão', 'error');
+    } finally {
+        if (btn) { btn.disabled = false; }
+    }
+}
+
+// ── Complete ──────────────────────────────────────────────────
+function confirmCompleteConsulta() {
+    new bootstrap.Modal(document.getElementById('completeModal')).show();
+}
+
+async function completeConsulta() {
+    bootstrap.Modal.getInstance(document.getElementById('completeModal'))?.hide();
+    try {
+        const r = await fetch(`/dashboard/api/consulta/${APPOINTMENT_ID}/complete/`, {
+            method: 'POST',
+            headers: { 'X-CSRFToken': CSRF },
+            body: collectFormData(),
+        });
+        const data = await r.json();
+        if (data.success) {
+            isDirty = false;
+            showToast('Consulta concluída! Redirecionando...', 'success');
+            setTimeout(() => window.location.href = data.redirect || '/dashboard/', 1500);
+        } else {
+            showToast(data.error || 'Erro ao concluir', 'error');
+        }
+    } catch {
+        showToast('Erro de conexão', 'error');
+    }
+}
+
+// ── Auto-save every 2 minutes ─────────────────────────────────
+setInterval(() => { if (isDirty) saveConsulta(true); }, 120000);
+
+// ── Warn on unload (only for unsaved changes, not intentional navigation) ─────
+window.addEventListener('beforeunload', e => {
+    if (isDirty) {
+        e.preventDefault();
+        e.returnValue = '';
+    }
+});
+
+// ── Toast helper ──────────────────────────────────────────────
+function showToast(msg, type = '') {
+    const c = document.getElementById('toast-container');
+    const d = document.createElement('div');
+    d.className = `toast-msg ${type}`;
+    d.textContent = msg;
+    c.appendChild(d);
+    setTimeout(() => d.remove(), 3500);
+}
+</script>
+</body>
+</html>

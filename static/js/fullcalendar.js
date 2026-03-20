@@ -574,29 +574,39 @@ function showAppointmentDetailsFromCalendar(event) {
     const confirmBtn = document.getElementById('confirm-attendance-btn');
     const completeBtn = document.getElementById('complete-appointment-btn');
     const cancelBtn = document.getElementById('cancel-appointment-btn');
-    
+    const startConsultaBtn = document.getElementById('start-consulta-btn');
+
     // Reset button visibility
     confirmBtn.style.display = 'none';
     completeBtn.style.display = 'none';
     cancelBtn.style.display = 'none';
-    
+    if (startConsultaBtn) startConsultaBtn.style.display = 'none';
+
     // Show appropriate buttons based on status
     if (props.status === 'scheduled') {
         confirmBtn.style.display = 'inline-block';
         cancelBtn.style.display = 'inline-block';
     } else if (props.status === 'confirmed') {
-        completeBtn.style.display = 'inline-block';
+        if (startConsultaBtn) startConsultaBtn.style.display = 'inline-block';
         cancelBtn.style.display = 'inline-block';
+    } else if (props.status === 'in_progress') {
+        if (startConsultaBtn) startConsultaBtn.style.display = 'inline-block';
+        completeBtn.style.display = 'inline-block';
     } else if (props.status === 'completed') {
         // No action buttons for completed appointments
     } else if (props.status === 'cancelled') {
         // No action buttons for cancelled appointments
     }
-    
+
     // Set up button click handlers
     confirmBtn.onclick = () => confirmAppointmentAttendance(event.id);
     completeBtn.onclick = () => completeAppointment(event.id);
     cancelBtn.onclick = () => cancelAppointment(event.id);
+    if (startConsultaBtn) {
+        startConsultaBtn.onclick = () => {
+            window.location.href = `/dashboard/consulta/${event.id}/`;
+        };
+    }
     
     // Show the modal
     const modal = new bootstrap.Modal(document.getElementById('appointmentDetailsModal'));

@@ -1,29 +1,46 @@
 """
-Django management command to create users with specific roles
+Django management command to create users with specific roles.
+
+Roles:
+  doctor    - Creates a Doctor profile linked to a clinic. Use --clinic-name to specify
+              the clinic (creates it if it does not exist). Use --clinic-admin to also
+              grant clinic administrator privileges.
+  secretary - Creates a Secretary profile linked to a clinic and assigned to a doctor.
 """
 from django.core.management.base import BaseCommand, CommandError
 from django.contrib.auth.models import User
-from dashboard.models import Doctor, Secretary, Admin
+from dashboard.models import Doctor, Secretary, Clinic
 import getpass
 
 
 class Command(BaseCommand):
-    help = 'Create a user with a specific role (admin, doctor, or secretary)'
+    help = 'Create a user with a specific role (doctor or secretary)'
 
     def add_arguments(self, parser):
         parser.add_argument('username', type=str, help='Username for the new user')
-        parser.add_argument('--role', type=str, choices=['admin', 'doctor', 'secretary'], 
-                          default='doctor', help='Role of the user (admin, doctor, or secretary)')
+        parser.add_argument(
+            '--role', type=str, choices=['doctor', 'secretary'],
+            default='doctor', help='Role of the user (doctor or secretary)'
+        )
         parser.add_argument('--email', type=str, help='Email address')
         parser.add_argument('--first-name', type=str, help='First name')
         parser.add_argument('--last-name', type=str, help='Last name')
         parser.add_argument('--medical-license', type=str, help='Medical license (for doctors)')
         parser.add_argument('--specialization', type=str, help='Specialization (for doctors)')
+        parser.add_argument('--clinic-name', type=str, help='Clinic name to assign the user to (creates it if missing)')
+        parser.add_argument('--clinic-admin', action='store_true', help='Grant clinic admin privileges (for doctors)')
         parser.add_argument('--doctor-username', type=str, help='Doctor username (for secretaries)')
-        parser.add_argument('--admin-username', type=str, help='Admin username (for doctors to assign them to an admin)')
         parser.add_argument('--phone', type=str, help='Phone number')
         parser.add_argument('--no-password', action='store_true', help='Skip password prompt')
         parser.add_argument('--set-password', type=str, help='Password (not recommended for security)')
+
+    def _get_or_create_clinic(self, clinic_name):
+        if not clinic_name:
+            return None
+        clinic, created = Clinic.objects.get_or_create(name=clinic_name)
+        if created:
+            self.stdout.write(self.style.WARNING(f'Created new clinic: "{clinic_name}"'))
+        return clinic
 
     def handle(self, *args, **options):
         username = options['username']
@@ -33,11 +50,9 @@ class Command(BaseCommand):
         last_name = options.get('last_name')
         phone = options.get('phone')
 
-        # Check if user already exists
         if User.objects.filter(username=username).exists():
             raise CommandError(f'User "{username}" already exists.')
 
-        # Create user
         if options.get('set_password'):
             password = options['set_password']
         elif options.get('no_password'):
@@ -58,59 +73,41 @@ class Command(BaseCommand):
             last_name=last_name or ''
         )
 
-        if role == 'admin':
-            admin = Admin.objects.create(
-                user=user,
-                phone=phone or ''
-            )
-            self.stdout.write(
-                self.style.SUCCESS(
-                    f'Successfully created admin user "{username}".'
-                )
-            )
-
-        elif role == 'doctor':
+        if role == 'doctor':
             medical_license = options.get('medical_license')
             specialization = options.get('specialization')
-            
+
             if not medical_license:
                 raise CommandError('--medical-license is required for doctors.')
             if not specialization:
                 raise CommandError('--specialization is required for doctors.')
-            
-            # Get admin if specified
-            admin = None
-            admin_username = options.get('admin_username')
-            if admin_username:
-                try:
-                    admin_user = User.objects.get(username=admin_username)
-                    if hasattr(admin_user, 'admin_profile'):
-                        admin = admin_user.admin_profile
-                    else:
-                        raise CommandError(f'User "{admin_username}" is not an admin.')
-                except User.DoesNotExist:
-                    raise CommandError(f'Admin user "{admin_username}" does not exist.')
-            
-            doctor = Doctor.objects.create(
+
+            clinic = self._get_or_create_clinic(options.get('clinic_name'))
+            is_clinic_admin = options.get('clinic_admin', False)
+
+            Doctor.objects.create(
                 user=user,
-                admin=admin,
+                clinic=clinic,
+                is_clinic_admin=is_clinic_admin,
                 medical_license=medical_license,
                 specialization=specialization,
                 phone=phone or ''
             )
-            admin_msg = f' assigned to admin {admin.full_name}' if admin else ''
+
+            admin_tag = ' [clinic admin]' if is_clinic_admin else ''
+            clinic_tag = f' in clinic "{clinic.name}"' if clinic else ''
             self.stdout.write(
                 self.style.SUCCESS(
-                    f'Successfully created doctor "{username}" with medical license "{medical_license}"{admin_msg}.'
+                    f'Successfully created doctor "{username}" with license "{medical_license}"{clinic_tag}{admin_tag}.'
                 )
             )
 
         elif role == 'secretary':
             doctor_username = options.get('doctor_username')
-            
+
             if not doctor_username:
                 raise CommandError('--doctor-username is required for secretaries.')
-            
+
             try:
                 doctor_user = User.objects.get(username=doctor_username)
                 doctor = doctor_user.doctor_profile
@@ -118,15 +115,18 @@ class Command(BaseCommand):
                 raise CommandError(f'Doctor user "{doctor_username}" does not exist.')
             except AttributeError:
                 raise CommandError(f'User "{doctor_username}" is not a doctor.')
-            
+
+            clinic = self._get_or_create_clinic(options.get('clinic_name')) or doctor.clinic
+
             secretary = Secretary.objects.create(
                 user=user,
-                doctor=doctor,
+                clinic=clinic,
                 phone=phone or ''
             )
+            secretary.doctors.add(doctor)
+
             self.stdout.write(
                 self.style.SUCCESS(
                     f'Successfully created secretary "{username}" assigned to Dr. {doctor.user.get_full_name()}.'
                 )
             )
-
