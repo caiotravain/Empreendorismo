@@ -4621,6 +4621,7 @@ def api_patient_files(request, patient_id):
 
     if request.method == 'GET':
         files = patient.files.select_related('uploaded_by__user').order_by('-created_at')
+        from django.urls import reverse
         return JsonResponse({
             'success': True,
             'files': [
@@ -4630,7 +4631,7 @@ def api_patient_files(request, patient_id):
                     'file_type': f.file_type,
                     'description': f.description or '',
                     'uploaded_by': f.uploaded_by_name,
-                    'url': f.file.url,
+                    'url': reverse('serve_patient_file', args=[patient_id, f.id]),
                     'created_at': f.created_at.strftime('%d/%m/%Y %H:%M'),
                 }
                 for f in files
@@ -4663,6 +4664,7 @@ def api_patient_files(request, patient_id):
         description=description or None,
     )
 
+    from django.urls import reverse as _reverse
     return JsonResponse({
         'success': True,
         'file': {
@@ -4671,7 +4673,7 @@ def api_patient_files(request, patient_id):
             'file_type': patient_file.file_type,
             'description': patient_file.description or '',
             'uploaded_by': patient_file.uploaded_by_name,
-            'url': patient_file.file.url,
+            'url': _reverse('serve_patient_file', args=[patient_id, patient_file.id]),
             'created_at': patient_file.created_at.strftime('%d/%m/%Y %H:%M'),
         },
     }, status=201)
@@ -4705,6 +4707,72 @@ def api_patient_file_delete(request, patient_id, file_id):
     patient_file.delete()
 
     return JsonResponse({'success': True, 'message': 'Arquivo excluído com sucesso'})
+
+
+@login_required
+def serve_patient_file(request, patient_id, file_id):
+    """
+    Serve a patient file securely through Django.
+    For cloud storage: generates a short-lived signed URL and redirects.
+    For local storage: streams the file directly.
+    """
+    from accounts.utils import has_access_to_patient
+    from django.conf import settings as _s
+
+    patient = get_object_or_404(Patient, id=patient_id)
+
+    if not has_access_to_patient(request.user, patient):
+        from django.http import HttpResponseForbidden
+        return HttpResponseForbidden("Acesso negado a este arquivo.")
+
+    patient_file = get_object_or_404(PatientFile, id=file_id, patient=patient)
+
+    if _s.USE_CLOUD_STORAGE:
+        # Generate a signed URL that expires so the user can download without
+        # the bucket being public.
+        try:
+            from google.cloud import storage as gcs_storage
+            from datetime import timedelta
+
+            credentials = getattr(_s, 'GS_CREDENTIALS', None)
+            client = gcs_storage.Client(credentials=credentials)
+            bucket = client.bucket(_s.GS_BUCKET_NAME)
+            # patient_file.file.name holds the path inside the bucket
+            blob = bucket.blob(patient_file.file.name)
+            expiry = timedelta(minutes=getattr(_s, 'GCS_SIGNED_URL_EXPIRY_MINUTES', 60))
+            signed_url = blob.generate_signed_url(
+                version="v4",
+                expiration=expiry,
+                method="GET",
+                response_disposition=f'inline; filename="{patient_file.original_name}"',
+            )
+            from django.shortcuts import redirect
+            return redirect(signed_url)
+        except Exception as exc:
+            # Fallback: stream through Django if signing fails
+            import logging
+            logging.getLogger(__name__).warning("GCS signed URL failed, streaming directly: %s", exc)
+
+    # Local storage (or signed URL fallback): stream through Django
+    import mimetypes
+    from django.http import StreamingHttpResponse, HttpResponse
+
+    mime_type, _ = mimetypes.guess_type(patient_file.original_name)
+    if not mime_type:
+        mime_type = 'application/octet-stream'
+
+    try:
+        file_obj = patient_file.file
+        file_obj.open('rb')
+        content = file_obj.read()
+        file_obj.close()
+    except Exception:
+        from django.http import Http404
+        raise Http404("Arquivo não encontrado.")
+
+    response = HttpResponse(content, content_type=mime_type)
+    response['Content-Disposition'] = f'inline; filename="{patient_file.original_name}"'
+    return response
 
 
 # ─── Consultation (Atendimento) ───────────────────────────────────────────────

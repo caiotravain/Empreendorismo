@@ -86,6 +86,7 @@ urlpatterns = [
     # API endpoints for patient files
     path('api/patients/<int:patient_id>/files/', views.api_patient_files, name='api_patient_files'),
     path('api/patients/<int:patient_id>/files/<int:file_id>/delete/', views.api_patient_file_delete, name='api_patient_file_delete'),
+    path('api/patients/<int:patient_id>/files/<int:file_id>/serve/', views.serve_patient_file, name='serve_patient_file'),
 
     # Consultation (atendimento) page and APIs
     path('consulta/<int:appointment_id>/', views.consulta, name='consulta'),
