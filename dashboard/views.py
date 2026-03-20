@@ -4631,7 +4631,7 @@ def api_patient_files(request, patient_id):
                     'file_type': f.file_type,
                     'description': f.description or '',
                     'uploaded_by': f.uploaded_by_name,
-                    'url': reverse('serve_patient_file', args=[patient_id, f.id]),
+                    'url': reverse('dashboard:serve_patient_file', args=[patient_id, f.id]),
                     'created_at': f.created_at.strftime('%d/%m/%Y %H:%M'),
                 }
                 for f in files
@@ -4673,7 +4673,7 @@ def api_patient_files(request, patient_id):
             'file_type': patient_file.file_type,
             'description': patient_file.description or '',
             'uploaded_by': patient_file.uploaded_by_name,
-            'url': _reverse('serve_patient_file', args=[patient_id, patient_file.id]),
+            'url': _reverse('dashboard:serve_patient_file', args=[patient_id, patient_file.id]),
             'created_at': patient_file.created_at.strftime('%d/%m/%Y %H:%M'),
         },
     }, status=201)
