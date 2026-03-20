@@ -10,7 +10,10 @@ For the full list of settings and their values, see
 https://docs.djangoproject.com/en/5.2/ref/settings/
 """
 
+import os
 from pathlib import Path
+
+from google.oauth2 import service_account
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -39,6 +42,7 @@ INSTALLED_APPS = [
     'django.contrib.staticfiles',
     'accounts',
     'dashboard',
+    'storages',
 ]
 
 MIDDLEWARE = [
@@ -153,6 +157,33 @@ CSRF_TRUSTED_ORIGINS = [
 # https://docs.djangoproject.com/en/5.2/ref/settings/#default-auto-field
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
+
+# ─── File Storage ────────────────────────────────────────────────────────────
+# Set USE_CLOUD_STORAGE=true in the environment to upload patient files to
+# Google Cloud Storage.  When false (default) files are saved under MEDIA_ROOT.
+USE_CLOUD_STORAGE = os.environ.get('USE_CLOUD_STORAGE', 'false').lower() == 'true'
+
+# GCS credentials (used only when USE_CLOUD_STORAGE=true)
+GS_BUCKET_NAME = os.environ.get('GS_BUCKET_NAME', 'claudia_app')
+_gcs_key_path = os.environ.get('GOOGLE_APPLICATION_CREDENTIALS', '')
+if _gcs_key_path and os.path.exists(_gcs_key_path):
+    GS_CREDENTIALS = service_account.Credentials.from_service_account_file(_gcs_key_path)
+else:
+    GS_CREDENTIALS = None  # Falls back to Application Default Credentials
+
+if USE_CLOUD_STORAGE:
+    DEFAULT_FILE_STORAGE = 'storages.backends.gcloud.GoogleCloudStorage'
+    GS_DEFAULT_ACL = 'publicRead'
+    MEDIA_URL = f'https://storage.googleapis.com/{GS_BUCKET_NAME}/'
+else:
+    DEFAULT_FILE_STORAGE = 'django.core.files.storage.FileSystemStorage'
+    MEDIA_ROOT = BASE_DIR / 'media'
+    MEDIA_URL = '/media/'
+
+# Maximum patient file upload size: 20 MB
+PATIENT_FILE_MAX_SIZE_MB = int(os.environ.get('PATIENT_FILE_MAX_SIZE_MB', '20'))
+DATA_UPLOAD_MAX_MEMORY_SIZE = PATIENT_FILE_MAX_SIZE_MB * 1024 * 1024
+FILE_UPLOAD_MAX_MEMORY_SIZE = PATIENT_FILE_MAX_SIZE_MB * 1024 * 1024
 
 # Logging configuration
 LOGGING = {
