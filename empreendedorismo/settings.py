@@ -161,24 +161,47 @@ DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 # ─── File Storage ────────────────────────────────────────────────────────────
 # Set USE_CLOUD_STORAGE=true in the environment to upload patient files to
 # Google Cloud Storage.  When false (default) files are saved under MEDIA_ROOT.
-USE_CLOUD_STORAGE = os.environ.get('USE_CLOUD_STORAGE', 'false').lower() == 'true'
+USE_CLOUD_STORAGE = True
 
 # GCS credentials (used only when USE_CLOUD_STORAGE=true)
 GS_BUCKET_NAME = os.environ.get('GS_BUCKET_NAME', 'claudia_app')
-_gcs_key_path = os.environ.get('GOOGLE_APPLICATION_CREDENTIALS', '')
+
+# Resolve credentials path: env var takes priority, otherwise look in project root
+_gcs_key_path = os.environ.get(
+    'GOOGLE_APPLICATION_CREDENTIALS',
+    str(BASE_DIR / 'jovial-atlas-477419-v2-87626e06bd70.json'),
+)
 if _gcs_key_path and os.path.exists(_gcs_key_path):
     GS_CREDENTIALS = service_account.Credentials.from_service_account_file(_gcs_key_path)
 else:
     GS_CREDENTIALS = None  # Falls back to Application Default Credentials
 
 if USE_CLOUD_STORAGE:
-    DEFAULT_FILE_STORAGE = 'storages.backends.gcloud.GoogleCloudStorage'
-    GS_DEFAULT_ACL = 'publicRead'
+    GS_DEFAULT_ACL = None       # private — files are NOT publicly accessible
+    GS_QUERYSTRING_AUTH = False  # we serve via Django signed-URL proxy, not direct GCS URLs
     MEDIA_URL = f'https://storage.googleapis.com/{GS_BUCKET_NAME}/'
+    STORAGES = {
+        "default": {
+            "BACKEND": "storages.backends.gcloud.GoogleCloudStorage",
+        },
+        "staticfiles": {
+            "BACKEND": "django.contrib.staticfiles.storage.StaticFilesStorage",
+        },
+    }
 else:
-    DEFAULT_FILE_STORAGE = 'django.core.files.storage.FileSystemStorage'
     MEDIA_ROOT = BASE_DIR / 'media'
     MEDIA_URL = '/media/'
+    STORAGES = {
+        "default": {
+            "BACKEND": "django.core.files.storage.FileSystemStorage",
+        },
+        "staticfiles": {
+            "BACKEND": "django.contrib.staticfiles.storage.StaticFilesStorage",
+        },
+    }
+
+# Signed URL expiry for patient files (minutes)
+GCS_SIGNED_URL_EXPIRY_MINUTES = int(os.environ.get('GCS_SIGNED_URL_EXPIRY_MINUTES', '60'))
 
 # Maximum patient file upload size: 20 MB
 PATIENT_FILE_MAX_SIZE_MB = int(os.environ.get('PATIENT_FILE_MAX_SIZE_MB', '20'))

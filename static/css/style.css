@@ -28,6 +28,12 @@
     --light-color: #f8f9fa;
     --dark-color: #343a40;
 }
+
+/* ── Font size scaling ──────────────────────────────────────────── */
+html                        { font-size: 16px; }
+html[data-font-size="small"]  { font-size: 13px; }
+html[data-font-size="medium"] { font-size: 16px; }
+html[data-font-size="large"]  { font-size: 19px; }
 .plena-title {
     font-family: 'Aptos Light', 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
     font-weight: 300;
@@ -722,42 +728,42 @@ body {
 }
 
 .settings-card-header {
-    padding: 1.5rem;
+    padding: 1rem 1rem 0.75rem;
     border-bottom: 1px solid #f3f4f6;
 }
 
 .settings-card-icon {
-    width: 48px;
-    height: 48px;
-    border-radius: 10px;
+    width: 36px;
+    height: 36px;
+    border-radius: 8px;
     background: linear-gradient(135deg, var(--primary-color), #05052a);
     display: flex;
     align-items: center;
     justify-content: center;
-    margin-bottom: 1rem;
+    margin-bottom: 0.625rem;
 }
 
 .settings-card-icon i {
-    font-size: 1.25rem;
+    font-size: 1rem;
     color: #ffffff;
 }
 
 .settings-card-title {
-    font-size: 1.125rem;
+    font-size: 0.9375rem;
     font-weight: 600;
     color: #111827;
-    margin-bottom: 0.5rem;
+    margin-bottom: 0.25rem;
 }
 
 .settings-card-description {
-    font-size: 0.875rem;
+    font-size: 0.8125rem;
     color: #6b7280;
     margin-bottom: 0;
-    line-height: 1.5;
+    line-height: 1.45;
 }
 
 .settings-card-body {
-    padding: 1.5rem;
+    padding: 0.875rem 1rem 1rem;
     flex: 1;
     display: flex;
     flex-direction: column;
@@ -922,20 +928,20 @@ body {
 
 @media (max-width: 767.98px) {
     .settings-card-header {
-        padding: 1.25rem;
+        padding: 0.875rem;
     }
     
     .settings-card-body {
-        padding: 1.25rem;
+        padding: 0.875rem;
     }
     
     .settings-card-icon {
-        width: 40px;
-        height: 40px;
+        width: 32px;
+        height: 32px;
     }
     
     .settings-card-icon i {
-        font-size: 1rem;
+        font-size: 0.875rem;
     }
 }
 
@@ -969,4 +975,270 @@ body {
         flex: 1;
         min-width: 120px;
     }
+}
+
+/* ── Settings: Add button ──────────────────────────────────────── */
+.settings-add-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.25rem;
+    background: transparent;
+    border: 1.5px dashed #c7d2fe;
+    border-radius: 6px;
+    color: var(--primary-color);
+    font-size: 0.8125rem;
+    font-weight: 500;
+    padding: 0.375rem 0.75rem;
+    cursor: pointer;
+    transition: all 0.18s ease;
+    width: 100%;
+    justify-content: center;
+}
+
+.settings-add-btn:hover {
+    background: #eef2ff;
+    border-color: var(--primary-color);
+    color: var(--primary-color);
+}
+
+/* ── Reports: KPI Cards ────────────────────────────────────────── */
+.report-kpi-card {
+    background: #ffffff;
+    border: 1px solid #e5e7eb;
+    border-radius: 12px;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.07);
+    padding: 1.125rem 1.25rem;
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    transition: box-shadow 0.2s ease;
+}
+
+.report-kpi-card:hover {
+    box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+}
+
+.report-kpi-icon {
+    flex-shrink: 0;
+    width: 48px;
+    height: 48px;
+    border-radius: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #fff;
+    font-size: 1.125rem;
+}
+
+.report-kpi-content {
+    flex: 1;
+    min-width: 0;
+}
+
+.report-kpi-label {
+    font-size: 0.75rem;
+    font-weight: 600;
+    color: #6b7280;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    margin-bottom: 0.2rem;
+}
+
+.report-kpi-value {
+    font-size: 1.625rem;
+    font-weight: 700;
+    color: #111827;
+    line-height: 1.1;
+    margin-bottom: 0.2rem;
+}
+
+.report-kpi-sub {
+    font-size: 0.75rem;
+    color: #9ca3af;
+}
+
+/* ── Reports: Type Pill Buttons ────────────────────────────────── */
+.report-type-pill {
+    border: 1.5px solid #d1d5db;
+    background: #f9fafb;
+    color: #374151;
+    border-radius: 20px !important;
+    padding: 0.375rem 0.9rem;
+    font-size: 0.8125rem;
+    font-weight: 500;
+    transition: all 0.18s ease;
+}
+
+.report-type-pill:hover {
+    border-color: var(--primary-color);
+    color: var(--primary-color);
+    background: #eef2ff;
+}
+
+.btn-check:checked + .report-type-pill {
+    background: var(--primary-color);
+    border-color: var(--primary-color);
+    color: #ffffff;
+    box-shadow: 0 2px 6px rgba(99, 102, 241, 0.35);
+}
+
+/* ── Navbar font-size control ──────────────────────────────────── */
+.font-size-controls {
+    background: rgba(255,255,255,0.12);
+    border-radius: 20px;
+    padding: 2px 6px;
+}
+
+.font-size-btn {
+    background: transparent;
+    border: none;
+    color: rgba(255,255,255,0.75);
+    font-weight: 600;
+    font-family: inherit;
+    line-height: 1;
+    cursor: pointer;
+    padding: 3px 6px;
+    border-radius: 12px;
+    transition: background 0.15s, color 0.15s;
+}
+
+.font-size-btn:first-child { font-size: 0.75rem; }
+.font-size-btn:nth-child(2) { font-size: 0.9375rem; }
+.font-size-btn:last-child  { font-size: 1.125rem; }
+
+.font-size-btn:hover,
+.font-size-btn.active {
+    background: rgba(255,255,255,0.25);
+    color: #ffffff;
+}
+
+.font-size-btn.active {
+    background: rgba(255,255,255,0.3);
+}
+
+/* ── Required fields legend ─────────────────────────────────────── */
+.required-legend {
+    font-size: 0.8rem;
+    color: #6b7280;
+    margin-top: 1rem;
+    margin-bottom: 0;
+    padding-top: 0.75rem;
+    border-top: 1px solid #f3f4f6;
+}
+
+/* ── Custom file input ───────────────────────────────────────────── */
+.custom-file-wrapper {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    flex-wrap: wrap;
+}
+
+.custom-file-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    padding: 0.3rem 0.75rem;
+    font-size: 0.8125rem;
+    font-weight: 500;
+    background: #f9fafb;
+    border: 1.5px solid #d1d5db;
+    border-radius: 6px;
+    color: #374151;
+    cursor: pointer;
+    transition: background 0.15s, border-color 0.15s;
+    white-space: nowrap;
+}
+
+.custom-file-btn:hover {
+    background: #f3f4f6;
+    border-color: #9ca3af;
+}
+
+.custom-file-name {
+    font-size: 0.8125rem;
+    color: #9ca3af;
+    font-style: italic;
+    max-width: 200px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.custom-file-name.has-file {
+    color: #374151;
+    font-style: normal;
+}
+
+/* ── Nav tabs — consistent styling ──────────────────────────────── */
+.nav-tabs {
+    border-bottom: 2px solid #e5e7eb;
+    gap: 2px;
+}
+
+.nav-tabs .nav-link {
+    border: none;
+    border-bottom: 2px solid transparent;
+    border-radius: 0;
+    margin-bottom: -2px;
+    padding: 0.5rem 1rem;
+    font-size: 0.875rem;
+    font-weight: 500;
+    color: #6b7280;
+    background: transparent;
+    transition: color 0.15s, border-color 0.15s;
+}
+
+.nav-tabs .nav-link:hover {
+    color: var(--primary-color);
+    border-bottom-color: #c7d2fe;
+    background: transparent;
+}
+
+.nav-tabs .nav-link.active {
+    color: var(--primary-color);
+    border-bottom-color: var(--primary-color);
+    background: transparent;
+    font-weight: 600;
+}
+
+.nav-tabs .nav-link i {
+    opacity: 0.75;
+}
+
+.nav-tabs .nav-link.active i {
+    opacity: 1;
+}
+
+/* ── Working day chip selectors ──────────────────────────────────── */
+.work-day-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.25rem;
+    padding: 0.3rem 0.6rem;
+    border: 1.5px solid #d1d5db;
+    border-radius: 20px;
+    font-size: 0.75rem;
+    font-weight: 600;
+    color: #6b7280;
+    background: #f9fafb;
+    cursor: pointer;
+    transition: all 0.15s ease;
+    user-select: none;
+}
+
+.work-day-chip:hover {
+    border-color: var(--primary-color);
+    color: var(--primary-color);
+    background: #eef2ff;
+}
+
+.work-day-chip input[type="checkbox"] {
+    display: none;
+}
+
+.work-day-chip:has(input:checked) {
+    background: var(--primary-color);
+    border-color: var(--primary-color);
+    color: #ffffff;
 }

@@ -12,6 +12,36 @@ function ensureSettingsLoaded() {
     }
 }
 
+// Apply working hours from appointmentSettings to a running calendar instance
+function applyWorkingHoursToCalendar() {
+    if (!calendar || !appointmentSettings) return;
+
+    const startTime  = appointmentSettings.work_start_time || '08:00';
+    const endTime    = appointmentSettings.work_end_time   || '18:00';
+    const workDays   = (appointmentSettings.work_days && appointmentSettings.work_days.length)
+                            ? appointmentSettings.work_days : [1, 2, 3, 4, 5];
+
+    const startHour  = parseInt(startTime.split(':')[0]);
+    const endHour    = parseInt(endTime.split(':')[0]);
+    const slotMin    = String(Math.max(0, startHour - 1)).padStart(2, '0') + ':00:00';
+    const slotMax    = String(Math.min(23, endHour   + 1)).padStart(2, '0') + ':00:00';
+    const showWeekends = workDays.includes(0) || workDays.includes(6);
+
+    calendar.setOption('slotMinTime',    slotMin);
+    calendar.setOption('slotMaxTime',    slotMax);
+    calendar.setOption('weekends',       showWeekends);
+    calendar.setOption('businessHours', {
+        daysOfWeek: workDays,
+        startTime:  startTime,
+        endTime:    endTime,
+    });
+
+    // Scroll to the current hour, clamped within working hours
+    const _now2 = new Date();
+    const _sh = Math.max(parseInt(startTime), Math.min(parseInt(endTime) - 1, _now2.getHours()));
+    calendar.scrollToTime(String(_sh).padStart(2, '0') + ':00:00');
+}
+
 // Initialize FullCalendar when the page loads
 document.addEventListener('DOMContentLoaded', function() {
     // Load settings first
@@ -44,6 +74,22 @@ function initializeFullCalendar() {
     // On cellphone/mobile: show day view; on desktop: show week view
     const initialView = isMobileDevice() ? 'timeGridDay' : 'timeGridWeek';
 
+    // Resolve working hours from saved settings (or fall back to sensible defaults)
+    const _wStart    = (typeof appointmentSettings !== 'undefined' && appointmentSettings && appointmentSettings.work_start_time) ? appointmentSettings.work_start_time : '08:00';
+    const _wEnd      = (typeof appointmentSettings !== 'undefined' && appointmentSettings && appointmentSettings.work_end_time)   ? appointmentSettings.work_end_time   : '18:00';
+    const _wDays     = (typeof appointmentSettings !== 'undefined' && appointmentSettings && appointmentSettings.work_days && appointmentSettings.work_days.length)
+                            ? appointmentSettings.work_days : [1, 2, 3, 4, 5];
+    const _wStartH   = parseInt(_wStart.split(':')[0]);
+    const _wEndH     = parseInt(_wEnd.split(':')[0]);
+    const _slotMin   = String(Math.max(0, _wStartH - 1)).padStart(2, '0') + ':00:00';
+    const _slotMax   = String(Math.min(23, _wEndH   + 1)).padStart(2, '0') + ':00:00';
+    const _showWeekends = _wDays.includes(0) || _wDays.includes(6);
+
+    // Scroll to the current hour, clamped within working hours
+    const _now = new Date();
+    const _scrollHour = Math.max(_wStartH, Math.min(_wEndH - 1, _now.getHours()));
+    const _scrollTime = String(_scrollHour).padStart(2, '0') + ':00:00';
+
     calendar = new FullCalendar.Calendar(calendarEl, {
         initialView: initialView,
         headerToolbar: {
@@ -55,8 +101,15 @@ function initializeFullCalendar() {
         timeZone: 'local', // Use local timezone - ensures ISO strings are interpreted in local time
         // This makes the time slots and events align perfectly
         firstDay: 1, // Monday
-        weekends: false, // Hide weekends
+        weekends: _showWeekends,
         nowIndicator: true,
+        scrollTime: _scrollTime,
+        scrollTimeReset: false,
+        navLinks: true,
+        navLinkDayClick: function(date, jsEvent) {
+            jsEvent.preventDefault();
+            calendar.changeView('timeGridDay', date);
+        },
         editable: true,
         selectable: true,
         selectMirror: true,
@@ -65,8 +118,8 @@ function initializeFullCalendar() {
             return num + '+ mais';
         },
         height: 650,
-        slotMinTime: '06:00:00',
-        slotMaxTime: '20:00:00',
+        slotMinTime: _slotMin,
+        slotMaxTime: _slotMax,
         slotDuration: '00:15:00',
         slotLabelFormat: {
             hour: '2-digit',
@@ -75,15 +128,26 @@ function initializeFullCalendar() {
         },
         allDaySlot: false, // Remove all-day row
         businessHours: {
-            daysOfWeek: [1, 2, 3, 4, 5], // Monday - Friday
-            startTime: '08:00',
-            endTime: '18:00',
+            daysOfWeek: _wDays,
+            startTime: _wStart,
+            endTime: _wEnd,
         },
         buttonText: {
             today: 'Hoje',
             month: 'Mês',
             week: 'Semana',
             day: 'Dia',
+        },
+        dayHeaderContent: function(arg) {
+            // Full date format only in day view
+            if (arg.view.type === 'timeGridDay') {
+                const d = arg.date;
+                const weekday = d.toLocaleDateString('pt-BR', { weekday: 'long' });
+                const datePart = d.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric' });
+                return weekday + ' ' + datePart;
+            }
+            // All other views: keep the default label
+            return arg.text;
         },
         events: function(info, successCallback, failureCallback) {
             // Load appointments for the current view
@@ -282,9 +346,25 @@ function initializeFullCalendar() {
             // Handle event click - show appointment details
             showAppointmentDetailsFromCalendar(info.event);
         },
+        dateClick: function(info) {
+            // Single click on a time slot: open appointment modal at that time
+            if (info.view.type === 'timeGridWeek' || info.view.type === 'timeGridDay') {
+                const defaultDuration = (typeof appointmentSettings !== 'undefined' &&
+                    appointmentSettings && appointmentSettings.default_duration)
+                    ? appointmentSettings.default_duration : 30;
+                const end = new Date(info.date.getTime() + defaultDuration * 60000);
+                showNewAppointmentModalForTime(info.date, end);
+            }
+        },
         select: function(info) {
-            // Handle date/time selection for new appointments
-            showNewAppointmentModalForTime(info.start, info.end);
+            // Fires when the user drags across multiple time slots
+            const durationMinutes = (info.end - info.start) / 60000;
+            const slotMinutes = 15; // matches slotDuration: '00:15:00'
+            if (durationMinutes > slotMinutes) {
+                // True drag selection — use the full dragged range
+                showNewAppointmentModalForTime(info.start, info.end);
+            }
+            // Single-slot selections are handled by dateClick above
         },
         eventDrop: function(info) {
             // Check for conflicts before allowing the drop
@@ -871,24 +951,30 @@ document.addEventListener('DOMContentLoaded', function() {
 });
 
 function showNewAppointmentModalForTime(start, end) {
-    // Pre-fill the appointment modal with selected time
-    const startDateObj = new Date(start);
-    const startDate = startDateObj.getFullYear() + '-' + 
-                     String(startDateObj.getMonth() + 1).padStart(2, '0') + '-' + 
-                     String(startDateObj.getDate()).padStart(2, '0');
-    const startTime = String(startDateObj.getHours()).padStart(2, '0') + ':' + 
-                     String(startDateObj.getMinutes()).padStart(2, '0');
-    
-    // Set the date and time in the form
-    document.getElementById('appointment_date').value = startDate;
-    document.getElementById('appointment_time').value = startTime;
-    
-    // Calculate duration and set it
-    const duration = Math.round((end - start) / (1000 * 60)); // in minutes
-    document.getElementById('duration_minutes').value = duration;
-    
-    // Show the modal
+    // Open the modal first (sets its default date/time values)
     showNewAppointmentModal();
+
+    // Then override with the actually selected time slot
+    const startDateObj = new Date(start);
+    const startDate = startDateObj.getFullYear() + '-' +
+                     String(startDateObj.getMonth() + 1).padStart(2, '0') + '-' +
+                     String(startDateObj.getDate()).padStart(2, '0');
+    const startTime = String(startDateObj.getHours()).padStart(2, '0') + ':' +
+                     String(startDateObj.getMinutes()).padStart(2, '0');
+
+    document.getElementById('appointment-date').value = startDate;
+    document.getElementById('appointment-time').value = startTime;
+
+    // Set closest matching duration in the select element
+    const duration = Math.round((end - start) / (1000 * 60));
+    const durationSelect = document.getElementById('appointment-duration');
+    if (durationSelect) {
+        const options = Array.from(durationSelect.options);
+        const closest = options.reduce((prev, curr) =>
+            Math.abs(parseInt(curr.value) - duration) < Math.abs(parseInt(prev.value) - duration) ? curr : prev
+        );
+        durationSelect.value = closest.value;
+    }
 }
 
 function updateAppointmentTime(event) {
@@ -1088,10 +1174,11 @@ function saveAppointmentStatus() {
 const originalShowNewAppointmentModal = showNewAppointmentModal;
 showNewAppointmentModal = function() {
     originalShowNewAppointmentModal();
-    
-    // Add event listener to refresh calendar when modal is closed
-    const appointmentModal = document.getElementById('appointmentModal');
-    if (appointmentModal) {
+
+    // Refresh the calendar when the modal closes so new appointments appear
+    const appointmentModal = document.getElementById('newAppointmentModal');
+    if (appointmentModal && !appointmentModal._calendarRefreshBound) {
+        appointmentModal._calendarRefreshBound = true;
         appointmentModal.addEventListener('hidden.bs.modal', function() {
             refreshCalendar();
         });

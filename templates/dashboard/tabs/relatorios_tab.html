@@ -1,108 +1,161 @@
 {% load dashboard_extras %}
 <!-- Relatórios Tab -->
 <div id="relatorios-tab" class="tab-content" style="display: none;">
-    <div class="row">
-        <div class="col-12">
-            <h4 class="mb-4">
-                <i class="fas fa-file-alt text-primary me-2"></i>
-                Relatórios
-            </h4>
+
+    <!-- Page Header -->
+    <div class="d-flex align-items-start justify-content-between mb-4 flex-wrap gap-2">
+        <div>
+            <h2 class="h4 mb-1 fw-bold text-dark">
+                <i class="fas fa-chart-bar text-primary me-2"></i>Relatórios
+            </h2>
+            <p class="text-muted mb-0" style="font-size: 0.875rem;">Visualize e exporte dados clínicos e financeiros da clínica</p>
+        </div>
+        <div class="d-flex gap-2 align-items-center">
+            <button class="btn btn-outline-secondary btn-sm px-3" onclick="loadQuickStats()">
+                <i class="fas fa-sync-alt me-1"></i>Atualizar
+            </button>
+            <button class="btn btn-success btn-sm px-3" id="export-btn" onclick="exportReport()" style="display: none;">
+                <i class="fas fa-file-pdf me-1"></i>Exportar PDF
+            </button>
         </div>
     </div>
 
-    <!-- Report Type Selection -->
-    <div class="row mb-4">
-        <div class="col-12">
-            <div class="card shadow">
-                <div class="card-header bg-primary text-white">
-                    <h6 class="mb-0">
-                        <i class="fas fa-filter me-2"></i>
-                        Selecionar Relatório
-                    </h6>
+    <!-- KPI Cards -->
+    <div class="row g-3 mb-4">
+        <div class="col-md-4">
+            <div class="report-kpi-card">
+                <div class="report-kpi-icon" style="background: linear-gradient(135deg, #10b981, #059669);">
+                    <i class="fas fa-calendar-check"></i>
                 </div>
-                <div class="card-body">
-                    <div class="row">
-                        <div class="col-md-6 mb-3">
-                            <label for="report-type" class="form-label">Tipo de Relatório</label>
-                            <select id="report-type" class="form-select" onchange="handleReportTypeChange()">
-                                <option value="">Selecione um relatório</option>
-                                <option value="appointments">Consultas Realizadas</option>
-                                <option value="payment_methods">Métodos de Pagamento</option>
-                                <option value="patient_summary">Resumo de Pacientes</option>
-                                <option value="financial_summary">Resumo Financeiro</option>
-                                <option value="monthly_appointments">Consultas Mensais</option>
-                            </select>
-                        </div>
-                        <div class="col-md-3 mb-3">
-                            <label for="report-start-date" class="form-label">Data Início</label>
-                            <input type="date" id="report-start-date" class="form-control">
-                        </div>
-                        <div class="col-md-3 mb-3">
-                            <label for="report-end-date" class="form-label">Data Fim</label>
-                            <input type="date" id="report-end-date" class="form-control">
-                        </div>
-                    </div>
-                    <div class="row">
-                        <div class="col-12">
-                            <button class="btn btn-primary" onclick="generateReport()">
-                                <i class="fas fa-file-pdf me-2"></i>Gerar Relatório
-                            </button>
-                            <button class="btn btn-success" onclick="exportReport()" id="export-btn" style="display: none;">
-                                <i class="fas fa-download me-2"></i>Exportar
-                            </button>
-                        </div>
-                    </div>
+                <div class="report-kpi-content">
+                    <div class="report-kpi-label">Consultas Realizadas</div>
+                    <div class="report-kpi-value" id="quick-stats-completed">—</div>
+                    <div class="report-kpi-sub">no período selecionado</div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="report-kpi-card">
+                <div class="report-kpi-icon" style="background: linear-gradient(135deg, #3b82f6, #2563eb);">
+                    <i class="fas fa-dollar-sign"></i>
+                </div>
+                <div class="report-kpi-content">
+                    <div class="report-kpi-label">Receita Total</div>
+                    <div class="report-kpi-value" id="quick-stats-revenue">—</div>
+                    <div class="report-kpi-sub">no período selecionado</div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="report-kpi-card">
+                <div class="report-kpi-icon" style="background: linear-gradient(135deg, #8b5cf6, #6d28d9);">
+                    <i class="fas fa-users"></i>
+                </div>
+                <div class="report-kpi-content">
+                    <div class="report-kpi-label">Pacientes Atendidos</div>
+                    <div class="report-kpi-value" id="quick-stats-patients">—</div>
+                    <div class="report-kpi-sub">no período selecionado</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Report Builder Panel -->
+    <div class="card border-0 shadow-sm rounded-3 mb-4">
+        <div class="card-body p-4">
+            <p class="fw-semibold text-dark mb-3" style="font-size: 0.8rem; letter-spacing: 0.05em; text-transform: uppercase; color: #6b7280 !important;">
+                <i class="fas fa-sliders-h text-primary me-2"></i>Tipo de Relatório
+            </p>
+
+            <!-- Report type pills -->
+            <div class="d-flex flex-wrap gap-2 mb-4">
+                <input type="radio" class="btn-check" name="report-type-radio" id="rt-appointments" value="appointments" autocomplete="off">
+                <label class="btn btn-sm report-type-pill" for="rt-appointments">
+                    <i class="fas fa-stethoscope me-1"></i>Consultas Realizadas
+                </label>
+
+                <input type="radio" class="btn-check" name="report-type-radio" id="rt-payment" value="payment_methods" autocomplete="off">
+                <label class="btn btn-sm report-type-pill" for="rt-payment">
+                    <i class="fas fa-credit-card me-1"></i>Métodos de Pagamento
+                </label>
+
+                <input type="radio" class="btn-check" name="report-type-radio" id="rt-patients" value="patient_summary" autocomplete="off">
+                <label class="btn btn-sm report-type-pill" for="rt-patients">
+                    <i class="fas fa-user-injured me-1"></i>Resumo de Pacientes
+                </label>
+
+                <input type="radio" class="btn-check" name="report-type-radio" id="rt-financial" value="financial_summary" autocomplete="off">
+                <label class="btn btn-sm report-type-pill" for="rt-financial">
+                    <i class="fas fa-chart-pie me-1"></i>Resumo Financeiro
+                </label>
+
+                <input type="radio" class="btn-check" name="report-type-radio" id="rt-monthly" value="monthly_appointments" autocomplete="off">
+                <label class="btn btn-sm report-type-pill" for="rt-monthly">
+                    <i class="fas fa-calendar-alt me-1"></i>Consultas Mensais
+                </label>
+            </div>
+
+            <!-- Hidden select kept for JS compatibility -->
+            <select id="report-type" class="d-none">
+                <option value="">Selecione um relatório</option>
+                <option value="appointments">Consultas Realizadas</option>
+                <option value="payment_methods">Métodos de Pagamento</option>
+                <option value="patient_summary">Resumo de Pacientes</option>
+                <option value="financial_summary">Resumo Financeiro</option>
+                <option value="monthly_appointments">Consultas Mensais</option>
+            </select>
+
+            <hr class="my-3" style="border-color: #f3f4f6;">
+
+            <p class="fw-semibold text-dark mb-3" style="font-size: 0.8rem; letter-spacing: 0.05em; text-transform: uppercase; color: #6b7280 !important;">
+                <i class="fas fa-calendar-range text-primary me-2"></i>Período
+            </p>
+
+            <!-- Date range + action row -->
+            <div class="d-flex flex-wrap gap-3 align-items-end">
+                <div>
+                    <label class="form-label mb-1" style="font-size: 0.8rem; font-weight: 500; color: #6b7280;">Data Início</label>
+                    <input type="date" id="report-start-date" class="form-control form-control-sm" style="min-width: 150px;">
+                </div>
+                <div>
+                    <label class="form-label mb-1" style="font-size: 0.8rem; font-weight: 500; color: #6b7280;">Data Fim</label>
+                    <input type="date" id="report-end-date" class="form-control form-control-sm" style="min-width: 150px;">
+                </div>
+                <div>
+                    <button class="btn btn-primary btn-sm px-4 py-2" onclick="generateReport()">
+                        <i class="fas fa-play me-2" style="font-size: 0.75rem;"></i>Gerar Relatório
+                    </button>
                 </div>
             </div>
         </div>
     </div>
 
     <!-- Report Results -->
-    <div class="row" id="report-results-container" style="display: none;">
-        <div class="col-12">
-            <div class="card shadow">
-                <div class="card-header bg-success text-white">
-                    <h6 class="mb-0">
-                        <i class="fas fa-chart-bar me-2"></i>
-                        Resultados do Relatório
-                    </h6>
-                </div>
-                <div class="card-body" id="report-results">
-                    <!-- Report results will be displayed here -->
-                </div>
+    <div id="report-results-container" style="display: none;">
+        <div class="card border-0 shadow-sm rounded-3">
+            <div class="card-header bg-white border-bottom d-flex align-items-center justify-content-between py-3 px-4" style="border-radius: 12px 12px 0 0 !important;">
+                <span class="fw-semibold text-dark" style="font-size: 0.875rem;">
+                    <i class="fas fa-table text-primary me-2"></i>
+                    <span id="report-results-title">Resultados</span>
+                </span>
+                <span class="badge bg-light text-muted" id="report-results-count" style="font-size: 0.75rem;"></span>
+            </div>
+            <div class="card-body p-4" id="report-results">
+                <!-- Report results will be displayed here -->
             </div>
         </div>
     </div>
 
-    <!-- Quick Stats -->
-    <div class="row mt-4">
-        <div class="col-md-4 mb-3">
-            <div class="card shadow">
-                <div class="card-body text-center">
-                    <i class="fas fa-calendar-check fa-3x text-success mb-3"></i>
-                    <h5 class="card-title">Consultas Realizadas</h5>
-                    <h3 class="text-success" id="quick-stats-completed">-</h3>
-                </div>
-            </div>
-        </div>
-        <div class="col-md-4 mb-3">
-            <div class="card shadow">
-                <div class="card-body text-center">
-                    <i class="fas fa-money-bill-wave fa-3x text-primary mb-3"></i>
-                    <h5 class="card-title">Receita Total</h5>
-                    <h3 class="text-primary" id="quick-stats-revenue">-</h3>
-                </div>
-            </div>
-        </div>
-        <div class="col-md-4 mb-3">
-            <div class="card shadow">
-                <div class="card-body text-center">
-                    <i class="fas fa-users fa-3x text-info mb-3"></i>
-                    <h5 class="card-title">Pacientes Atendidos</h5>
-                    <h3 class="text-info" id="quick-stats-patients">-</h3>
-                </div>
-            </div>
-        </div>
-    </div>
 </div>
 
+<script>
+// Sync radio pill selection to the hidden #report-type select, then call the existing handler
+document.querySelectorAll('input[name="report-type-radio"]').forEach(function(radio) {
+    radio.addEventListener('change', function() {
+        var sel = document.getElementById('report-type');
+        if (sel) sel.value = this.value;
+        handleReportTypeChange();
+        loadQuickStats();
+    });
+});
+</script>

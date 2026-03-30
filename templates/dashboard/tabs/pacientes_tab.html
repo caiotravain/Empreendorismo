@@ -31,13 +31,6 @@
                 <option value="O">Outro</option>
             </select>
         </div>
-        <div class="col-md-3">
-            <select class="form-select" id="patient-status-filter">
-                <option value="active" selected>Status: Ativo</option>
-                <option value="inactive">Status: Inativo</option>
-                <option value="all">Status: Todos</option>
-            </select>
-        </div>
         <div class="col-md-1">
             <button class="btn btn-outline-secondary w-100" onclick="clearPatientFilters()">
                 Limpar
@@ -52,29 +45,42 @@
                 <table class="table table-hover mb-0" id="patients-table">
                     <thead class="bg-white border-bottom">
                         <tr>
-                            <th class="text-slate-800 fw-medium border-0 py-2 px-3" style="font-size: 0.8rem;">Nome</th>
-                            <th class="text-slate-800 fw-medium border-0 py-2 px-3" style="font-size: 0.8rem;">CPF</th>
+                            <th class="text-slate-800 fw-medium border-0 py-2 px-3 sortable-col" style="font-size: 0.8rem; cursor: pointer; user-select: none;" onclick="sortByColumn('name')">
+                                Nome <span id="sort-icon-name" class="sort-arrow ms-1">↕</span>
+                            </th>
+                            <th class="text-slate-800 fw-medium border-0 py-2 px-3 sortable-col" style="font-size: 0.8rem; cursor: pointer; user-select: none;" onclick="sortByColumn('cpf')">
+                                CPF <span id="sort-icon-cpf" class="sort-arrow ms-1">↕</span>
+                            </th>
                             <th class="text-slate-800 fw-medium border-0 py-2 px-3" style="font-size: 0.8rem;">Email</th>
                             <th class="text-slate-800 fw-medium border-0 py-2 px-3" style="font-size: 0.8rem;">Telefone</th>
-                            <th class="text-slate-800 fw-medium border-0 py-2 px-3" style="font-size: 0.8rem;">Idade</th>
+                            <th class="text-slate-800 fw-medium border-0 py-2 px-3 sortable-col" style="font-size: 0.8rem; cursor: pointer; user-select: none;" onclick="sortByColumn('age')">
+                                Idade <span id="sort-icon-age" class="sort-arrow ms-1">↕</span>
+                            </th>
                             <th class="text-slate-800 fw-medium border-0 py-2 px-3" style="font-size: 0.8rem;">Sexo</th>
-                            <th class="text-slate-800 fw-medium border-0 py-2 px-3" style="font-size: 0.8rem;">Status</th>
-                            <th class="text-slate-800 fw-medium border-0 py-2 px-3" style="font-size: 0.8rem;">
-                                Data de Cadastro
-                                <svg xmlns="http://www.w3.org/2000/svg" class="icon-xs ms-1" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-                                    <path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7" />
-                                </svg>
+                            <th class="text-slate-800 fw-medium border-0 py-2 px-3 sortable-col" style="font-size: 0.8rem; cursor: pointer; user-select: none;" onclick="sortByColumn('created')">
+                                Data de Cadastro <span id="sort-icon-created" class="sort-arrow ms-1">↕</span>
                             </th>
                             <th class="text-slate-800 fw-medium border-0 py-2 px-3" style="font-size: 0.8rem;">Ações</th>
                         </tr>
                     </thead>
                     <tbody id="patients-table-body">
                         {% for patient in all_patients %}
-                        <tr data-patient-id="{{ patient.id }}" data-patient-status="{% if patient.is_active %}active{% else %}inactive{% endif %}" class="border-bottom patient-row patient-row-clickable" style="display: none; cursor: pointer;" onclick="viewPatientDetails({{ patient.id }})">
+                        <tr data-patient-id="{{ patient.id }}"
+                            data-name="{{ patient.full_name|lower }}"
+                            data-cpf="{{ patient.cpf|default:'' }}"
+                            data-age="{{ patient.age|default:0 }}"
+                            data-created="{{ patient.created_at|date:'Y-m-d' }}"
+                            class="border-bottom patient-row patient-row-clickable" style="display: none; cursor: pointer;" onclick="viewPatientDetails({{ patient.id }})"
+                        >
                             <td class="py-2 px-3">
                                 <span class="text-slate-900 fw-medium">
                                     {{ patient.full_name }}
                                 </span>
+                                {% if not patient.phone and not patient.cpf %}
+                                <span class="badge bg-warning text-dark ms-1" style="font-size: 0.65rem;" title="Cadastro incompleto — telefone e CPF ausentes">
+                                    <i class="fas fa-exclamation-triangle me-1"></i>Incompleto
+                                </span>
+                                {% endif %}
                             </td>
                             <td class="py-2 px-3 text-slate-500" style="font-size: 0.875rem;">
                                 {% if patient.cpf %}
@@ -119,19 +125,6 @@
                                     <span class="text-slate-500">Outro</span>
                                 {% endif %}
                             </td>
-                            <td class="py-2 px-3" style="font-size: 0.875rem;">
-                                {% if patient.is_active %}
-                                    <span class="d-inline-flex align-items-center">
-                                        <span class="status-dot bg-green-400 me-2"></span>
-                                        Ativo
-                                    </span>
-                                {% else %}
-                                    <span class="d-inline-flex align-items-center">
-                                        <span class="status-dot bg-gray-300 me-2"></span>
-                                        Inativo
-                                    </span>
-                                {% endif %}
-                            </td>
                             <td class="py-2 px-3 text-slate-500" style="font-size: 0.875rem;">
                                 {{ patient.created_at|date:"d/m/Y" }}
                             </td>
@@ -151,25 +144,12 @@
                                             <path stroke-linecap="round" stroke-linejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
                                         </svg>
                                     </button>
-                                    {% if patient.is_active %}
-                                        <button class="btn btn-sm btn-link text-slate-500 p-1" onclick="deactivatePatient({{ patient.id }}, '{{ patient.full_name }}')" title="Desativar">
-                                            <svg xmlns="http://www.w3.org/2000/svg" class="icon-sm" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-                                                <path stroke-linecap="round" stroke-linejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                                            </svg>
-                                        </button>
-                                    {% else %}
-                                        <button class="btn btn-sm btn-link text-slate-500 p-1" onclick="activatePatient({{ patient.id }}, '{{ patient.full_name }}')" title="Ativar">
-                                            <svg xmlns="http://www.w3.org/2000/svg" class="icon-sm" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-                                                <path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-                                            </svg>
-                                        </button>
-                                    {% endif %}
                                 </div>
                             </td>
                         </tr>
                         {% empty %}
                         <tr id="patients-empty-row" style="display: none;">
-                            <td colspan="8" class="text-center text-slate-500 py-5">
+                            <td colspan="7" class="text-center text-slate-500 py-5">
                                 <p class="h6 mb-2" style="font-size: 1rem;">Nenhum paciente encontrado.</p>
                                 <p class="text-slate-400" style="font-size: 0.875rem;">Clique em "Novo Paciente" para adicionar o primeiro paciente.</p>
                             </td>
@@ -248,13 +228,15 @@
                         </div>
                         <div>
                             <div class="text-slate-800 fw-bold" style="font-size: 1.25rem;">
-                                {% if patient_stats.active_patients %}
-                                    {{ patient_stats.active_patients }}
+                                {% if patient_stats.total_patients %}
+                                    {{ patient_stats.total_patients }}
+                                {% elif all_patients %}
+                                    {{ all_patients|length }}
                                 {% else %}
                                     0
                                 {% endif %}
                             </div>
-                            <div class="text-slate-500" style="font-size: 0.8rem;">Pacientes Ativos</div>
+                            <div class="text-slate-500" style="font-size: 0.8rem;">Pacientes Cadastrados</div>
                         </div>
                     </div>
                 </div>
@@ -318,7 +300,7 @@
 
 <!-- Patient Edit Modal -->
 <div class="modal fade" id="patientEditModal" tabindex="-1">
-    <div class="modal-dialog modal-lg">
+    <div class="modal-dialog modal-lg modal-dialog-scrollable">
         <div class="modal-content">
             <div class="modal-header">
                 <h5 class="modal-title">
@@ -326,20 +308,20 @@
                 </h5>
                 <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
             </div>
-            <form id="patientEditForm">
-                <div class="modal-body">
+            <div class="modal-body">
+                <form id="patientEditForm">
                     <input type="hidden" id="edit-patient-id" name="patient_id">
                     
                     <div class="row">
                         <div class="col-md-6">
                             <div class="mb-3">
-                                <label for="edit-first-name" class="form-label">Nome *</label>
+                                <label for="edit-first-name" class="form-label">Nome <span class="text-danger" aria-hidden="true">*</span></label>
                                 <input type="text" class="form-control" id="edit-first-name" name="first_name" required>
                             </div>
                         </div>
                         <div class="col-md-6">
                             <div class="mb-3">
-                                <label for="edit-last-name" class="form-label">Sobrenome *</label>
+                                <label for="edit-last-name" class="form-label">Sobrenome <span class="text-danger" aria-hidden="true">*</span></label>
                                 <input type="text" class="form-control" id="edit-last-name" name="last_name" required>
                             </div>
                         </div>
@@ -368,15 +350,32 @@
                         </div>
                         <div class="col-md-6">
                             <div class="mb-3">
-                                <label for="edit-date-of-birth" class="form-label">Data de Nascimento *</label>
-                                <input type="date" class="form-control" id="edit-date-of-birth" name="date_of_birth" required>
+                                <label class="form-label">Data de Nascimento <span class="text-danger" aria-hidden="true">*</span></label>
+                                <input type="hidden" id="edit-date-of-birth" name="date_of_birth">
+                                <div class="d-flex gap-1">
+                                    <select class="form-select" id="edit-dob-day" style="width:30%;" required>
+                                        <option value="">Dia</option>
+                                    </select>
+                                    <select class="form-select" id="edit-dob-month" style="width:40%;" required>
+                                        <option value="">Mês</option>
+                                        <option value="01">Janeiro</option><option value="02">Fevereiro</option>
+                                        <option value="03">Março</option><option value="04">Abril</option>
+                                        <option value="05">Maio</option><option value="06">Junho</option>
+                                        <option value="07">Julho</option><option value="08">Agosto</option>
+                                        <option value="09">Setembro</option><option value="10">Outubro</option>
+                                        <option value="11">Novembro</option><option value="12">Dezembro</option>
+                                    </select>
+                                    <select class="form-select" id="edit-dob-year" style="width:30%;" required>
+                                        <option value="">Ano</option>
+                                    </select>
+                                </div>
                             </div>
                         </div>
                     </div>
                     <div class="row">
                         <div class="col-md-6">
                             <div class="mb-3">
-                                <label for="edit-gender" class="form-label">Sexo *</label>
+                                <label for="edit-gender" class="form-label">Sexo <span class="text-danger" aria-hidden="true">*</span></label>
                                 <select class="form-select" id="edit-gender" name="gender" required>
                                     <option value="">Selecione...</option>
                                     <option value="M">Masculino</option>
@@ -430,22 +429,24 @@
                     </div>
                     
                     <div class="mb-3">
-                        <label for="edit-medical-insurance" class="form-label">Convênio Médico</label>
-                        <input type="text" class="form-control" id="edit-medical-insurance" name="medical_insurance">
+                        <label for="edit-medical-insurance" class="form-label">Plano de Saúde</label>
+                        <select class="form-select" id="edit-medical-insurance" name="medical_insurance">
+                            <option value="">Nenhum</option>
+                        </select>
                     </div>
-                </div>
-                <div class="modal-footer">
-                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
-                    <button type="submit" class="btn btn-primary">Salvar Alterações</button>
-                </div>
-            </form>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                <button type="submit" form="patientEditForm" class="btn btn-primary">Salvar Alterações</button>
+            </div>
         </div>
     </div>
 </div>
 
 <!-- Create Patient Modal -->
 <div class="modal fade" id="patientCreateModal" tabindex="-1">
-    <div class="modal-dialog modal-lg">
+    <div class="modal-dialog modal-lg modal-dialog-scrollable">
         <div class="modal-content">
             <div class="modal-header">
                 <h5 class="modal-title">
@@ -453,18 +454,18 @@
                 </h5>
                 <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
             </div>
-            <form id="patientCreateForm">
-                <div class="modal-body">
+            <div class="modal-body">
+                <form id="patientCreateForm">
                     <div class="row">
                         <div class="col-md-6">
                             <div class="mb-3">
-                                <label for="create-first-name" class="form-label">Nome *</label>
+                                <label for="create-first-name" class="form-label">Nome <span class="text-danger" aria-hidden="true">*</span></label>
                                 <input type="text" class="form-control" id="create-first-name" name="first_name" required>
                             </div>
                         </div>
                         <div class="col-md-6">
                             <div class="mb-3">
-                                <label for="create-last-name" class="form-label">Sobrenome *</label>
+                                <label for="create-last-name" class="form-label">Sobrenome <span class="text-danger" aria-hidden="true">*</span></label>
                                 <input type="text" class="form-control" id="create-last-name" name="last_name" required>
                             </div>
                         </div>
@@ -493,15 +494,32 @@
                         </div>
                         <div class="col-md-6">
                             <div class="mb-3">
-                                <label for="create-date-of-birth" class="form-label">Data de Nascimento *</label>
-                                <input type="date" class="form-control" id="create-date-of-birth" name="date_of_birth" required>
+                                <label class="form-label">Data de Nascimento <span class="text-danger" aria-hidden="true">*</span></label>
+                                <input type="hidden" id="create-date-of-birth" name="date_of_birth">
+                                <div class="d-flex gap-1">
+                                    <select class="form-select" id="create-dob-day" style="width:30%;" required>
+                                        <option value="">Dia</option>
+                                    </select>
+                                    <select class="form-select" id="create-dob-month" style="width:40%;" required>
+                                        <option value="">Mês</option>
+                                        <option value="01">Janeiro</option><option value="02">Fevereiro</option>
+                                        <option value="03">Março</option><option value="04">Abril</option>
+                                        <option value="05">Maio</option><option value="06">Junho</option>
+                                        <option value="07">Julho</option><option value="08">Agosto</option>
+                                        <option value="09">Setembro</option><option value="10">Outubro</option>
+                                        <option value="11">Novembro</option><option value="12">Dezembro</option>
+                                    </select>
+                                    <select class="form-select" id="create-dob-year" style="width:30%;" required>
+                                        <option value="">Ano</option>
+                                    </select>
+                                </div>
                             </div>
                         </div>
                     </div>
                     <div class="row">
                         <div class="col-md-6">
                             <div class="mb-3">
-                                <label for="create-gender" class="form-label">Sexo *</label>
+                                <label for="create-gender" class="form-label">Sexo <span class="text-danger" aria-hidden="true">*</span></label>
                                 <select class="form-select" id="create-gender" name="gender" required>
                                     <option value="">Selecione...</option>
                                     <option value="M">Masculino</option>
@@ -562,27 +580,76 @@
                         <div class="col-md-12">
                             <div class="mb-3">
                                 <label for="create-medical-insurance" class="form-label">Plano de Saúde</label>
-                                <input type="text" class="form-control" id="create-medical-insurance" name="medical_insurance">
+                                <select class="form-select" id="create-medical-insurance" name="medical_insurance">
+                                    <option value="">Nenhum</option>
+                                </select>
                             </div>
                         </div>
                     </div>
-                </div>
-                <div class="modal-footer">
-                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
-                    <button type="submit" class="btn btn-primary">Criar Paciente</button>
-                </div>
-            </form>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                <button type="submit" form="patientCreateForm" class="btn btn-primary">Criar Paciente</button>
+            </div>
         </div>
     </div>
 </div>
 
 <script>
+// Validation utilities (validateCPF, applyCPFValidation, applyPhoneValidation,
+// applyEmailValidation, setupPatientFormValidation) are defined in extra.js
+
 // Patient management functions
 let currentPatientId = null;
 let currentPatientName = null;
 let currentPatientsPage = 1;
 const patientsPerPage = 6;
 let filteredPatients = [];
+let currentSortKey = 'name';
+let currentSortDir = 'asc';
+
+function sortByColumn(key) {
+    if (currentSortKey === key) {
+        currentSortDir = currentSortDir === 'asc' ? 'desc' : 'asc';
+    } else {
+        currentSortKey = key;
+        currentSortDir = 'asc';
+    }
+    updateSortIcons();
+    applySort();
+    currentPatientsPage = 1;
+    displayPatientsPage();
+}
+
+function applySort() {
+    if (!currentSortKey || filteredPatients.length === 0) return;
+    filteredPatients.sort((a, b) => {
+        let valA = (a.getAttribute('data-' + currentSortKey) || '').toLowerCase();
+        let valB = (b.getAttribute('data-' + currentSortKey) || '').toLowerCase();
+        if (currentSortKey === 'age') {
+            valA = parseInt(valA) || 0;
+            valB = parseInt(valB) || 0;
+        }
+        let cmp = valA < valB ? -1 : valA > valB ? 1 : 0;
+        return currentSortDir === 'asc' ? cmp : -cmp;
+    });
+    // Re-append sorted rows to tbody so visual order matches sort
+    const tbody = document.getElementById('patients-table-body');
+    filteredPatients.forEach(row => tbody.appendChild(row));
+}
+
+function updateSortIcons() {
+    ['name', 'cpf', 'age', 'created'].forEach(key => {
+        const icon = document.getElementById('sort-icon-' + key);
+        if (!icon) return;
+        if (key === currentSortKey) {
+            icon.textContent = currentSortDir === 'asc' ? '↑' : '↓';
+        } else {
+            icon.textContent = '↕';
+        }
+    });
+}
 
 // Search functionality
 document.getElementById('patient-search').addEventListener('input', function() {
@@ -593,14 +660,9 @@ document.getElementById('patient-gender-filter').addEventListener('change', func
     filterPatients();
 });
 
-document.getElementById('patient-status-filter').addEventListener('change', function() {
-    filterPatients();
-});
-
 function filterPatients() {
     const searchTerm = document.getElementById('patient-search').value.toLowerCase();
     const genderFilter = document.getElementById('patient-gender-filter').value;
-    const statusFilter = document.getElementById('patient-status-filter').value;
     const rows = document.querySelectorAll('#patients-table-body tr.patient-row');
     
     filteredPatients = [];
@@ -612,10 +674,18 @@ function filterPatients() {
         const phone = row.querySelector('td:nth-child(4)').textContent.trim().toLowerCase();
         const genderElement = row.querySelector('td:nth-child(6)');
         const gender = genderElement ? genderElement.textContent.trim().toLowerCase() : '';
-        // Get status from data attribute (more reliable)
-        const patientStatus = row.getAttribute('data-patient-status') || '';
         
-        const matchesSearch = !searchTerm || name.includes(searchTerm) || cpf.includes(searchTerm) || email.includes(searchTerm) || phone.includes(searchTerm);
+        let matchesSearch;
+        if (!searchTerm) {
+            matchesSearch = true;
+        } else if (searchTerm.length < 3) {
+            // Short term: only match start of any name word to avoid false positives
+            matchesSearch = name.split(/\s+/).some(word => word.startsWith(searchTerm)) ||
+                            cpf.replace(/\D/g, '').startsWith(searchTerm.replace(/\D/g, ''));
+        } else {
+            matchesSearch = name.includes(searchTerm) || cpf.includes(searchTerm) ||
+                            email.includes(searchTerm) || phone.includes(searchTerm);
+        }
         
         // Gender filtering
         let matchesGender = true;
@@ -627,24 +697,15 @@ function filterPatients() {
             matchesGender = gender.includes('outro');
         }
         
-        // Status filtering - use data attribute for reliable filtering
-        let matchesStatus = true;
-        if (statusFilter === 'active') {
-            matchesStatus = patientStatus === 'active';
-        } else if (statusFilter === 'inactive') {
-            matchesStatus = patientStatus === 'inactive';
-        } else if (statusFilter === 'all') {
-            matchesStatus = true;
-        }
-        
-        const shouldShow = matchesSearch && matchesGender && matchesStatus;
+        const shouldShow = matchesSearch && matchesGender;
         
         if (shouldShow) {
             filteredPatients.push(row);
         }
     });
     
-    // Reset to page 1 when filtering
+    // Apply current sort order then display
+    applySort();
     currentPatientsPage = 1;
     displayPatientsPage();
 }
@@ -728,7 +789,6 @@ function changePatientsPage(direction) {
 function clearPatientFilters() {
     document.getElementById('patient-search').value = '';
     document.getElementById('patient-gender-filter').value = '';
-    document.getElementById('patient-status-filter').value = 'active';
     filterPatients();
 }
 
@@ -739,9 +799,90 @@ function initializePatientsPagination() {
     }
 }
 
+function populateInsuranceSelects(currentCreateVal, currentEditVal) {
+    const operators = (typeof appointmentSettings !== 'undefined' &&
+        appointmentSettings && appointmentSettings.insurance_operators)
+        ? appointmentSettings.insurance_operators : [];
+
+    ['create-medical-insurance', 'edit-medical-insurance'].forEach(function(id) {
+        const el = document.getElementById(id);
+        if (!el || el.tagName !== 'SELECT') return;
+        const saved = id === 'edit-medical-insurance' ? (currentEditVal || el.value) : (currentCreateVal || el.value);
+        el.innerHTML = '<option value="">Nenhum</option>';
+        operators.forEach(function(op) {
+            const o = document.createElement('option');
+            o.value = op;
+            o.textContent = op;
+            el.appendChild(o);
+        });
+        if (saved) el.value = saved;
+    });
+}
+
 document.addEventListener('DOMContentLoaded', function() {
     initializePatientsPagination();
+    initDobSelects('create-dob-day', 'create-dob-month', 'create-dob-year', 'create-date-of-birth');
+    initDobSelects('edit-dob-day', 'edit-dob-month', 'edit-dob-year', 'edit-date-of-birth');
+    setupPatientFormValidation('create-');
+    setupPatientFormValidation('edit-');
+
+    // Populate insurance selects once settings are ready
+    if (typeof appointmentSettings !== 'undefined' && appointmentSettings) {
+        populateInsuranceSelects();
+    } else {
+        // Poll briefly for settings to load (settings.js loads async)
+        let attempts = 0;
+        const poll = setInterval(function() {
+            attempts++;
+            if ((typeof appointmentSettings !== 'undefined' && appointmentSettings) || attempts > 20) {
+                clearInterval(poll);
+                populateInsuranceSelects();
+            }
+        }, 300);
+    }
 });
+
+function initDobSelects(dayId, monthId, yearId, hiddenId) {
+    const dayEl = document.getElementById(dayId);
+    const yearEl = document.getElementById(yearId);
+    const hiddenEl = document.getElementById(hiddenId);
+    if (!dayEl || !yearEl) return;
+
+    for (let d = 1; d <= 31; d++) {
+        const o = document.createElement('option');
+        o.value = String(d).padStart(2, '0');
+        o.textContent = d;
+        dayEl.appendChild(o);
+    }
+    const curYear = new Date().getFullYear();
+    for (let y = curYear; y >= curYear - 120; y--) {
+        const o = document.createElement('option');
+        o.value = y;
+        o.textContent = y;
+        yearEl.appendChild(o);
+    }
+
+    function sync() {
+        const d = dayEl.value, m = document.getElementById(monthId).value, y = yearEl.value;
+        hiddenEl.value = (d && m && y) ? `${y}-${m}-${d}` : '';
+    }
+    [dayEl, document.getElementById(monthId), yearEl].forEach(el => el.addEventListener('change', sync));
+}
+
+function setDobSelects(prefix, isoDate) {
+    if (!isoDate) return;
+    const parts = isoDate.split('-');
+    if (parts.length !== 3) return;
+    const [y, m, d] = parts;
+    const dayEl = document.getElementById(prefix + '-dob-day');
+    const monthEl = document.getElementById(prefix + '-dob-month');
+    const yearEl = document.getElementById(prefix + '-dob-year');
+    if (dayEl) dayEl.value = d;
+    if (monthEl) monthEl.value = m;
+    if (yearEl) yearEl.value = y;
+    const hiddenEl = document.getElementById(prefix + '-date-of-birth');
+    if (hiddenEl) hiddenEl.value = isoDate;
+}
 
 // Also initialize when tab is shown (in case it's not the default tab)
 const pacientesTab = document.getElementById('pacientes-tab');
@@ -829,9 +970,6 @@ function displayPatientDetails(patient) {
                             </div>
                             <h5 class="mb-0">${patient.full_name}</h5>
                             <small class="text-muted">Paciente desde ${patient.created_at}</small>
-                            <div class="mt-2">
-                                ${patient.is_active ? '<span class="badge bg-success">Ativo</span>' : '<span class="badge bg-danger">Inativo</span>'}
-                            </div>
                         </div>
                     </div>
                     <div class="col-md-8">
@@ -884,9 +1022,19 @@ function displayPatientDetails(patient) {
                         <form id="patient-file-upload-form" onsubmit="uploadPatientFile(event, ${patient.id})">
                             <div class="row g-2 align-items-end">
                                 <div class="col-md-5">
-                                    <label class="form-label small mb-1">Arquivo (imagem ou PDF, máx. 20 MB)</label>
-                                    <input type="file" class="form-control form-control-sm" id="patient-file-input"
-                                           accept="image/*,.pdf" required>
+                                    <label class="form-label small mb-1">
+                                        Arquivo <span class="text-danger" aria-hidden="true">*</span>
+                                        <span class="text-muted fw-normal">(imagem ou PDF, máx. 20 MB)</span>
+                                    </label>
+                                    <div class="custom-file-wrapper">
+                                        <label class="custom-file-btn" for="patient-file-input">
+                                            <i class="fas fa-folder-open"></i>Escolher arquivo
+                                        </label>
+                                        <span class="custom-file-name" id="patient-file-name">Nenhum arquivo selecionado</span>
+                                    </div>
+                                    <input type="file" id="patient-file-input" accept="image/*,.pdf" required
+                                           class="d-none"
+                                           onchange="document.getElementById('patient-file-name').textContent = this.files[0] ? this.files[0].name : 'Nenhum arquivo selecionado'; document.getElementById('patient-file-name').classList.toggle('has-file', !!this.files[0]);">
                                 </div>
                                 <div class="col-md-5">
                                     <label class="form-label small mb-1">Descrição (opcional)</label>
@@ -1099,7 +1247,7 @@ function editPatient(patientId) {
                 document.getElementById('edit-cpf').value = patient.cpf || '';
                 document.getElementById('edit-email').value = patient.email || '';
                 document.getElementById('edit-phone').value = patient.phone || '';
-                document.getElementById('edit-date-of-birth').value = patient.date_of_birth || '';
+                setDobSelects('edit', patient.date_of_birth || '');
                 document.getElementById('edit-gender').value = patient.gender || '';
                 document.getElementById('edit-address').value = patient.address || '';
                 document.getElementById('edit-city').value = patient.city || '';
@@ -1107,6 +1255,7 @@ function editPatient(patientId) {
                 document.getElementById('edit-zip-code').value = patient.zip_code || '';
                 document.getElementById('edit-emergency-contact-name').value = patient.emergency_contact_name || '';
                 document.getElementById('edit-emergency-contact-phone').value = patient.emergency_contact_phone || '';
+                populateInsuranceSelects(null, patient.medical_insurance || '');
                 document.getElementById('edit-medical-insurance').value = patient.medical_insurance || '';
                 
                 // Show the modal after data is loaded
@@ -1135,61 +1284,6 @@ function showPatientModal() {
     new bootstrap.Modal(document.getElementById('patientCreateModal')).show();
 }
 
-function deactivatePatient(patientId, patientName) {
-    if (confirm(`Tem certeza que deseja desativar o paciente "${patientName}"?\n\nO paciente será marcado como inativo mas os dados serão preservados.`)) {
-        fetch(`/dashboard/api/patients/deactivate/${patientId}/`, {
-            method: 'POST',
-            headers: {
-                'X-CSRFToken': getCookie('csrftoken'),
-                'Content-Type': 'application/json',
-            },
-        })
-        .then(response => response.json())
-        .then(data => {
-            if (data.success) {
-                // Show success message
-                showAlert('success', data.message);
-                
-                // Refresh the patient list
-                refreshPatientsList();
-            } else {
-                showAlert('error', data.error);
-            }
-        })
-        .catch(error => {
-            console.error('Error:', error);
-            showAlert('error', 'Erro ao desativar paciente');
-        });
-    }
-}
-
-function activatePatient(patientId, patientName) {
-    if (confirm(`Tem certeza que deseja ativar o paciente "${patientName}"?`)) {
-        fetch(`/dashboard/api/patients/activate/${patientId}/`, {
-            method: 'POST',
-            headers: {
-                'X-CSRFToken': getCookie('csrftoken'),
-                'Content-Type': 'application/json',
-            },
-        })
-        .then(response => response.json())
-        .then(data => {
-            if (data.success) {
-                // Show success message
-                showAlert('success', data.message);
-                
-                // Refresh the patient list
-                refreshPatientsList();
-            } else {
-                showAlert('error', data.error);
-            }
-        })
-        .catch(error => {
-            console.error('Error:', error);
-            showAlert('error', 'Erro ao ativar paciente');
-        });
-    }
-}
 
 // Handle patient edit form submission
 document.getElementById('patientEditForm').addEventListener('submit', function(e) {

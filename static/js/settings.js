@@ -76,6 +76,26 @@ function renderSettings() {
     
     // Render cancellation reasons
     renderCancellationReasons();
+
+    // Render working hours
+    renderWorkingHours();
+}
+
+function renderWorkingHours() {
+    if (!appointmentSettings) return;
+
+    const startInput = document.getElementById('work-start-time');
+    const endInput   = document.getElementById('work-end-time');
+    if (startInput) startInput.value = appointmentSettings.work_start_time || '08:00';
+    if (endInput)   endInput.value   = appointmentSettings.work_end_time   || '18:00';
+
+    const workDays = appointmentSettings.work_days && appointmentSettings.work_days.length
+        ? appointmentSettings.work_days
+        : [1, 2, 3, 4, 5];
+
+    document.querySelectorAll('.work-day-check').forEach(function(cb) {
+        cb.checked = workDays.includes(parseInt(cb.value));
+    });
 }
 
 // Render duration options
@@ -522,6 +542,27 @@ function saveSettings() {
         return r && String(r).trim();
     });
     
+    // Collect working hours from the UI inputs
+    // Fall back to stored value if the time input is empty (browser didn't commit the edit)
+    const workStartEl  = document.getElementById('work-start-time');
+    const workEndEl    = document.getElementById('work-end-time');
+    const rawStart     = workStartEl ? workStartEl.value.trim() : '';
+    const rawEnd       = workEndEl   ? workEndEl.value.trim()   : '';
+    const _timePattern = /^\d{2}:\d{2}(:\d{2})?$/;
+    const workStart    = _timePattern.test(rawStart) ? rawStart.slice(0, 5) : (appointmentSettings.work_start_time || '08:00');
+    const workEnd      = _timePattern.test(rawEnd)   ? rawEnd.slice(0, 5)   : (appointmentSettings.work_end_time   || '18:00');
+    const workDays     = Array.from(document.querySelectorAll('.work-day-check:checked'))
+                              .map(cb => parseInt(cb.value));
+
+    // Sync the inputs back so user sees exactly what will be saved
+    if (workStartEl) workStartEl.value = workStart;
+    if (workEndEl)   workEndEl.value   = workEnd;
+
+    // Persist into in-memory settings object for immediate use
+    appointmentSettings.work_start_time = workStart;
+    appointmentSettings.work_end_time   = workEnd;
+    appointmentSettings.work_days       = workDays.length ? workDays : [1, 2, 3, 4, 5];
+
     // Prepare data (convenio_prices is dict: operator name -> price string)
     const data = {
         duration_options: validDurations,
@@ -531,7 +572,10 @@ function saveSettings() {
         location_options: (appointmentSettings.location_options || []).filter(l => l && String(l).trim()),
         insurance_operators: validOperators.map(o => String(o).trim()),
         cancellation_reasons: validCancellationReasons.map(r => String(r).trim()),
-        convenio_prices: appointmentSettings.convenio_prices || {}
+        convenio_prices: appointmentSettings.convenio_prices || {},
+        work_start_time: appointmentSettings.work_start_time,
+        work_end_time:   appointmentSettings.work_end_time,
+        work_days:       appointmentSettings.work_days,
     };
     
     // Send to server
@@ -547,9 +591,21 @@ function saveSettings() {
     .then(data => {
         if (data.success) {
             showNotification('Configurações salvas com sucesso!', 'success');
-            // Reload settings to get updated data
+
+            // Use server-confirmed values to update in-memory settings and inputs
+            if (data.saved) {
+                appointmentSettings.work_start_time = data.saved.work_start_time;
+                appointmentSettings.work_end_time   = data.saved.work_end_time;
+                appointmentSettings.work_days       = data.saved.work_days;
+                const wsEl = document.getElementById('work-start-time');
+                const weEl = document.getElementById('work-end-time');
+                if (wsEl) wsEl.value = data.saved.work_start_time;
+                if (weEl) weEl.value = data.saved.work_end_time;
+                renderWorkingHours();
+            }
+
+            // Reload all settings from server (other fields) and update calendar
             loadSettings();
-            // Update appointment modal
             updateAppointmentModalWithSettings();
         } else {
             showNotification('Erro ao salvar: ' + data.error, 'error');
@@ -752,6 +808,11 @@ function updateAppointmentModalWithSettings() {
             input.placeholder = 'Ex: Sala 1, Consultório A';
             parent.replaceChild(input, locationInput);
         }
+    }
+
+    // Apply working hours to the calendar if it is already initialised
+    if (typeof applyWorkingHoursToCalendar === 'function') {
+        applyWorkingHoursToCalendar();
     }
 }
 

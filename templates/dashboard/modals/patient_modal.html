@@ -1,6 +1,6 @@
 <!-- New Patient Modal (Quick Add) -->
 <div class="modal fade" id="newPatientModal" tabindex="-1" aria-labelledby="newPatientModalLabel" aria-hidden="true">
-    <div class="modal-dialog">
+    <div class="modal-dialog modal-dialog-scrollable">
         <div class="modal-content">
             <div class="modal-header">
                 <h5 class="modal-title" id="newPatientModalLabel">
@@ -8,15 +8,15 @@
                 </h5>
                 <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
             </div>
-            <form id="newPatientForm">
-                <div class="modal-body">
+            <div class="modal-body">
+                <form id="newPatientForm">
                     <div class="row">
                         <div class="col-md-6 mb-3">
-                            <label for="patient-first-name" class="form-label">Nome <span class="text-danger">*</span></label>
+                            <label for="patient-first-name" class="form-label">Nome <span class="text-danger" aria-hidden="true">*</span></label>
                             <input type="text" class="form-control" id="patient-first-name" name="first_name" required>
                         </div>
                         <div class="col-md-6 mb-3">
-                            <label for="patient-last-name" class="form-label">Sobrenome <span class="text-danger">*</span></label>
+                            <label for="patient-last-name" class="form-label">Sobrenome <span class="text-danger" aria-hidden="true">*</span></label>
                             <input type="text" class="form-control" id="patient-last-name" name="last_name" required>
                         </div>
                     </div>
@@ -39,11 +39,28 @@
                     </div>
                     <div class="row">
                         <div class="col-md-6 mb-3">
-                            <label for="patient-birth-date" class="form-label">Data de Nascimento <span class="text-danger">*</span></label>
-                            <input type="date" class="form-control" id="patient-birth-date" name="date_of_birth" required>
+                            <label class="form-label">Data de Nascimento <span class="text-danger" aria-hidden="true">*</span></label>
+                            <input type="hidden" id="patient-birth-date" name="date_of_birth">
+                            <div class="d-flex gap-1">
+                                <select class="form-select" id="patient-dob-day" style="width:30%;" required>
+                                    <option value="">Dia</option>
+                                </select>
+                                <select class="form-select" id="patient-dob-month" style="width:40%;" required>
+                                    <option value="">Mês</option>
+                                    <option value="01">Janeiro</option><option value="02">Fevereiro</option>
+                                    <option value="03">Março</option><option value="04">Abril</option>
+                                    <option value="05">Maio</option><option value="06">Junho</option>
+                                    <option value="07">Julho</option><option value="08">Agosto</option>
+                                    <option value="09">Setembro</option><option value="10">Outubro</option>
+                                    <option value="11">Novembro</option><option value="12">Dezembro</option>
+                                </select>
+                                <select class="form-select" id="patient-dob-year" style="width:30%;" required>
+                                    <option value="">Ano</option>
+                                </select>
+                            </div>
                         </div>
                         <div class="col-md-6 mb-3">
-                            <label for="patient-gender" class="form-label">Sexo <span class="text-danger">*</span></label>
+                            <label for="patient-gender" class="form-label">Sexo <span class="text-danger" aria-hidden="true">*</span></label>
                             <select class="form-select" id="patient-gender" name="gender" required>
                                 <option value="">Selecione...</option>
                                 <option value="M">Masculino</option>
@@ -52,16 +69,51 @@
                             </select>
                         </div>
                     </div>
-                </div>
-                <div class="modal-footer">
-                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
-                        <i class="fas fa-times me-1"></i>Cancelar
-                    </button>
-                    <button type="submit" class="btn btn-success">
-                        <i class="fas fa-save me-1"></i>Salvar Paciente
-                    </button>
-                </div>
-            </form>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                    <i class="fas fa-times me-1"></i>Cancelar
+                </button>
+                <button type="submit" form="newPatientForm" class="btn btn-success">
+                    <i class="fas fa-save me-1"></i>Salvar Paciente
+                </button>
+            </div>
         </div>
     </div>
 </div>
+<script>
+(function() {
+    function populateDobSelects(dayId, monthId, yearId, hiddenId) {
+        const dayEl = document.getElementById(dayId);
+        const yearEl = document.getElementById(yearId);
+        const hiddenEl = document.getElementById(hiddenId);
+        if (!dayEl || !yearEl) return;
+
+        for (let d = 1; d <= 31; d++) {
+            const o = document.createElement('option');
+            o.value = String(d).padStart(2, '0');
+            o.textContent = d;
+            dayEl.appendChild(o);
+        }
+        const curYear = new Date().getFullYear();
+        for (let y = curYear; y >= curYear - 120; y--) {
+            const o = document.createElement('option');
+            o.value = y;
+            o.textContent = y;
+            yearEl.appendChild(o);
+        }
+
+        function sync() {
+            const d = dayEl.value, m = document.getElementById(monthId).value, y = yearEl.value;
+            hiddenEl.value = (d && m && y) ? `${y}-${m}-${d}` : '';
+        }
+        [dayEl, document.getElementById(monthId), yearEl].forEach(el => el.addEventListener('change', sync));
+    }
+    document.addEventListener('DOMContentLoaded', function() {
+        populateDobSelects('patient-dob-day', 'patient-dob-month', 'patient-dob-year', 'patient-birth-date');
+
+        // Validators are set up globally via setupQuickAddPatientValidation() in extra.js
+    });
+})();
+</script>

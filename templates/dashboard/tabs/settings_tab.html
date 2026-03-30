@@ -1,31 +1,43 @@
-<!-- Settings Tab -->
+<!-- Parâmetros Tab -->
 <div id="settings-tab" class="tab-content" style="display: none;">
     <div class="container-fluid px-0">
         <!-- Page Title -->
-        <div class="mb-4">
-            <h2 class="h4 mb-0 fw-bold text-dark">
-                <i class="fas fa-cog me-2 text-primary"></i>Configurações de Consultas
-            </h2>
+        <div class="d-flex align-items-start justify-content-between mb-4 flex-wrap gap-2">
+            <div>
+                <h2 class="h4 mb-1 fw-bold text-dark">
+                    <i class="fas fa-sliders-h me-2 text-primary"></i>Parâmetros de Atendimento
+                </h2>
+                <p class="text-muted mb-0" style="font-size: 0.875rem;">Configure as opções disponíveis para agendamentos e consultas</p>
+            </div>
+            <div class="d-flex gap-2">
+                <button type="button" class="btn btn-outline-secondary btn-sm" onclick="resetSettings()">
+                    <i class="fas fa-undo me-1"></i>Restaurar Padrões
+                </button>
+                <button type="button" class="btn btn-primary btn-sm px-4" onclick="saveSettings()">
+                    <i class="fas fa-save me-1"></i>Salvar
+                </button>
+            </div>
         </div>
 
         <form id="settings-form">
-            <!-- Grid Layout: 3 Cards -->
-            <div class="row g-4">
+            <!-- Grid Layout: 4 cards per row -->
+            <div class="row g-3">
+
                 <!-- Card 1: Durações Disponíveis -->
-                <div class="col-lg-4 col-md-6">
+                <div class="col-xl-3 col-lg-6 col-md-6">
                     <div class="settings-card">
                         <div class="settings-card-header">
                             <div class="settings-card-icon">
                                 <i class="fas fa-clock"></i>
                             </div>
-                            <h5 class="settings-card-title">Durações Disponíveis</h5>
-                            <p class="settings-card-description">Configure as opções de duração disponíveis para as consultas</p>
+                            <h5 class="settings-card-title">Durações</h5>
+                            <p class="settings-card-description">Opções de duração para consultas</p>
                         </div>
                         <div class="settings-card-body">
                             <div id="duration-options-container" class="settings-list">
-                                <!-- Duration options will be dynamically added here -->
+                                <!-- Duration options rendered by JS -->
                             </div>
-                            <button type="button" class="btn btn-outline-primary w-100 mt-3" onclick="addDurationOption()">
+                            <button type="button" class="settings-add-btn mt-2" onclick="addDurationOption()">
                                 <i class="fas fa-plus me-1"></i>Adicionar Duração
                             </button>
                         </div>
@@ -33,20 +45,20 @@
                 </div>
 
                 <!-- Card 2: Tipos de Consulta -->
-                <div class="col-lg-4 col-md-6">
+                <div class="col-xl-3 col-lg-6 col-md-6">
                     <div class="settings-card">
                         <div class="settings-card-header">
                             <div class="settings-card-icon">
                                 <i class="fas fa-list"></i>
                             </div>
                             <h5 class="settings-card-title">Tipos de Consulta</h5>
-                            <p class="settings-card-description">Configure os nomes dos tipos de consulta disponíveis</p>
+                            <p class="settings-card-description">Nomes dos tipos de consulta disponíveis</p>
                         </div>
                         <div class="settings-card-body">
                             <div id="type-options-container" class="settings-list">
-                                <!-- Type options will be dynamically added here -->
+                                <!-- Type options rendered by JS -->
                             </div>
-                            <button type="button" class="btn btn-outline-primary w-100 mt-3" onclick="addTypeOption()">
+                            <button type="button" class="settings-add-btn mt-2" onclick="addTypeOption()">
                                 <i class="fas fa-plus me-1"></i>Adicionar Tipo
                             </button>
                         </div>
@@ -54,20 +66,20 @@
                 </div>
 
                 <!-- Card 3: Status de Consultas -->
-                <div class="col-lg-4 col-md-6">
+                <div class="col-xl-3 col-lg-6 col-md-6">
                     <div class="settings-card">
                         <div class="settings-card-header">
                             <div class="settings-card-icon">
                                 <i class="fas fa-info-circle"></i>
                             </div>
-                            <h5 class="settings-card-title">Status de Consultas</h5>
-                            <p class="settings-card-description">Configure os nomes dos status disponíveis para as consultas</p>
+                            <h5 class="settings-card-title">Status</h5>
+                            <p class="settings-card-description">Status disponíveis para as consultas</p>
                         </div>
                         <div class="settings-card-body">
                             <div id="status-options-container" class="settings-list">
-                                <!-- Status options will be dynamically added here -->
+                                <!-- Status options rendered by JS -->
                             </div>
-                            <button type="button" class="btn btn-outline-primary w-100 mt-3" onclick="addStatusOption()">
+                            <button type="button" class="settings-add-btn mt-2" onclick="addStatusOption()">
                                 <i class="fas fa-plus me-1"></i>Adicionar Status
                             </button>
                         </div>
@@ -75,21 +87,20 @@
                 </div>
 
                 <!-- Card 4: Convênios -->
-                <div class="col-lg-4 col-md-6">
+                <div class="col-xl-3 col-lg-6 col-md-6">
                     <div class="settings-card">
                         <div class="settings-card-header">
                             <div class="settings-card-icon">
                                 <i class="fas fa-hospital"></i>
                             </div>
                             <h5 class="settings-card-title">Convênios</h5>
-                            <p class="settings-card-description">Configure os convênios e o valor padrão das consultas por convênio</p>
+                            <p class="settings-card-description">Operadoras e valor padrão por convênio</p>
                         </div>
                         <div class="settings-card-body">
-                            <div class="form-text mb-2">Configure cada convênio e o valor da consulta para cada um.</div>
                             <div id="insurance-operators-container" class="settings-list">
-                                <!-- Insurance operators will be dynamically added here -->
+                                <!-- Insurance operators rendered by JS -->
                             </div>
-                            <button type="button" class="btn btn-outline-primary w-100 mt-3" onclick="addInsuranceOperator()">
+                            <button type="button" class="settings-add-btn mt-2" onclick="addInsuranceOperator()">
                                 <i class="fas fa-plus me-1"></i>Adicionar Convênio
                             </button>
                         </div>
@@ -97,39 +108,83 @@
                 </div>
 
                 <!-- Card 5: Motivos de Cancelamento -->
-                <div class="col-lg-4 col-md-6">
+                <div class="col-xl-3 col-lg-6 col-md-6">
                     <div class="settings-card">
                         <div class="settings-card-header">
                             <div class="settings-card-icon">
                                 <i class="fas fa-ban"></i>
                             </div>
-                            <h5 class="settings-card-title">Motivos de Cancelamento</h5>
-                            <p class="settings-card-description">Configure os motivos disponíveis ao cancelar consultas</p>
+                            <h5 class="settings-card-title">Cancelamentos</h5>
+                            <p class="settings-card-description">Motivos ao cancelar uma consulta</p>
                         </div>
                         <div class="settings-card-body">
                             <div id="cancellation-reasons-container" class="settings-list">
-                                <!-- Cancellation reasons will be dynamically added here -->
+                                <!-- Cancellation reasons rendered by JS -->
                             </div>
-                            <button type="button" class="btn btn-outline-primary w-100 mt-3" onclick="addCancellationReason()">
+                            <button type="button" class="settings-add-btn mt-2" onclick="addCancellationReason()">
                                 <i class="fas fa-plus me-1"></i>Adicionar Motivo
                             </button>
                         </div>
                     </div>
                 </div>
-            </div>
 
-            <!-- Action Buttons -->
-            <div class="row mt-4">
-                <div class="col-12">
-                    <div class="d-flex justify-content-end gap-2">
-                        <button type="button" class="btn btn-secondary" onclick="resetSettings()">
-                            <i class="fas fa-undo me-1"></i>Restaurar Padrões
-                        </button>
-                        <button type="submit" class="btn btn-primary">
-                            <i class="fas fa-save me-1"></i>Salvar Configurações
-                        </button>
+                <!-- Card 6: Horário de Atendimento -->
+                <div class="col-xl-3 col-lg-6 col-md-6">
+                    <div class="settings-card">
+                        <div class="settings-card-header">
+                            <div class="settings-card-icon">
+                                <i class="fas fa-business-time"></i>
+                            </div>
+                            <h5 class="settings-card-title">Horário de Atendimento</h5>
+                            <p class="settings-card-description">Defina o horário e os dias de funcionamento da clínica</p>
+                        </div>
+                        <div class="settings-card-body">
+                            <!-- Time range -->
+                            <div class="mb-3">
+                                <label class="form-label" style="font-size: 0.8rem; font-weight: 600; color: #374151;">Período de atendimento</label>
+                                <div class="d-flex align-items-center gap-2">
+                                    <div class="flex-fill">
+                                        <label class="form-label mb-1" style="font-size: 0.75rem; color: #6b7280;">Início</label>
+                                        <input type="time" class="form-control form-control-sm" id="work-start-time" value="08:00">
+                                    </div>
+                                    <div class="pt-3 text-muted" style="font-size: 0.8rem;">até</div>
+                                    <div class="flex-fill">
+                                        <label class="form-label mb-1" style="font-size: 0.75rem; color: #6b7280;">Fim</label>
+                                        <input type="time" class="form-control form-control-sm" id="work-end-time" value="18:00">
+                                    </div>
+                                </div>
+                            </div>
+                            <!-- Working days -->
+                            <div>
+                                <label class="form-label mb-2" style="font-size: 0.8rem; font-weight: 600; color: #374151;">Dias de atendimento</label>
+                                <div class="d-flex flex-wrap gap-1" id="work-days-container">
+                                    <label class="work-day-chip">
+                                        <input type="checkbox" value="1" class="work-day-check" id="wd-1"> Seg
+                                    </label>
+                                    <label class="work-day-chip">
+                                        <input type="checkbox" value="2" class="work-day-check" id="wd-2"> Ter
+                                    </label>
+                                    <label class="work-day-chip">
+                                        <input type="checkbox" value="3" class="work-day-check" id="wd-3"> Qua
+                                    </label>
+                                    <label class="work-day-chip">
+                                        <input type="checkbox" value="4" class="work-day-check" id="wd-4"> Qui
+                                    </label>
+                                    <label class="work-day-chip">
+                                        <input type="checkbox" value="5" class="work-day-check" id="wd-5"> Sex
+                                    </label>
+                                    <label class="work-day-chip">
+                                        <input type="checkbox" value="6" class="work-day-check" id="wd-6"> Sáb
+                                    </label>
+                                    <label class="work-day-chip">
+                                        <input type="checkbox" value="0" class="work-day-check" id="wd-0"> Dom
+                                    </label>
+                                </div>
+                            </div>
+                        </div>
                     </div>
                 </div>
+
             </div>
         </form>
     </div>

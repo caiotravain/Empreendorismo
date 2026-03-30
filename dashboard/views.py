@@ -108,7 +108,7 @@ def home(request):
                 else:
                     next_appointment_time = f"{next_appointment.appointment_date.strftime('%d/%m')} às {next_appointment.appointment_time.strftime('%H:%M')}"
             else:
-                next_appointment_time = 'N/A'
+                next_appointment_time = 'sem consultas próximas'
     else:
         # For admins without doctor selection, show aggregated stats for accessible doctors
         total_today = Appointment.objects.filter(
@@ -160,7 +160,7 @@ def home(request):
                 else:
                     next_appointment_time = f"{next_appointment.appointment_date.strftime('%d/%m')} às {next_appointment.appointment_time.strftime('%H:%M')}"
             else:
-                next_appointment_time = 'N/A'
+                next_appointment_time = 'sem consultas próximas'
     
     # Get all patients for the patients tab (will be filtered by JavaScript)
     # Use utility function to filter by user role
@@ -476,12 +476,12 @@ def add_medical_record(request):
         content = request.POST.get('content', '').strip()
         
         if not patient_id or not content:
-            return JsonResponse({'success': False, 'error': 'Patient ID and content are required'})
+            return JsonResponse({'success': False, 'error': 'ID do paciente e conteúdo são obrigatórios'})
         
         try:
             patient = Patient.objects.get(id=patient_id)
         except Patient.DoesNotExist:
-            return JsonResponse({'success': False, 'error': 'Patient not found'})
+            return JsonResponse({'success': False, 'error': 'Paciente não encontrado'})
         
         # Check if user has access to this patient
         if not has_access_to_patient(request.user, patient):
@@ -518,7 +518,7 @@ def api_patients(request):
         current_doctor = get_selected_doctor(request)
         
         # Patients are shared within a clinic — return all accessible patients
-        patients = get_accessible_patients(request.user).filter(is_active=True).order_by('last_name', 'first_name')
+        patients = get_accessible_patients(request.user).order_by('first_name', 'last_name')
 
         patients_data = []
 
@@ -1934,7 +1934,7 @@ def api_agenda_stats(request):
                     else:
                         next_appointment_time = f"{next_appointment.appointment_date.strftime('%d/%m')} às {next_appointment.appointment_time.strftime('%H:%M')}"
                 else:
-                    next_appointment_time = 'N/A'
+                    next_appointment_time = 'sem consultas próximas'
         else:
             # For admins without doctor selection, show aggregated stats for accessible doctors
             total_today = Appointment.objects.filter(
@@ -1981,7 +1981,7 @@ def api_agenda_stats(request):
                     else:
                         next_appointment_time = f"{next_appointment.appointment_date.strftime('%d/%m')} às {next_appointment.appointment_time.strftime('%H:%M')}"
                 else:
-                    next_appointment_time = 'N/A'
+                    next_appointment_time = 'sem consultas próximas'
         
         return JsonResponse({
             'success': True,
@@ -2754,6 +2754,9 @@ def api_get_appointment_settings(request):
                 'insurance_operators': settings.insurance_operators if settings.insurance_operators else [],
                 'cancellation_reasons': settings.cancellation_reasons if settings.cancellation_reasons else [],
                 'convenio_prices': settings.convenio_prices if settings.convenio_prices is not None else {},
+                'work_start_time': settings.work_start_time or '08:00',
+                'work_end_time': settings.work_end_time or '18:00',
+                'work_days': settings.work_days if settings.work_days else [1, 2, 3, 4, 5],
             }
         })
     except Exception as e:
@@ -2858,11 +2861,38 @@ def api_save_appointment_settings(request):
                         cleaned[op.strip()] = '0'
             settings.convenio_prices = cleaned
         
+        # Validate and update working hours (accept HH:MM or HH:MM:SS)
+        import re as _re
+        _time_re = _re.compile(r'^\d{2}:\d{2}(:\d{2})?$')
+        if 'work_start_time' in data:
+            t = str(data['work_start_time']).strip()
+            if _time_re.match(t):
+                settings.work_start_time = t[:5]  # store only HH:MM
+        if 'work_end_time' in data:
+            t = str(data['work_end_time']).strip()
+            if _time_re.match(t):
+                settings.work_end_time = t[:5]  # store only HH:MM
+        if 'work_days' in data and isinstance(data['work_days'], list):
+            valid_days = []
+            for d in data['work_days']:
+                try:
+                    day = int(d)
+                    if 0 <= day <= 6:
+                        valid_days.append(day)
+                except (TypeError, ValueError):
+                    pass
+            settings.work_days = sorted(set(valid_days))
+
         settings.save()
         
         return JsonResponse({
             'success': True,
-            'message': 'Configurações salvas com sucesso!'
+            'message': 'Configurações salvas com sucesso!',
+            'saved': {
+                'work_start_time': settings.work_start_time,
+                'work_end_time':   settings.work_end_time,
+                'work_days':       settings.work_days if settings.work_days else [1, 2, 3, 4, 5],
+            }
         })
     except Exception as e:
         return JsonResponse({
@@ -3862,7 +3892,29 @@ def api_create_patient(request):
                 'success': False,
                 'error': 'Nome, sobrenome, data de nascimento e sexo são obrigatórios'
             })
-        
+
+        # Validate CPF if provided
+        if cpf:
+            cpf_digits = ''.join(filter(str.isdigit, cpf))
+            if len(cpf_digits) != 11:
+                return JsonResponse({'success': False, 'error': 'CPF inválido — deve conter 11 dígitos.'})
+            if len(set(cpf_digits)) == 1:
+                return JsonResponse({'success': False, 'error': 'CPF inválido.'})
+            # Validate check digits
+            def _cpf_ok(d):
+                s = sum(int(d[i]) * (10 - i) for i in range(9))
+                r = (s * 10) % 11
+                if r in (10, 11): r = 0
+                if r != int(d[9]): return False
+                s = sum(int(d[i]) * (11 - i) for i in range(10))
+                r = (s * 10) % 11
+                if r in (10, 11): r = 0
+                return r == int(d[10])
+            if not _cpf_ok(cpf_digits):
+                return JsonResponse({'success': False, 'error': 'CPF inválido — dígitos verificadores incorretos.'})
+            # Normalise storage format
+            cpf = f'{cpf_digits[:3]}.{cpf_digits[3:6]}.{cpf_digits[6:9]}-{cpf_digits[9:]}'
+
         # Get the current doctor and clinic for the user
         from accounts.utils import get_user_role, get_doctor_for_user, get_clinic_for_user
 
@@ -3935,7 +3987,27 @@ def api_update_patient(request):
                 'success': False,
                 'error': 'ID do paciente, nome, sobrenome, data de nascimento e sexo são obrigatórios'
             })
-        
+
+        # Validate CPF if provided
+        if cpf:
+            cpf_digits = ''.join(filter(str.isdigit, cpf))
+            if len(cpf_digits) != 11:
+                return JsonResponse({'success': False, 'error': 'CPF inválido — deve conter 11 dígitos.'})
+            if len(set(cpf_digits)) == 1:
+                return JsonResponse({'success': False, 'error': 'CPF inválido.'})
+            def _cpf_ok(d):
+                s = sum(int(d[i]) * (10 - i) for i in range(9))
+                r = (s * 10) % 11
+                if r in (10, 11): r = 0
+                if r != int(d[9]): return False
+                s = sum(int(d[i]) * (11 - i) for i in range(10))
+                r = (s * 10) % 11
+                if r in (10, 11): r = 0
+                return r == int(d[10])
+            if not _cpf_ok(cpf_digits):
+                return JsonResponse({'success': False, 'error': 'CPF inválido — dígitos verificadores incorretos.'})
+            cpf = f'{cpf_digits[:3]}.{cpf_digits[3:6]}.{cpf_digits[6:9]}-{cpf_digits[9:]}'
+
         # Get the patient
         try:
             patient = Patient.objects.get(id=patient_id)

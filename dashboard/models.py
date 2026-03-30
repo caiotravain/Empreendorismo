@@ -1382,6 +1382,21 @@ class AppointmentSettings(models.Model):
         help_text="Price per insurance operator: {operator_name: price_string}"
     )
     
+    # Working hours
+    work_start_time = models.CharField(
+        max_length=5, default='08:00',
+        help_text="Work start time in HH:MM format"
+    )
+    work_end_time = models.CharField(
+        max_length=5, default='18:00',
+        help_text="Work end time in HH:MM format"
+    )
+    # FullCalendar day convention: 0=Sunday, 1=Monday, ..., 6=Saturday
+    work_days = models.JSONField(
+        default=list,
+        help_text="Working days list using FullCalendar convention (0=Sun,1=Mon,2=Tue,3=Wed,4=Thu,5=Fri,6=Sat)"
+    )
+
     # Timestamps
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)

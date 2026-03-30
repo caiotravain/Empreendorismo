@@ -212,7 +212,7 @@ function clearPatientSelection() {
     showNotification('Seleção de paciente limpa. Selecione um paciente na agenda para continuar.', 'info');
     
     // Reset page title
-    document.title = 'Dashboard Médico - Plena';
+    document.title = 'Dashboard Médico - Laudia';
     
     // Clear prescription form and update button states
     updatePrescriptionButtonStates();
@@ -1117,6 +1117,9 @@ document.addEventListener('DOMContentLoaded', function() {
     
     // Initialize reports tab with default dates
     initializeReportsTab();
+
+    // Apply field validators to the quick-add patient modal
+    setupQuickAddPatientValidation();
 });
 
 // Appointment Modal Functions
@@ -1187,14 +1190,28 @@ function showNewAppointmentModal() {
     modal.show();
 }
 
+// Track which modal was open when "Add new patient" was clicked
+let _patientCreationSource = null;
+
 function showNewPatientModal() {
-    // Close appointment modal first
-    const appointmentModal = bootstrap.Modal.getInstance(document.getElementById('newAppointmentModal'));
-    if (appointmentModal) {
-        appointmentModal.hide();
+    // Detect which parent modal is currently visible so we can reopen it after saving
+    if (bootstrap.Modal.getInstance(document.getElementById('newAppointmentModal'))) {
+        _patientCreationSource = 'appointment';
+    } else if (bootstrap.Modal.getInstance(document.getElementById('patientSelectionModal'))) {
+        _patientCreationSource = 'selection';
+    } else {
+        _patientCreationSource = null;
     }
-    
-    // Show patient modal
+
+    // Close all known parent modals so newPatientModal appears on top
+    ['newAppointmentModal', 'patientSelectionModal'].forEach(function(id) {
+        const el = document.getElementById(id);
+        if (el) {
+            const inst = bootstrap.Modal.getInstance(el);
+            if (inst) inst.hide();
+        }
+    });
+
     const modal = new bootstrap.Modal(document.getElementById('newPatientModal'));
     modal.show();
 }
@@ -1205,7 +1222,10 @@ function loadPatientsAndDoctors() {
         .then(response => response.json())
         .then(data => {
             console.log('Patients loaded:', data);
-            window.allPatients = data.success ? data.patients : [];
+            const raw = data.success ? data.patients : [];
+            window.allPatients = raw.slice().sort((a, b) =>
+                (a.full_name || '').localeCompare(b.full_name || '', 'pt-BR', { sensitivity: 'base' })
+            );
             setupPatientSearch();
             return data;
         })
@@ -1240,10 +1260,15 @@ function setupPatientSearch() {
     
     // Handle search input
     searchInput.addEventListener('input', function() {
-        const searchTerm = this.value.toLowerCase();
+        const searchTerm = this.value.toLowerCase().trim();
         const filteredPatients = window.allPatients.filter(patient => {
+            if (!searchTerm) return true;
             const name = `${patient.first_name} ${patient.last_name}`.toLowerCase();
             const cpf = (patient.cpf || '').toLowerCase();
+            if (searchTerm.length < 3) {
+                return name.split(/\s+/).some(w => w.startsWith(searchTerm)) ||
+                       cpf.replace(/\D/g, '').startsWith(searchTerm.replace(/\D/g, ''));
+            }
             return name.includes(searchTerm) || cpf.includes(searchTerm);
         });
         showPatients(filteredPatients);
@@ -1267,6 +1292,10 @@ function showPatients(patients) {
     const hiddenInput = document.getElementById('appointment-patient');
     const searchInput = document.getElementById('appointment-patient-search');
     
+    const sorted = patients.slice().sort((a, b) =>
+        (a.full_name || '').localeCompare(b.full_name || '', 'pt-BR', { sensitivity: 'base' })
+    );
+    patients = sorted;
     dropdown.innerHTML = '';
     
     if (patients.length === 0) {
@@ -1426,12 +1455,15 @@ function submitNewAppointment() {
 function submitNewPatient() {
     const form = document.getElementById('newPatientForm');
     const formData = new FormData(form);
-    
-    // Show loading state
-    const submitBtn = form.querySelector('button[type="submit"]');
-    const originalText = submitBtn.innerHTML;
-    submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i>Salvando...';
-    submitBtn.disabled = true;
+
+    // The submit button may be outside the <form> tag (in the modal footer)
+    const submitBtn = form.querySelector('button[type="submit"]') ||
+                      document.querySelector('button[form="newPatientForm"][type="submit"]');
+    const originalText = submitBtn ? submitBtn.innerHTML : '';
+    if (submitBtn) {
+        submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i>Salvando...';
+        submitBtn.disabled = true;
+    }
     
     fetch('/dashboard/api/patients/create/', {
         method: 'POST',
@@ -1446,26 +1478,30 @@ function submitNewPatient() {
             // Close modal
             const modal = bootstrap.Modal.getInstance(document.getElementById('newPatientModal'));
             modal.hide();
-            
+
             // Reset form
             form.reset();
-            
+
             // Show success message
             showNotification('Paciente criado com sucesso!', 'success');
-            
-            // Reload patients list
-            loadPatientsAndDoctors();
-            
-            // Reopen appointment modal with new patient selected
-            setTimeout(() => {
-                showNewAppointmentModal();
-                // Find the new patient and set it in the search
-                const newPatient = window.allPatients.find(p => p.id == data.patient_id);
-                if (newPatient) {
-                    document.getElementById('appointment-patient').value = data.patient_id;
-                    document.getElementById('patient-search').value = `${newPatient.first_name} ${newPatient.last_name}`;
-                }
-            }, 500);
+
+            // Reload patients list then reopen the originating modal
+            loadPatientsAndDoctors().then(() => {
+                setTimeout(() => {
+                    if (_patientCreationSource === 'appointment') {
+                        showNewAppointmentModal();
+                        // Pre-fill the newly created patient in the appointment form
+                        const newPatient = window.allPatients.find(p => p.id == data.patient_id);
+                        if (newPatient) {
+                            document.getElementById('appointment-patient').value = data.patient_id;
+                            document.getElementById('appointment-patient-search').value = newPatient.full_name || `${newPatient.first_name} ${newPatient.last_name}`;
+                        }
+                    } else if (_patientCreationSource === 'selection') {
+                        showPatientSelectionModal();
+                    }
+                    _patientCreationSource = null;
+                }, 300);
+            });
         } else {
             showNotification('Erro ao criar paciente: ' + (data.error || 'Erro desconhecido'), 'error');
         }
@@ -1475,9 +1511,10 @@ function submitNewPatient() {
         showNotification('Erro ao criar paciente. Tente novamente.', 'error');
     })
     .finally(() => {
-        // Restore button state
-        submitBtn.innerHTML = originalText;
-        submitBtn.disabled = false;
+        if (submitBtn) {
+            submitBtn.innerHTML = originalText;
+            submitBtn.disabled = false;
+        }
     });
 }
 
@@ -1535,7 +1572,10 @@ function displayPatientsInPopup(patients) {
     
     noResultsDiv.style.display = 'none';
     
-    patients.forEach(patient => {
+    const sorted = patients.slice().sort((a, b) =>
+        (a.full_name || '').localeCompare(b.full_name || '', 'pt-BR', { sensitivity: 'base' })
+    );
+    sorted.forEach(patient => {
         const patientCard = createPatientCard(patient);
         patientList.appendChild(patientCard);
     });
@@ -1642,18 +1682,19 @@ function searchPatientsInPopup(searchTerm) {
             loadingDiv.style.display = 'none';
             
             if (data.success && data.patients.length > 0) {
-                // Filter patients based on search term
+                const searchLower = searchTerm.toLowerCase().trim();
                 const filteredPatients = data.patients.filter(patient => {
                     const fullName = `${patient.first_name} ${patient.last_name}`.toLowerCase();
                     const email = (patient.email || '').toLowerCase();
                     const phone = (patient.phone || '').toLowerCase();
                     const cpf = (patient.cpf || '').toLowerCase();
-                    const searchLower = searchTerm.toLowerCase();
-                    
-                    return fullName.includes(searchLower) || 
-                           email.includes(searchLower) || 
-                           phone.includes(searchLower) ||
-                           cpf.includes(searchLower);
+                    if (!searchLower) return true;
+                    if (searchLower.length < 3) {
+                        return fullName.split(/\s+/).some(w => w.startsWith(searchLower)) ||
+                               cpf.replace(/\D/g, '').startsWith(searchLower.replace(/\D/g, ''));
+                    }
+                    return fullName.includes(searchLower) || email.includes(searchLower) ||
+                           phone.includes(searchLower) || cpf.includes(searchLower);
                 });
                 
                 displayPatientsInPopup(filteredPatients);
@@ -1672,7 +1713,7 @@ function searchPatientsInPopup(searchTerm) {
 function showNextAppointmentDetails() {
     const nextAppointmentText = document.getElementById('proxima-consulta').textContent;
     
-    if (nextAppointmentText === 'N/A' || nextAppointmentText === '--:--') {
+    if (nextAppointmentText === 'N/A' || nextAppointmentText === '--:--' || nextAppointmentText === 'sem consultas próximas') {
         showNotification('Nenhuma consulta próxima agendada.', 'info');
         return;
     }
@@ -4083,4 +4124,141 @@ function confirmRemoveBlock() {
         btn.innerHTML = originalText;
         btn.disabled = false;
     });
+}
+
+// ─── Patient form validation & masking utilities ─────────────────────────────
+
+function validateCPF(cpf) {
+    cpf = cpf.replace(/\D/g, '');
+    if (cpf.length !== 11 || /^(\d)\1{10}$/.test(cpf)) return false;
+    let sum = 0;
+    for (let i = 0; i < 9; i++) sum += parseInt(cpf[i]) * (10 - i);
+    let rem = (sum * 10) % 11;
+    if (rem === 10 || rem === 11) rem = 0;
+    if (rem !== parseInt(cpf[9])) return false;
+    sum = 0;
+    for (let i = 0; i < 10; i++) sum += parseInt(cpf[i]) * (11 - i);
+    rem = (sum * 10) % 11;
+    if (rem === 10 || rem === 11) rem = 0;
+    return rem === parseInt(cpf[10]);
+}
+
+function applyCPFMask(inputEl) {
+    inputEl.setAttribute('maxlength', '14');
+    inputEl.setAttribute('placeholder', '000.000.000-00');
+    inputEl.setAttribute('inputmode', 'numeric');
+    inputEl.addEventListener('input', function () {
+        let v = this.value.replace(/\D/g, '').slice(0, 11);
+        if (v.length > 9)      v = v.replace(/^(\d{3})(\d{3})(\d{3})(\d{0,2})/, '$1.$2.$3-$4');
+        else if (v.length > 6) v = v.replace(/^(\d{3})(\d{3})(\d{0,3})/, '$1.$2.$3');
+        else if (v.length > 3) v = v.replace(/^(\d{3})(\d{0,3})/, '$1.$2');
+        this.value = v;
+    });
+}
+
+function applyCPFValidation(inputEl) {
+    applyCPFMask(inputEl);
+    inputEl.addEventListener('blur', function () {
+        const val = this.value.replace(/\D/g, '');
+        if (val.length === 0) {
+            this.setCustomValidity('');
+            this.classList.remove('is-invalid', 'is-valid');
+        } else if (val.length < 11) {
+            this.setCustomValidity('CPF deve conter 11 dígitos.');
+            this.classList.add('is-invalid');
+            this.classList.remove('is-valid');
+        } else if (!validateCPF(val)) {
+            this.setCustomValidity('CPF inválido — verifique os dígitos verificadores.');
+            this.classList.add('is-invalid');
+            this.classList.remove('is-valid');
+        } else {
+            this.setCustomValidity('');
+            this.classList.remove('is-invalid');
+            this.classList.add('is-valid');
+        }
+    });
+    inputEl.addEventListener('input', function () {
+        this.setCustomValidity('');
+        this.classList.remove('is-invalid', 'is-valid');
+    });
+}
+
+function applyPhoneMask(inputEl) {
+    inputEl.setAttribute('inputmode', 'numeric');
+    inputEl.setAttribute('placeholder', '(00) 00000-0000');
+    inputEl.addEventListener('input', function () {
+        let v = this.value.replace(/\D/g, '').slice(0, 11);
+        if (v.length > 10)      v = v.replace(/^(\d{2})(\d{5})(\d{0,4})/, '($1) $2-$3');
+        else if (v.length > 6)  v = v.replace(/^(\d{2})(\d{4})(\d{0,4})/, '($1) $2-$3');
+        else if (v.length > 2)  v = v.replace(/^(\d{2})(\d{0,5})/, '($1) $2');
+        else if (v.length > 0)  v = v.replace(/^(\d{0,2})/, '($1');
+        this.value = v;
+    });
+}
+
+function applyPhoneValidation(inputEl) {
+    applyPhoneMask(inputEl);
+    inputEl.addEventListener('blur', function () {
+        const digits = this.value.replace(/\D/g, '');
+        if (digits.length === 0) {
+            this.setCustomValidity('');
+            this.classList.remove('is-invalid', 'is-valid');
+        } else if (digits.length < 10) {
+            this.setCustomValidity('Telefone inválido — mínimo 10 dígitos (DDD + número).');
+            this.classList.add('is-invalid');
+            this.classList.remove('is-valid');
+        } else {
+            this.setCustomValidity('');
+            this.classList.remove('is-invalid');
+            this.classList.add('is-valid');
+        }
+    });
+    inputEl.addEventListener('input', function () {
+        this.setCustomValidity('');
+        this.classList.remove('is-invalid', 'is-valid');
+    });
+}
+
+function applyEmailValidation(inputEl) {
+    inputEl.addEventListener('blur', function () {
+        if (this.value === '') {
+            this.setCustomValidity('');
+            this.classList.remove('is-invalid', 'is-valid');
+        } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(this.value)) {
+            this.setCustomValidity('Email inválido.');
+            this.classList.add('is-invalid');
+            this.classList.remove('is-valid');
+        } else {
+            this.setCustomValidity('');
+            this.classList.remove('is-invalid');
+            this.classList.add('is-valid');
+        }
+    });
+    inputEl.addEventListener('input', function () {
+        this.setCustomValidity('');
+        this.classList.remove('is-invalid', 'is-valid');
+    });
+}
+
+// Apply all validators to a patient form using the field-id prefix
+// e.g. prefix='create-' matches 'create-cpf', 'create-phone', etc.
+function setupPatientFormValidation(prefix) {
+    const cpfEl      = document.getElementById(prefix + 'cpf');
+    const emailEl    = document.getElementById(prefix + 'email');
+    const phoneEl    = document.getElementById(prefix + 'phone');
+    const emPhoneEl  = document.getElementById(prefix + 'emergency-contact-phone');
+    if (cpfEl)     applyCPFValidation(cpfEl);
+    if (emailEl)   applyEmailValidation(emailEl);
+    if (phoneEl)   applyPhoneValidation(phoneEl);
+    if (emPhoneEl) applyPhoneMask(emPhoneEl);
+}
+
+// Apply validators to the quick-add patient modal
+function setupQuickAddPatientValidation() {
+    const cpfEl   = document.getElementById('patient-cpf');
+    const emailEl = document.getElementById('patient-email');
+    const phoneEl = document.getElementById('patient-phone');
+    if (cpfEl)   applyCPFValidation(cpfEl);
+    if (emailEl) applyEmailValidation(emailEl);
+    if (phoneEl) applyPhoneValidation(phoneEl);
 }

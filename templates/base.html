@@ -1,10 +1,10 @@
 {% load static %}
 <!DOCTYPE html>
-<html lang="en">
+<html lang="pt-BR">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>{% block title %}SaaS Platform{% endblock %}</title>
+    <title>{% block title %}Laudia{% endblock %}</title>
     
     <!-- Bootstrap CSS -->
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
@@ -21,7 +21,7 @@
     <nav class="navbar navbar-expand-lg navbar-dark bg-primary">
         <div class="container-fluid">
             <a class="navbar-brand" href="{% url 'dashboard:home' %}">
-                <h1 class="plena-title">Plena</h1>
+                <h1 class="plena-title">Laudia</h1>
             </a>
             
             <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
@@ -29,7 +29,15 @@
             </button>
             
             <div class="collapse navbar-collapse" id="navbarNav">
-                <ul class="navbar-nav ms-auto">
+                <ul class="navbar-nav ms-auto align-items-center">
+                    <!-- Font size accessibility control -->
+                    <li class="nav-item me-2" title="Ajustar tamanho do texto">
+                        <div class="font-size-controls d-flex align-items-center gap-1">
+                            <button type="button" class="font-size-btn" id="fs-small"  onclick="setAppFontSize('small')"  title="Texto pequeno"  aria-label="Texto pequeno">A<sub>-</sub></button>
+                            <button type="button" class="font-size-btn" id="fs-medium" onclick="setAppFontSize('medium')" title="Texto normal"   aria-label="Texto normal">A</button>
+                            <button type="button" class="font-size-btn" id="fs-large"  onclick="setAppFontSize('large')"  title="Texto grande"   aria-label="Texto grande">A<sup>+</sup></button>
+                        </div>
+                    </li>
                     <li class="nav-item dropdown">
                         <a class="nav-link dropdown-toggle" href="#" id="navbarDropdown" role="button" data-bs-toggle="dropdown">
                             <i class="fas fa-user me-1"></i>{{ user.username }}
@@ -80,7 +88,7 @@
     {% if user.is_authenticated %}
     <footer class="bg-light text-center text-muted">
         <div class="container">
-            <p>&copy; 2025 Plena - Plataforma Médica. Todos os direitos reservados.</p>
+            <p>&copy; 2025 Laudia - Plataforma Médica. Todos os direitos reservados.</p>
         </div>
     </footer>
     {% endif %}
@@ -91,5 +99,46 @@
     <script src="{% static 'js/main.js' %}"></script>
     
     {% block extra_js %}{% endblock %}
+
+    <script>
+    // ── Font size accessibility control ─────────────────────────────
+    (function () {
+        var sizes = { small: '13px', medium: '16px', large: '19px' };
+
+        function setAppFontSize(size) {
+            if (!sizes[size]) size = 'medium';
+            document.documentElement.setAttribute('data-font-size', size);
+            localStorage.setItem('appFontSize', size);
+            document.querySelectorAll('.font-size-btn').forEach(function (btn) {
+                btn.classList.toggle('active', btn.id === 'fs-' + size);
+            });
+        }
+
+        // Restore saved preference before first paint
+        var saved = localStorage.getItem('appFontSize') || 'medium';
+        document.documentElement.setAttribute('data-font-size', saved);
+
+        // Highlight active button once DOM is ready
+        document.addEventListener('DOMContentLoaded', function () {
+            setAppFontSize(localStorage.getItem('appFontSize') || 'medium');
+        });
+
+        window.setAppFontSize = setAppFontSize;
+    })();
+
+    // ── Auto-inject required fields legend into modals ────────────────
+    document.addEventListener('show.bs.modal', function (e) {
+        var modalBody = e.target.querySelector('.modal-body');
+        if (!modalBody) return;
+        if (modalBody.querySelector('.required-legend')) return;
+        var hasRequired = modalBody.querySelector('[required]');
+        var hasAsterisk = modalBody.querySelector('.text-danger');
+        if (!hasRequired && !hasAsterisk) return;
+        var legend = document.createElement('p');
+        legend.className = 'required-legend';
+        legend.innerHTML = '<span class="text-danger" aria-hidden="true">*</span> Campos obrigatórios';
+        modalBody.appendChild(legend);
+    });
+    </script>
 </body>
 </html>
