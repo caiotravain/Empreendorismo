@@ -115,18 +115,33 @@
 
     var monthSelect = document.getElementById('indicadores-month-select');
     var monthNames = ['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez'];
-    function buildMonthOptions() {
+    // doctorStart: earliest month the doctor's data should be shown (YYYY-MM format, empty = no limit)
+    var doctorStart = '{{ doctor_start|default:"" }}';
+
+    function buildMonthOptions(overrideStart) {
         if (!monthSelect) return;
+        var effectiveStart = overrideStart || doctorStart;
+        // If the API returned a later start date, tighten our restriction
+        if (overrideStart && (!doctorStart || overrideStart > doctorStart)) {
+            doctorStart = overrideStart;
+            effectiveStart = overrideStart;
+        }
         var now = new Date();
+        var currentVal = monthSelect.value;  // preserve selection if still valid
         var html = '';
-        for (var i = 0; i < 24; i++) {
+        var added = 0;
+        for (var i = 0; i < 60; i++) {  // up to 5 years back
             var d = new Date(now.getFullYear(), now.getMonth() - i, 1);
             var y = d.getFullYear();
             var m = d.getMonth() + 1;
             var val = y + '-' + (m < 10 ? '0' + m : m);
+            // Stop if we've gone before the doctor's join month
+            if (effectiveStart && val < effectiveStart) break;
             var label = monthNames[d.getMonth()] + ' ' + y;
-            var sel = i === 0 ? ' selected' : '';
+            var sel = (currentVal && val === currentVal) ? ' selected' : (i === 0 && !currentVal ? ' selected' : '');
             html += '<option value="' + val + '"' + sel + '>' + label + '</option>';
+            added++;
+            if (added >= 36) break;  // cap at 36 months (3 years)
         }
         monthSelect.innerHTML = html;
     }
@@ -279,6 +294,10 @@
                 if (!data.success || !data.metrics) {
                     console.error('Indicadores:', data.error || 'Erro ao carregar');
                     return;
+                }
+                // Rebuild month dropdown to respect doctor's start date returned by API
+                if (data.doctor_start) {
+                    buildMonthOptions(data.doctor_start);
                 }
                 var m = data.metrics;
                 updatePerformanceKPIs(m);

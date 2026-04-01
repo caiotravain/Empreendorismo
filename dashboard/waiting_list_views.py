@@ -135,6 +135,19 @@ def api_waiting_list(request):
                 except Patient.DoesNotExist:
                     pass
             
+            # Duplicate prevention: check if a pending entry already exists
+            dup_qs = WaitingListEntry.objects.filter(doctor=current_doctor, status='pending')
+            if patient:
+                dup_qs = dup_qs.filter(patient=patient)
+            else:
+                dup_qs = dup_qs.filter(patient_name__iexact=patient_name)
+
+            if dup_qs.exists():
+                return JsonResponse({
+                    'success': False,
+                    'error': f'{patient_name} já está na lista de espera com status pendente'
+                })
+
             # Create waiting list entry
             entry = WaitingListEntry.objects.create(
                 doctor=current_doctor,

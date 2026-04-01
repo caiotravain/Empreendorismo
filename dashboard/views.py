@@ -362,9 +362,13 @@ def prescricao(request):
 def indicadores(request):
     """Medical indicators view"""
     current_doctor = get_selected_doctor(request)
+    doctor_start = ''
+    if current_doctor:
+        doctor_start = current_doctor.created_at.strftime('%Y-%m')
     context = {
         'active_tab': 'indicadores',
         'current_doctor': current_doctor,
+        'doctor_start': doctor_start,
     }
     return render(request, 'dashboard/home.html', context)
 
@@ -1008,20 +1012,42 @@ def api_cancel_appointment(request):
         
         # Cancel the appointment (will set status to no_show or cancelled based on reason)
         appointment.cancel(cancellation_reason)
-        
+
         # Set appropriate message based on status
         if is_no_show:
             message = f'Consulta de {appointment.patient.full_name} marcada como falta com sucesso'
         else:
             message = f'Consulta de {appointment.patient.full_name} cancelada com sucesso'
-        
+
         if income_deleted_count > 0:
             message += f' e {income_deleted_count} receita(s) removida(s)'
-        
+
+        # Notify waitlist patients about the freed slot
+        waitlist_notified_count = 0
+        try:
+            from .whatsapp_service import send_whatsapp_message
+            freed_date = appointment.appointment_date.strftime('%d/%m/%Y')
+            freed_time = appointment.appointment_time.strftime('%H:%M')
+            doctor_name = appointment.doctor.user.get_full_name() or appointment.doctor.user.username
+            pending_waitlist = WaitingListEntry.objects.filter(
+                doctor=appointment.doctor,
+                status='pending'
+            ).exclude(phone__isnull=True).exclude(phone='')
+            for entry in pending_waitlist:
+                send_whatsapp_message(
+                    entry.phone,
+                    f'Olá {entry.patient_name}! Um horário abriu na agenda de {doctor_name} '
+                    f'para {freed_date} às {freed_time}. Entre em contato para agendar.'
+                )
+                waitlist_notified_count += 1
+        except Exception:
+            pass
+
         return JsonResponse({
             'success': True,
             'message': message,
-            'income_deleted_count': income_deleted_count
+            'income_deleted_count': income_deleted_count,
+            'waitlist_notified_count': waitlist_notified_count
         })
         
     except Exception as e:
@@ -1698,6 +1724,7 @@ def api_sync_appointment_income(request):
                 description=f"Consulta - {appointment.patient.full_name}",
                 category=appointment.appointment_type,
                 income_date=appointment.appointment_date,
+                payment_type=appointment.payment_type or None,
                 notes=f"Receita gerada pela consulta em {appointment.appointment_date} às {appointment.appointment_time}"
             )
             income_created_count += 1
@@ -2542,8 +2569,30 @@ def api_generate_prescription_pdf(request):
         story.append(Paragraph(date_text, date_style))
         story.append(Spacer(1, 0.3*inch))
         
-        # Patient and Doctor Information - Minimalist boxes
-        # Patient Information
+        # Patient and Doctor Information — side-by-side layout
+        SPECIALIZATION_PT = {
+            'general_practice': 'Clínica Geral',
+            'cardiology': 'Cardiologia',
+            'dermatology': 'Dermatologia',
+            'gynecology': 'Ginecologia e Obstetrícia',
+            'neurology': 'Neurologia',
+            'orthopedics': 'Ortopedia e Traumatologia',
+            'pediatrics': 'Pediatria',
+            'psychiatry': 'Psiquiatria',
+            'endocrinology': 'Endocrinologia',
+            'gastroenterology': 'Gastroenterologia',
+            'ophthalmology': 'Oftalmologia',
+            'otorhinolaryngology': 'Otorrinolaringologia',
+            'urology': 'Urologia',
+            'rheumatology': 'Reumatologia',
+            'oncology': 'Oncologia',
+            'surgery': 'Cirurgia Geral',
+            'internal_medicine': 'Medicina Interna',
+            'infectology': 'Infectologia',
+            'nephrology': 'Nefrologia',
+            'hematology': 'Hematologia',
+        }
+
         patient_info = f"<b>PACIENTE</b><br/>{prescription.patient.full_name}"
         if prescription.patient.cpf:
             patient_info += f"<br/><font size='9' color='#999999'>CPF: {prescription.patient.cpf}</font>"
@@ -2551,33 +2600,21 @@ def api_generate_prescription_pdf(request):
             age = prescription.patient.age
             if age is not None:
                 patient_info += f"<br/><font size='9' color='#999999'>Idade: {age} anos</font>"
-        
-        patient_row = Table([[Paragraph(patient_info, info_style)]], colWidths=[6*inch])
-        patient_row.setStyle(TableStyle([
-            ('BACKGROUND', (0, 0), (-1, -1), colors.HexColor('#fafafa')),
-            ('TEXTCOLOR', (0, 0), (-1, -1), colors.HexColor('#333333')),
-            ('ALIGN', (0, 0), (-1, -1), 'LEFT'),
-            ('FONTNAME', (0, 0), (-1, -1), 'Helvetica'),
-            ('FONTSIZE', (0, 0), (-1, -1), 11),
-            ('BOTTOMPADDING', (0, 0), (-1, -1), 12),
-            ('TOPPADDING', (0, 0), (-1, -1), 12),
-            ('LEFTPADDING', (0, 0), (-1, -1), 15),
-            ('RIGHTPADDING', (0, 0), (-1, -1), 15),
-            ('LINEBELOW', (0, 0), (-1, -1), 0.5, colors.HexColor('#e0e0e0')),
-            ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
-        ]))
-        story.append(patient_row)
-        story.append(Spacer(1, 0.12*inch))
-        
-        # Doctor Information
+
+        spec_raw = prescription.doctor.specialization or ''
+        spec_display = SPECIALIZATION_PT.get(spec_raw.lower().replace(' ', '_'), spec_raw)
+
         doctor_info = f"<b>MÉDICO</b><br/>{prescription.doctor.full_name}"
         if prescription.doctor.medical_license:
             doctor_info += f"<br/><font size='9' color='#999999'>CRM: {prescription.doctor.medical_license}</font>"
-        if prescription.doctor.specialization:
-            doctor_info += f"<br/><font size='9' color='#999999'>{prescription.doctor.specialization}</font>"
-        
-        doctor_row = Table([[Paragraph(doctor_info, info_style)]], colWidths=[6*inch])
-        doctor_row.setStyle(TableStyle([
+        if spec_display:
+            doctor_info += f"<br/><font size='9' color='#999999'>{spec_display}</font>"
+
+        combined_row = Table(
+            [[Paragraph(patient_info, info_style), Paragraph(doctor_info, info_style)]],
+            colWidths=[3*inch, 3*inch]
+        )
+        combined_row.setStyle(TableStyle([
             ('BACKGROUND', (0, 0), (-1, -1), colors.HexColor('#fafafa')),
             ('TEXTCOLOR', (0, 0), (-1, -1), colors.HexColor('#333333')),
             ('ALIGN', (0, 0), (-1, -1), 'LEFT'),
@@ -2587,10 +2624,11 @@ def api_generate_prescription_pdf(request):
             ('TOPPADDING', (0, 0), (-1, -1), 12),
             ('LEFTPADDING', (0, 0), (-1, -1), 15),
             ('RIGHTPADDING', (0, 0), (-1, -1), 15),
+            ('VALIGN', (0, 0), (-1, -1), 'TOP'),
             ('LINEBELOW', (0, 0), (-1, -1), 0.5, colors.HexColor('#e0e0e0')),
-            ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+            ('LINEBETWEEN', (0, 0), (0, -1), 0.5, colors.HexColor('#e0e0e0')),
         ]))
-        story.append(doctor_row)
+        story.append(combined_row)
         story.append(Spacer(1, 0.4*inch))
         
         # Medications section
@@ -2901,6 +2939,21 @@ def api_save_appointment_settings(request):
         })
 
 
+def _month_label_to_date(label):
+    """Convert a month label like 'mar-25' to a date(2025, 3, 1)."""
+    from datetime import date
+    month_map = {'jan': 1, 'fev': 2, 'mar': 3, 'abr': 4, 'mai': 5, 'jun': 6,
+                 'jul': 7, 'ago': 8, 'set': 9, 'out': 10, 'nov': 11, 'dez': 12}
+    try:
+        parts = label.lower().split('-')
+        m = month_map.get(parts[0], 1)
+        y = int(parts[1])
+        y = y + 2000 if y < 100 else y
+        return date(y, m, 1)
+    except Exception:
+        return date(2000, 1, 1)
+
+
 @login_required
 @require_http_methods(["GET"])
 def api_indicators(request):
@@ -3115,8 +3168,31 @@ def api_indicators(request):
             ((avg_consultations_per_patient - prev_avg_per_patient) / prev_avg_per_patient * 100) if prev_avg_per_patient else 0, 0
         )
 
+        # Determine doctor start date (earliest created_at across doctors in filter)
+        doctor_start_str = ''
+        if doctors_filter:
+            earliest = min((d.created_at.date() for d in doctors_filter), default=None)
+            if earliest:
+                doctor_start_str = earliest.strftime('%Y-%m')
+                # Remove monthly series entries that pre-date the doctor's join date
+                monthly_agenda = [
+                    m for m in monthly_agenda
+                    if m['month'] >= earliest.strftime('%b-%y').lower() or True
+                    # Use date comparison below instead of string comparison
+                ]
+                # Rebuild using start_date awareness: filter out months before join
+                monthly_agenda = [
+                    m for m in monthly_agenda
+                    if _month_label_to_date(m['month']) >= date(earliest.year, earliest.month, 1)
+                ]
+                monthly_patients = [
+                    m for m in monthly_patients
+                    if _month_label_to_date(m['month']) >= date(earliest.year, earliest.month, 1)
+                ]
+
         return JsonResponse({
             'success': True,
+            'doctor_start': doctor_start_str,
             'metrics': {
                 'total_appointments': total_appointments,
                 'total_retornos': total_retornos,
@@ -3298,15 +3374,26 @@ def api_incomes(request):
         # Serialize incomes
         incomes_data = []
         for income in incomes:
+            # Resolve payment_type: explicit field wins, else fall back to linked appointment
+            ptype = income.payment_type
+            if not ptype and income.appointment:
+                ptype = income.appointment.payment_type
             incomes_data.append({
                 'id': income.id,
                 'description': income.description,
                 'amount': float(income.amount),
+                'formatted_amount': income.formatted_amount,
                 'category': income.category,
                 'category_display': income.get_category_display(),
                 'income_date': income.income_date.strftime('%d/%m/%Y'),
                 'payment_method': income.payment_method,
                 'payment_method_display': income.get_payment_method_display() if income.payment_method else None,
+                'payment_type': ptype or '',
+                'payment_type_display': dict(income.PAYMENT_TYPE_CHOICES).get(ptype, '') if ptype else '',
+                'is_free_return': income.is_free_return,
+                'patient_id': income.patient_id,
+                'patient_name': income.patient_name,
+                'appointment_id': income.appointment_id,
                 'notes': income.notes,
                 'created_at': income.created_at.strftime('%d/%m/%Y %H:%M')
             })
@@ -3421,6 +3508,8 @@ def api_create_income(request):
         category = request.POST.get('category')
         income_date = request.POST.get('income_date')
         payment_method = request.POST.get('payment_method', '')
+        payment_type = request.POST.get('payment_type', '')
+        is_free_return = request.POST.get('is_free_return', 'false') == 'true'
         notes = request.POST.get('notes', '')
         appointment_id = request.POST.get('appointment_id', '')
         patient_id = request.POST.get('patient_id', '')
@@ -3446,20 +3535,23 @@ def api_create_income(request):
                     'error': 'Nome, sobrenome, data de nascimento e sexo são obrigatórios para criar paciente'
                 })
             
-            # Check if patient already exists
+            from accounts.utils import get_clinic_for_user
+            patient_clinic = current_doctor.clinic if hasattr(current_doctor, 'clinic') else get_clinic_for_user(request.user)
+
+            # Check if patient already exists in this clinic
             existing_patient = Patient.objects.filter(
                 first_name__iexact=patient_first_name,
                 last_name__iexact=patient_last_name,
                 date_of_birth=patient_date_of_birth,
-                doctor=current_doctor
+                clinic=patient_clinic
             ).first()
-            
+
             if existing_patient:
                 patient = existing_patient
             else:
-                # Create new patient
+                # Create new patient linked to the clinic
                 patient = Patient.objects.create(
-                    doctor=current_doctor,
+                    clinic=patient_clinic,
                     first_name=patient_first_name,
                     last_name=patient_last_name,
                     date_of_birth=patient_date_of_birth,
@@ -3469,9 +3561,11 @@ def api_create_income(request):
                     is_active=True
                 )
         elif patient_id:
-            # Use existing patient
+            # Use existing patient — verify accessibility
             try:
-                patient = Patient.objects.get(id=patient_id, doctor=current_doctor)
+                patient = Patient.objects.get(id=patient_id)
+                if not has_access_to_patient(request.user, patient):
+                    return JsonResponse({'success': False, 'error': 'Paciente não encontrado'})
             except Patient.DoesNotExist:
                 return JsonResponse({
                     'success': False,
@@ -3494,10 +3588,17 @@ def api_create_income(request):
                 'success': False,
                 'error': 'Descrição, valor e categoria são obrigatórios'
             })
-        
+
+        # For consultation category, patient is required
+        if category == 'consultation' and not patient and not create_patient:
+            return JsonResponse({
+                'success': False,
+                'error': 'Consultas devem estar vinculadas a um paciente'
+            })
+
         # Convert amount to decimal
         try:
-            amount_decimal = Decimal(amount)
+            amount_decimal = Decimal('0') if is_free_return else Decimal(amount)
         except (ValueError, InvalidOperation):
             return JsonResponse({
                 'success': False,
@@ -3531,7 +3632,9 @@ def api_create_income(request):
             description=description,
             category=category,
             income_date=income_date_obj,
-            payment_method=payment_method,
+            payment_method=payment_method or None,
+            payment_type=payment_type or None,
+            is_free_return=is_free_return,
             notes=notes,
             patient=patient,
             appointment=appointment
@@ -3778,6 +3881,181 @@ def api_delete_income(request, income_id):
             'success': False,
             'error': f'Erro ao excluir receita: {str(e)}'
         })
+
+@login_required
+@require_POST
+def api_update_income(request, income_id):
+    """API endpoint to update an existing income record."""
+    try:
+        if get_user_role(request.user) == 'admin':
+            return JsonResponse({'success': False, 'error': 'Administradores não podem editar receitas.'})
+        accessible_doctors = get_accessible_doctors(request.user)
+        try:
+            income = Income.objects.get(id=income_id, doctor__in=accessible_doctors)
+        except Income.DoesNotExist:
+            return JsonResponse({'success': False, 'error': 'Receita não encontrada.'})
+
+        description = request.POST.get('description', '').strip()
+        amount = request.POST.get('amount', '').strip()
+        category = request.POST.get('category', '').strip()
+        income_date = request.POST.get('income_date', '').strip()
+        payment_method = request.POST.get('payment_method', '')
+        payment_type = request.POST.get('payment_type', '')
+        is_free_return = request.POST.get('is_free_return', 'false') == 'true'
+        notes = request.POST.get('notes', '')
+        patient_id = request.POST.get('patient_id', '')
+
+        if not all([description, amount, category]):
+            return JsonResponse({'success': False, 'error': 'Descrição, valor e categoria são obrigatórios.'})
+
+        if category == 'consultation' and not patient_id and not is_free_return:
+            return JsonResponse({'success': False, 'error': 'Consultas devem estar vinculadas a um paciente.'})
+
+        try:
+            amount_decimal = Decimal('0') if is_free_return else Decimal(amount)
+        except (ValueError, InvalidOperation):
+            return JsonResponse({'success': False, 'error': 'Valor inválido.'})
+
+        if income_date:
+            try:
+                income_date_obj = datetime.strptime(income_date, '%Y-%m-%d').date()
+            except ValueError:
+                return JsonResponse({'success': False, 'error': 'Data inválida.'})
+        else:
+            income_date_obj = income.income_date
+
+        patient = None
+        if patient_id:
+            try:
+                patient = Patient.objects.get(id=patient_id)
+                if not has_access_to_patient(request.user, patient):
+                    return JsonResponse({'success': False, 'error': 'Paciente não encontrado.'})
+            except Patient.DoesNotExist:
+                return JsonResponse({'success': False, 'error': 'Paciente não encontrado.'})
+
+        income.description = description
+        income.amount = amount_decimal
+        income.category = category
+        income.income_date = income_date_obj
+        income.payment_method = payment_method or None
+        income.payment_type = payment_type or None
+        income.is_free_return = is_free_return
+        income.notes = notes or None
+        income.patient = patient
+        income.save()
+
+        return JsonResponse({'success': True, 'message': 'Receita atualizada com sucesso.'})
+
+    except Exception as e:
+        return JsonResponse({'success': False, 'error': f'Erro ao atualizar receita: {str(e)}'})
+
+
+@login_required
+@require_POST
+def api_update_expense(request, expense_id):
+    """API endpoint to update an existing expense record."""
+    try:
+        if get_user_role(request.user) == 'admin':
+            return JsonResponse({'success': False, 'error': 'Administradores não podem editar despesas.'})
+        accessible_doctors = get_accessible_doctors(request.user)
+        try:
+            expense = Expense.objects.get(id=expense_id, doctor__in=accessible_doctors)
+        except Expense.DoesNotExist:
+            return JsonResponse({'success': False, 'error': 'Despesa não encontrada.'})
+
+        description = request.POST.get('description', '').strip()
+        amount = request.POST.get('amount', '').strip()
+        category = request.POST.get('category', '').strip()
+        expense_date = request.POST.get('expense_date', '').strip()
+        vendor = request.POST.get('vendor', '').strip()
+        receipt_number = request.POST.get('receipt_number', '').strip()
+        notes = request.POST.get('notes', '').strip()
+
+        if not description or not amount or not category:
+            return JsonResponse({'success': False, 'error': 'Descrição, valor e categoria são obrigatórios.'})
+
+        try:
+            amount_val = float(amount.replace(',', '.'))
+            if amount_val < 0:
+                raise ValueError()
+        except ValueError:
+            return JsonResponse({'success': False, 'error': 'Valor deve ser um número não-negativo.'})
+
+        if expense_date:
+            try:
+                from datetime import datetime as _dt
+                expense_date_obj = _dt.strptime(expense_date, '%Y-%m-%d').date()
+            except ValueError:
+                return JsonResponse({'success': False, 'error': 'Data inválida.'})
+        else:
+            expense_date_obj = expense.expense_date
+
+        expense.description = description
+        expense.amount = amount_val
+        expense.category = category
+        expense.expense_date = expense_date_obj
+        expense.vendor = vendor or None
+        expense.receipt_number = receipt_number or None
+        expense.notes = notes or None
+        expense.save()
+
+        return JsonResponse({'success': True, 'message': 'Despesa atualizada com sucesso.'})
+
+    except Exception as e:
+        return JsonResponse({'success': False, 'error': f'Erro ao atualizar despesa: {str(e)}'})
+
+
+@login_required
+def api_custom_expense_categories(request):
+    """GET: return doctor's custom categories. POST: add a category. DELETE: remove a category."""
+    try:
+        if get_user_role(request.user) == 'admin':
+            return JsonResponse({'success': False, 'error': 'Administradores não podem gerenciar categorias.'})
+        current_doctor = get_selected_doctor(request)
+        if not current_doctor:
+            return JsonResponse({'success': False, 'error': 'Selecione um médico.'})
+
+        if request.method == 'GET':
+            return JsonResponse({'success': True, 'categories': current_doctor.custom_expense_categories or []})
+
+        if request.method == 'POST':
+            import json as _json
+            try:
+                body = _json.loads(request.body)
+                name = body.get('name', '').strip()
+            except Exception:
+                name = request.POST.get('name', '').strip()
+
+            if not name:
+                return JsonResponse({'success': False, 'error': 'Nome da categoria é obrigatório.'})
+            if len(name) > 60:
+                return JsonResponse({'success': False, 'error': 'Nome da categoria deve ter no máximo 60 caracteres.'})
+
+            cats = list(current_doctor.custom_expense_categories or [])
+            if name in cats:
+                return JsonResponse({'success': False, 'error': 'Categoria já existe.'})
+            cats.append(name)
+            current_doctor.custom_expense_categories = cats
+            current_doctor.save(update_fields=['custom_expense_categories'])
+            return JsonResponse({'success': True, 'categories': cats})
+
+        if request.method == 'DELETE':
+            import json as _json
+            try:
+                body = _json.loads(request.body)
+                name = body.get('name', '').strip()
+            except Exception:
+                name = ''
+            cats = [c for c in (current_doctor.custom_expense_categories or []) if c != name]
+            current_doctor.custom_expense_categories = cats
+            current_doctor.save(update_fields=['custom_expense_categories'])
+            return JsonResponse({'success': True, 'categories': cats})
+
+        return JsonResponse({'success': False, 'error': 'Método não suportado.'})
+
+    except Exception as e:
+        return JsonResponse({'success': False, 'error': f'Erro: {str(e)}'})
+
 
 @login_required
 @require_http_methods(["POST"])

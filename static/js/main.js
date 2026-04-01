@@ -172,7 +172,7 @@ function switchTab(tabName) {
     // Initialize prescription form when prescricao tab is shown
     if (tabName === 'prescricao') {
         if (typeof initializePrescriptionForm === 'function') {
-            setTimeout(initializePrescriptionForm, 100);
+            initializePrescriptionForm(); // guard inside prevents re-initialization
         }
         // Load patient details when switching to prescricao tab
         if (typeof selectedPatient !== 'undefined' && selectedPatient && selectedPatient.id) {

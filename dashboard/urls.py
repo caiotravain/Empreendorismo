@@ -51,11 +51,14 @@ urlpatterns = [
     path('api/expenses/create/', views.api_create_expense, name='api_create_expense'),
     path('api/expenses/totals/', views.api_expense_totals, name='api_expense_totals'),
     path('api/expenses/delete/<int:expense_id>/', views.api_delete_expense, name='api_delete_expense'),
-    
+    path('api/expenses/update/<int:expense_id>/', views.api_update_expense, name='api_update_expense'),
+    path('api/expenses/categories/', views.api_custom_expense_categories, name='api_custom_expense_categories'),
+
     # API endpoints for incomes
     path('api/incomes/', views.api_incomes, name='api_incomes'),
     path('api/incomes/create/', views.api_create_income, name='api_create_income'),
     path('api/incomes/delete/<int:income_id>/', views.api_delete_income, name='api_delete_income'),
+    path('api/incomes/update/<int:income_id>/', views.api_update_income, name='api_update_income'),
     
     # API endpoints for patients
     path('api/patients/update/', views.api_update_patient, name='api_update_patient'),

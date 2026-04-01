@@ -239,10 +239,17 @@ class Doctor(models.Model):
         help_text="Whether the doctor is currently active"
     )
     
+    # Custom expense categories defined by this doctor
+    custom_expense_categories = models.JSONField(
+        default=list,
+        blank=True,
+        help_text="Custom expense categories defined by this doctor"
+    )
+
     # Timestamps
     created_at = models.DateTimeField(auto_now_add=True, help_text="When this doctor profile was created")
     updated_at = models.DateTimeField(auto_now=True, help_text="When this doctor profile was last updated")
-    
+
     class Meta:
         verbose_name = "Doctor"
         verbose_name_plural = "Doctors"
@@ -1132,11 +1139,28 @@ class Income(models.Model):
         null=True,
         help_text="Payment method"
     )
-    
+
+    PAYMENT_TYPE_CHOICES = [
+        ('particular', 'Particular'),
+        ('convenio', 'Convênio'),
+    ]
+    payment_type = models.CharField(
+        max_length=20,
+        choices=PAYMENT_TYPE_CHOICES,
+        blank=True,
+        null=True,
+        help_text="Whether payment is private (particular) or via health plan (convenio)"
+    )
+
+    is_free_return = models.BooleanField(
+        default=False,
+        help_text="Mark as a free return visit (retorno gratuito) — amount treated as R$ 0,00"
+    )
+
     # Timestamps
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
-    
+
     class Meta:
         verbose_name = "Income"
         verbose_name_plural = "Incomes"

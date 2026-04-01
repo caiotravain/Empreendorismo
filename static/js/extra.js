@@ -277,9 +277,10 @@ function displayPatientDetailsInTab(patient, tabName) {
                     <i class="fas fa-user-circle me-2"></i>${patient.full_name}
                 </h6>
                 <div class="d-flex align-items-center gap-2">
+                    ${!(tabName === 'prescricao' && window.prescriptionPatientLocked) ? `
                     <button class="btn btn-sm btn-outline-light" onclick="event.stopPropagation(); showPatientSelectionModal();" title="Alterar paciente" style="white-space: nowrap;">
                         <i class="fas fa-exchange-alt me-1"></i>Alterar
-                    </button>
+                    </button>` : ''}
                     <i class="fas fa-chevron-down patient-details-arrow" id="patient-details-arrow-${tabName}" style="cursor: pointer; font-size: 0.9rem;" onclick="togglePatientDetails('${tabName}')"></i>
                 </div>
             </div>
@@ -1111,7 +1112,25 @@ document.addEventListener('DOMContentLoaded', function() {
     
     // Initialize prescription form
     initializePrescriptionForm();
-    
+
+    // Auto-select patient from URL param and lock when opening from a consultation
+    const pidParam = urlParams.get('patient_id');
+    if (pidParam && tabParam === 'prescricao') {
+        fetch(`/dashboard/api/patients/${pidParam}/`)
+            .then(r => r.json())
+            .then(data => {
+                if (data.success && data.patient) {
+                    selectedPatient = data.patient;
+                    selectedPatient.name = data.patient.full_name;
+                    localStorage.setItem('selectedPatient', JSON.stringify(selectedPatient));
+                    updatePatientSelectionHeader(selectedPatient.name, 'selected');
+                    window.prescriptionPatientLocked = true;
+                    switchTab('prescricao');
+                }
+            })
+            .catch(err => console.error('Error loading patient from URL:', err));
+    }
+
     // Refresh agenda stats on page load
     refreshAgendaStats();
     
@@ -1777,30 +1796,39 @@ function refreshAgendaStats() {
 
 // Prescription functionality
 let currentPrescriptionId = null;
+let prescriptionFormInitialized = false;
 
 function initializePrescriptionForm() {
-    // Set default date to today
-    const today = new Date();
-    const localDate = today.getFullYear() + '-' + 
-                     String(today.getMonth() + 1).padStart(2, '0') + '-' + 
-                     String(today.getDate()).padStart(2, '0');
-    document.getElementById('prescription-date').value = localDate;
-    
+    if (prescriptionFormInitialized) {
+        updatePrescriptionButtonStates();
+        return;
+    }
+    prescriptionFormInitialized = true;
+
+    // Set default date to today only if empty
+    const dateField = document.getElementById('prescription-date');
+    if (!dateField.value) {
+        const today = new Date();
+        dateField.value = today.getFullYear() + '-' +
+                         String(today.getMonth() + 1).padStart(2, '0') + '-' +
+                         String(today.getDate()).padStart(2, '0');
+    }
+
     // Add event listeners
     document.getElementById('add-medication').addEventListener('click', addMedicationItem);
     document.getElementById('save-prescription-btn').addEventListener('click', savePrescription);
     document.getElementById('send-email-btn').addEventListener('click', sendPrescriptionEmail);
     document.getElementById('send-whatsapp-btn').addEventListener('click', sendPrescriptionWhatsApp);
     document.getElementById('print-prescription-btn').addEventListener('click', printPrescription);
-    
+
     // Add event listeners for remove buttons
     document.querySelectorAll('.remove-medication').forEach(btn => {
         btn.addEventListener('click', removeMedicationItem);
     });
-    
-    // Initialize autocomplete for existing medication inputs
+
+    // Initialize autocomplete for existing items
     initializeMedicationAutocomplete();
-    
+
     // Update button states based on patient selection
     updatePrescriptionButtonStates();
 }
@@ -1810,7 +1838,7 @@ function addMedicationItem() {
     const itemCount = medicationItems.children.length;
     
     const newItem = document.createElement('div');
-    newItem.className = 'medication-item mb-4 p-3 border rounded bg-light';
+    newItem.className = 'medication-item mb-3 p-3';
     newItem.innerHTML = `
         <div class="row">
             <div class="col-md-6">
@@ -1831,7 +1859,7 @@ function addMedicationItem() {
         <div class="row mt-2">
             <div class="col-12">
                 <label class="form-label fw-bold">Posologia</label>
-                <textarea class="form-control" name="dosage[]" rows="2" placeholder="Ex: 1 comprimido de 8/8 horas"></textarea>
+                <textarea class="form-control" name="dosage[]" rows="2" placeholder="Ex: 1 comprimido de 8/8 horas por 7 dias"></textarea>
             </div>
         </div>
     `;
@@ -1840,8 +1868,8 @@ function addMedicationItem() {
     
     // Add event listener to the new remove button
     newItem.querySelector('.remove-medication').addEventListener('click', removeMedicationItem);
-    
-    // Initialize autocomplete for the new medication input
+
+    // Initialize autocomplete for the new item
     initializeMedicationAutocompleteForInput(newItem.querySelector('.medication-autocomplete'));
     
     // Show remove buttons if there are more than 1 items
@@ -1859,10 +1887,27 @@ function removeMedicationItem(event) {
 function updateRemoveButtons() {
     const medicationItems = document.getElementById('medication-items');
     const removeButtons = medicationItems.querySelectorAll('.remove-medication');
-    
+
     removeButtons.forEach(btn => {
         btn.style.display = medicationItems.children.length > 1 ? 'block' : 'none';
     });
+}
+
+function initializeDosageBuilder(item) {
+    const selects = item.querySelectorAll('.dosage-qty, .dosage-unit, .dosage-freq, .dosage-dur');
+    const hidden = item.querySelector('.dosage-combined');
+    if (!hidden || selects.length < 4) return;
+
+    function updateCombined() {
+        const qty = item.querySelector('.dosage-qty').value;
+        const unit = item.querySelector('.dosage-unit').value;
+        const freq = item.querySelector('.dosage-freq').value;
+        const dur = item.querySelector('.dosage-dur').value;
+        hidden.value = `${qty} ${unit} ${freq} ${dur}`;
+    }
+
+    selects.forEach(sel => sel.addEventListener('change', updateCombined));
+    updateCombined(); // set initial value
 }
 
 // Medication autocomplete functionality
@@ -1943,8 +1988,10 @@ function initializeMedicationAutocompleteForInput(input) {
     });
     
     // Hide list when input loses focus (with delay to allow click on list)
+    // Skip hiding if window lost focus (alt-tab) — list stays visible on return
     input.addEventListener('blur', function() {
         setTimeout(() => {
+            if (!document.hasFocus()) return;
             listDiv.style.display = 'none';
         }, 200);
     });
@@ -2071,22 +2118,16 @@ function displayMedicationSuggestions(medications, input, listDiv) {
 
 function updatePrescriptionButtonStates() {
     const hasPatient = selectedPatient !== null;
+    const hasPrescription = currentPrescriptionId !== null;
     const saveBtn = document.getElementById('save-prescription-btn');
     const emailBtn = document.getElementById('send-email-btn');
     const whatsappBtn = document.getElementById('send-whatsapp-btn');
     const printBtn = document.getElementById('print-prescription-btn');
-    
-    if (hasPatient) {
-        saveBtn.disabled = false;
-        emailBtn.disabled = false;
-        whatsappBtn.disabled = false;
-        printBtn.disabled = false;
-    } else {
-        saveBtn.disabled = true;
-        emailBtn.disabled = true;
-        whatsappBtn.disabled = true;
-        printBtn.disabled = true;
-    }
+
+    if (saveBtn) saveBtn.disabled = !hasPatient;
+    if (emailBtn) emailBtn.disabled = !(hasPatient && hasPrescription);
+    if (whatsappBtn) whatsappBtn.disabled = !(hasPatient && hasPrescription);
+    if (printBtn) printBtn.disabled = !(hasPatient && hasPrescription);
 }
 
 function savePrescription() {
@@ -2133,8 +2174,9 @@ function savePrescription() {
     .then(data => {
         if (data.success) {
             currentPrescriptionId = data.prescription_id;
+            updatePrescriptionButtonStates();
             showNotification(data.message, 'success');
-            
+
             // Clear form
             form.reset();
             
@@ -2167,17 +2209,17 @@ function savePrescription() {
 
 function resetMedicationItems() {
     const medicationItems = document.getElementById('medication-items');
-    
-    // Remove all items except the first two
-    while (medicationItems.children.length > 2) {
+
+    // Remove all items except the first
+    while (medicationItems.children.length > 1) {
         medicationItems.removeChild(medicationItems.lastChild);
     }
-    
-    // Clear the first two items
-    medicationItems.querySelectorAll('input, textarea').forEach(input => {
-        input.value = '';
+
+    // Clear all inputs and textareas in the remaining item
+    medicationItems.querySelectorAll('input[type="text"], textarea').forEach(el => {
+        el.value = '';
     });
-    
+
     updateRemoveButtons();
 }
 
@@ -2768,6 +2810,8 @@ function exportReport() {
 
 // Global variable to store waitlist entries
 let waitlistEntries = [];
+let waitlistSortColumn = 'created_at';
+let waitlistSortDirection = 'asc';
 
 function showAddToWaitlistModal() {
     const modal = new bootstrap.Modal(document.getElementById('addToWaitlistModal'));
@@ -2783,6 +2827,10 @@ function showAddToWaitlistModal() {
         // Clear patient selection
         document.getElementById('waitlist-patient').value = '';
         document.getElementById('waitlist-patient-search').value = '';
+
+        // Hide quick register section if open
+        const qrSection = document.getElementById('quick-register-section');
+        if (qrSection) qrSection.style.display = 'none';
         
         // Restore original button text and title
         const submitBtn = form.querySelector('button[type="submit"]');
@@ -3016,7 +3064,7 @@ function loadWaitlist() {
             if (tableBody) {
                 tableBody.innerHTML = `
                     <tr id="waitlist-empty-row">
-                        <td colspan="6" class="text-center text-slate-500 py-5">
+                        <td colspan="7" class="text-center text-slate-500 py-5">
                             <p class="h6 mb-2" style="font-size: 1rem;">Nenhuma entrada encontrada.</p>
                             <p class="text-slate-400" style="font-size: 0.875rem;">Clique em "Adicionar à Lista" para adicionar o primeiro paciente.</p>
                         </td>
@@ -3108,7 +3156,7 @@ function displayWaitlistPage() {
             if (totalFiltered === 0) {
                 tableBody.innerHTML = `
                     <tr id="waitlist-empty-row">
-                        <td colspan="6" class="text-center text-slate-500 py-5">
+                        <td colspan="7" class="text-center text-slate-500 py-5">
                             <p class="h6 mb-2" style="font-size: 1rem;">Nenhuma entrada encontrada.</p>
                             <p class="text-slate-400" style="font-size: 0.875rem;">Clique em "Adicionar à Lista" para adicionar o primeiro paciente.</p>
                         </td>
@@ -3128,8 +3176,15 @@ function displayWaitlistPage() {
             const entry = filteredWaitlistEntries[i];
             const createdDate = formatDate(entry.created_at);
             
+            const preferred = entry.preferred_days_times || '';
+            const preferredDisplay = preferred.length > 40
+                ? preferred.substring(0, 40) + '...'
+                : preferred || '<span class="text-slate-400">-</span>';
+
             const row = document.createElement('tr');
             row.className = 'border-bottom waitlist-row';
+            row.style.cursor = 'pointer';
+            row.onclick = () => editWaitlistEntry(entry.id);
             row.innerHTML = `
                 <td class="py-2 px-3">
                     <span class="text-slate-900 fw-medium">
@@ -3141,6 +3196,9 @@ function displayWaitlistPage() {
                 </td>
                 <td class="py-2 px-3 text-slate-500" style="font-size: 0.875rem;">
                     ${entry.phone || '<span class="text-slate-400">-</span>'}
+                </td>
+                <td class="py-2 px-3 text-slate-500" style="font-size: 0.875rem;" title="${preferred}">
+                    ${preferredDisplay}
                 </td>
                 <td class="py-2 px-3" style="font-size: 0.875rem;">
                     ${getUrgencyDot(entry.urgency_level, entry.urgency_display)}
@@ -3347,6 +3405,43 @@ function filterWaitlist() {
 function refreshWaitlist() {
     loadWaitlist();
     showNotification('Lista de espera atualizada', 'success');
+}
+
+function sortWaitlist(column) {
+    if (waitlistSortColumn === column) {
+        waitlistSortDirection = waitlistSortDirection === 'asc' ? 'desc' : 'asc';
+    } else {
+        waitlistSortColumn = column;
+        waitlistSortDirection = 'asc';
+    }
+
+    // Update sort icons
+    ['patient_name', 'urgency_level', 'created_at'].forEach(col => {
+        const icon = document.getElementById('sort-icon-' + col);
+        if (icon) icon.textContent = '↕';
+    });
+    const activeIcon = document.getElementById('sort-icon-' + column);
+    if (activeIcon) activeIcon.textContent = waitlistSortDirection === 'asc' ? '↑' : '↓';
+
+    const urgencyPriority = { high: 3, medium: 2, low: 1 };
+    waitlistEntries.sort((a, b) => {
+        let valA, valB;
+        if (column === 'urgency_level') {
+            valA = urgencyPriority[a.urgency_level] || 0;
+            valB = urgencyPriority[b.urgency_level] || 0;
+        } else if (column === 'created_at') {
+            valA = new Date(a.created_at).getTime();
+            valB = new Date(b.created_at).getTime();
+        } else {
+            valA = (a[column] || '').toLowerCase();
+            valB = (b[column] || '').toLowerCase();
+        }
+        if (valA < valB) return waitlistSortDirection === 'asc' ? -1 : 1;
+        if (valA > valB) return waitlistSortDirection === 'asc' ? 1 : -1;
+        return 0;
+    });
+
+    displayWaitlistEntries(waitlistEntries);
 }
 
 function convertWaitlistToAppointment(entryId) {
@@ -3586,6 +3681,100 @@ function deleteWaitlistEntry(entryId) {
     .catch(error => {
         console.error('Error deleting waitlist entry:', error);
         showNotification('Erro ao remover entrada. Tente novamente.', 'error');
+    });
+}
+
+function toggleQuickRegister() {
+    const section = document.getElementById('quick-register-section');
+    if (!section) return;
+    if (section.style.display === 'none') {
+        section.style.display = 'block';
+        document.getElementById('qr-first-name').focus();
+    } else {
+        section.style.display = 'none';
+        // Clear fields
+        ['qr-first-name', 'qr-last-name', 'qr-dob', 'qr-phone'].forEach(id => {
+            const el = document.getElementById(id);
+            if (el) el.value = '';
+        });
+        const genderEl = document.getElementById('qr-gender');
+        if (genderEl) genderEl.value = '';
+        const errEl = document.getElementById('quick-register-error');
+        if (errEl) errEl.style.display = 'none';
+    }
+}
+
+function quickRegisterPatient() {
+    const firstName = document.getElementById('qr-first-name')?.value.trim();
+    const lastName = document.getElementById('qr-last-name')?.value.trim();
+    const dob = document.getElementById('qr-dob')?.value;
+    const gender = document.getElementById('qr-gender')?.value;
+    const phone = document.getElementById('qr-phone')?.value.trim();
+    const errEl = document.getElementById('quick-register-error');
+
+    if (!firstName || !lastName || !dob || !gender) {
+        if (errEl) {
+            errEl.textContent = 'Nome, sobrenome, data de nascimento e sexo são obrigatórios.';
+            errEl.style.display = 'block';
+        }
+        return;
+    }
+
+    const btn = document.querySelector('#quick-register-section .btn-primary');
+    const originalText = btn.innerHTML;
+    btn.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i>Cadastrando...';
+    btn.disabled = true;
+
+    const formData = new FormData();
+    formData.append('first_name', firstName);
+    formData.append('last_name', lastName);
+    formData.append('date_of_birth', dob);
+    formData.append('gender', gender);
+    if (phone) formData.append('phone', phone);
+
+    fetch('/dashboard/api/patients/create/', {
+        method: 'POST',
+        body: formData,
+        headers: { 'X-CSRFToken': getCookie('csrftoken') }
+    })
+    .then(r => r.json())
+    .then(data => {
+        if (data.success) {
+            // Auto-select the new patient in the waitlist form
+            document.getElementById('waitlist-patient').value = data.patient_id;
+            document.getElementById('waitlist-patient-search').value = `${firstName} ${lastName}`;
+            document.getElementById('waitlist-patient-name').value = `${firstName} ${lastName}`;
+            if (phone) document.getElementById('waitlist-phone').value = phone;
+
+            // Update allPatients cache if available
+            if (window.allPatients) {
+                window.allPatients.push({
+                    id: data.patient_id,
+                    first_name: firstName,
+                    last_name: lastName,
+                    phone: phone || '',
+                    email: ''
+                });
+            }
+
+            toggleQuickRegister();
+            showNotification(`${firstName} ${lastName} cadastrado(a) com sucesso!`, 'success');
+        } else {
+            if (errEl) {
+                errEl.textContent = data.error || 'Erro ao cadastrar paciente.';
+                errEl.style.display = 'block';
+            }
+        }
+    })
+    .catch(() => {
+        if (errEl) {
+            errEl.textContent = 'Erro de conexão. Tente novamente.';
+            errEl.style.display = 'block';
+        }
+    })
+    .finally(() => {
+        btn.innerHTML = originalText;
+        btn.disabled = false;
     });
 }
 

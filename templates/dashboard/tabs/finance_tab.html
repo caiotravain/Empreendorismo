@@ -1,5 +1,44 @@
 <!-- Finance Tab Content -->
 <div id="finance-tab" class="tab-content" style="display: none;">
+
+    <!-- Control Bar (at top so filters clearly govern everything below) -->
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <!-- Filter Dropdowns -->
+        <div class="d-flex gap-2">
+            <div style="position: relative; display: inline-block;">
+                <select class="form-select bg-white border border-slate-200 rounded-lg" id="year-filter" style="min-width: 150px; appearance: none; -webkit-appearance: none; background-image: none; padding-right: 2.25rem;">
+                    <option value="">Carregando...</option>
+                </select>
+                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5" style="position: absolute; right: 10px; top: 50%; transform: translateY(-50%); pointer-events: none; color: #94a3b8;">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7" />
+                </svg>
+            </div>
+            <div style="position: relative; display: inline-block;">
+                <select class="form-select bg-white border border-slate-200 rounded-lg" id="month-filter" style="min-width: 150px; appearance: none; -webkit-appearance: none; background-image: none; padding-right: 2.25rem;">
+                    <option value="">Todos os meses</option>
+                </select>
+                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5" style="position: absolute; right: 10px; top: 50%; transform: translateY(-50%); pointer-events: none; color: #94a3b8;">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7" />
+                </svg>
+            </div>
+        </div>
+
+        <!-- Action Buttons (hidden for clinic admins in overview mode) -->
+        <div class="d-flex gap-2">
+            {% if not is_admin %}
+            <button class="btn btn-warning btn-sm" onclick="syncAppointmentIncome()">
+                <i class="fas fa-sync me-1"></i>Sincronizar Receitas
+            </button>
+            <button class="btn text-white btn-sm" style="background-color: green;" onclick="showIncomeModal()">
+                <i class="fas fa-plus me-1"></i>Nova Receita
+            </button>
+            <button class="btn text-white btn-sm" style="background-color: red;" onclick="showExpenseModal()">
+                <i class="fas fa-plus me-1"></i>Nova Despesa
+            </button>
+            {% endif %}
+        </div>
+    </div>
+
     <!-- KPI Summary Cards -->
     <div class="row mb-4">
         <div class="col-md-4 mb-3">
@@ -61,68 +100,32 @@
         </div>
     </div>
 
-    <!-- Charts Section -->
-    <div class="row mb-4">
-        <!-- Cash Flow Chart -->
+    <!-- Charts Section (both follow the period filter above) -->
+    <div class="row mb-3">
+        <!-- Cash Flow Chart (6 months ending at selected period) -->
         <div class="col-lg-7 mb-3">
             <div class="card border border-slate-200 rounded-xl shadow-sm bg-white">
                 <div class="card-body p-3">
-                    <h6 class="text-slate-800 fw-semibold mb-2" style="font-size: 0.875rem;">Fluxo de Caixa - Últimos 6 Meses</h6>
-                    <div style="height: 250px; position: relative; width: 100%;">
+                    <h6 class="text-slate-800 fw-semibold mb-1" style="font-size: 0.875rem;">Fluxo de Caixa</h6>
+                    <p class="text-slate-400 mb-2" style="font-size: 0.75rem;">Evolução — 6 meses até: <span id="cashflow-period-label">mês atual</span></p>
+                    <div style="height: 230px; position: relative; width: 100%;">
                         <canvas id="cashFlowChart"></canvas>
                     </div>
                 </div>
             </div>
         </div>
-        
-        <!-- Expenses by Category Chart -->
+
+        <!-- Expenses by Category Chart (follows the period filter) -->
         <div class="col-lg-5 mb-3">
             <div class="card border border-slate-200 rounded-xl shadow-sm bg-white">
                 <div class="card-body p-3">
-                    <h6 class="text-slate-800 fw-semibold mb-2" style="font-size: 0.875rem;">Despesas por Categoria</h6>
-                    <div style="height: 250px; position: relative; width: 100%;">
+                    <h6 class="text-slate-800 fw-semibold mb-1" style="font-size: 0.875rem;">Despesas por Categoria</h6>
+                    <p class="text-slate-400 mb-2" style="font-size: 0.75rem;">Período: <span id="category-chart-period-label">mês atual</span></p>
+                    <div style="height: 230px; position: relative; width: 100%;">
                         <canvas id="expensesCategoryChart"></canvas>
                     </div>
                 </div>
             </div>
-        </div>
-    </div>
-
-    <!-- Control Bar -->
-    <div class="d-flex justify-content-between align-items-center mb-4">
-        <!-- Filter Dropdowns -->
-        <div class="d-flex gap-2">
-            <div class="position-relative">
-                <select class="form-select bg-white border border-slate-200 rounded-lg px-4 py-2" id="year-filter" style="min-width: 150px; appearance: none; padding-right: 2.5rem;">
-                    <option value="">Carregando...</option>
-                </select>
-                <svg xmlns="http://www.w3.org/2000/svg" class="position-absolute top-50 end-0 translate-middle-y me-3 text-slate-400" style="pointer-events: none; right: 0;" width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-                    <path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7" />
-                </svg>
-            </div>
-            <div class="position-relative">
-                <select class="form-select bg-white border border-slate-200 rounded-lg px-4 py-2" id="month-filter" style="min-width: 150px; appearance: none; padding-right: 2.5rem;">
-                    <option value="">Todos os meses</option>
-                </select>
-                <svg xmlns="http://www.w3.org/2000/svg" class="position-absolute top-50 end-0 translate-middle-y me-3 text-slate-400" style="pointer-events: none; right: 0;" width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-                    <path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7" />
-                </svg>
-            </div>
-        </div>
-        
-        <!-- Action Buttons (hidden for clinic admins in overview mode: clinic admins can only view, not add revenue/expense) -->
-        <div class="d-flex gap-2">
-            {% if not is_admin %}
-            <button class="btn btn-warning btn-sm" onclick="syncAppointmentIncome()">
-                <i class="fas fa-sync me-1"></i>Sincronizar Receitas
-            </button>
-            <button class="btn text-white btn-sm" style="background-color: green;" onclick="showIncomeModal()">
-                <i class="fas fa-plus me-1"></i>Nova Receita
-            </button>
-            <button class="btn text-white btn-sm" style="background-color: red;" onclick="showExpenseModal()">
-                <i class="fas fa-plus me-1"></i>Nova Despesa
-            </button>
-            {% endif %}
         </div>
     </div>
 
@@ -133,17 +136,19 @@
                 <table class="table table-hover mb-0" id="transactions-table">
                     <thead class="bg-slate-50 border-bottom">
                         <tr>
-                            <th class="text-slate-800 fw-medium border-0 py-3 px-4" style="font-size: 0.875rem;">Data</th>
-                            <th class="text-slate-800 fw-medium border-0 py-3 px-4" style="font-size: 0.875rem;">Descrição</th>
-                            <th class="text-slate-800 fw-medium border-0 py-3 px-4" style="font-size: 0.875rem;">Categoria</th>
-                            <th class="text-slate-800 fw-medium border-0 py-3 px-4" style="font-size: 0.875rem;">Tipo</th>
-                            <th class="text-slate-800 fw-medium border-0 py-3 px-4 text-end" style="font-size: 0.875rem;">Valor</th>
-                            <th class="text-slate-800 fw-medium border-0 py-3 px-4 text-center" style="font-size: 0.875rem;">Ações</th>
+                            <th class="text-slate-800 fw-medium border-0 py-3 px-3" style="font-size: 0.875rem;">Data</th>
+                            <th class="text-slate-800 fw-medium border-0 py-3 px-3" style="font-size: 0.875rem;">Descrição</th>
+                            <th class="text-slate-800 fw-medium border-0 py-3 px-3" style="font-size: 0.875rem;">Paciente</th>
+                            <th class="text-slate-800 fw-medium border-0 py-3 px-3" style="font-size: 0.875rem;">Categoria</th>
+                            <th class="text-slate-800 fw-medium border-0 py-3 px-3" style="font-size: 0.875rem;">Tipo</th>
+                            <th class="text-slate-800 fw-medium border-0 py-3 px-3" style="font-size: 0.875rem;">Atend.</th>
+                            <th class="text-slate-800 fw-medium border-0 py-3 px-3 text-end" style="font-size: 0.875rem;">Valor</th>
+                            <th class="text-slate-800 fw-medium border-0 py-3 px-3 text-center" style="font-size: 0.875rem;">Ações</th>
                         </tr>
                     </thead>
                     <tbody id="transactions-table-body">
                         <tr>
-                            <td colspan="6" class="text-center py-5">
+                            <td colspan="8" class="text-center py-5">
                                 <div id="loading-transactions">
                                     <i class="fas fa-spinner fa-spin fa-2x text-slate-400 mb-3"></i>
                                     <h5 class="text-slate-500">Carregando transações...</h5>
@@ -163,11 +168,12 @@
         <div class="modal-content">
             <div class="modal-header">
                 <h5 class="modal-title" id="expenseModalLabel">
-                    <i class="fas fa-plus me-2"></i>Nova Despesa
+                    <i class="fas fa-plus me-2" id="expense-modal-icon"></i><span id="expense-modal-title-text">Nova Despesa</span>
                 </h5>
                 <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fechar"></button>
             </div>
             <form id="expenseForm">
+                <input type="hidden" id="expense-edit-id" name="expense_edit_id" value="">
                 <div class="modal-body">
                     <div class="row">
                         <div class="col-md-8">
@@ -181,30 +187,58 @@
                                 <label for="expense-amount" class="form-label">Valor *</label>
                                 <div class="input-group">
                                     <span class="input-group-text">R$</span>
-                                    <input type="number" class="form-control" id="expense-amount" name="amount" step="0.01" min="0" required>
+                                    <input type="number" class="form-control" id="expense-amount" name="amount" step="1" min="0" required>
                                 </div>
                             </div>
                         </div>
                     </div>
-                    
+
                     <div class="row">
                         <div class="col-md-6">
                             <div class="mb-3">
                                 <label for="expense-category" class="form-label">Categoria *</label>
-                                <select class="form-select" id="expense-category" name="category" required>
-                                    <option value="">Selecione uma categoria</option>
-                                    <option value="office_supplies">Material de Escritório</option>
-                                    <option value="medical_supplies">Material Médico</option>
-                                    <option value="equipment">Equipamentos</option>
-                                    <option value="utilities">Utilidades</option>
-                                    <option value="rent">Aluguel</option>
-                                    <option value="insurance">Seguro</option>
-                                    <option value="marketing">Marketing</option>
-                                    <option value="professional_services">Serviços Profissionais</option>
-                                    <option value="travel">Viagens</option>
-                                    <option value="education">Educação</option>
-                                    <option value="other">Outros</option>
-                                </select>
+                                <div class="input-group">
+                                    <select class="form-select" id="expense-category" name="category" required>
+                                        <option value="">Selecione uma categoria</option>
+                                        <option value="office_supplies">Material de Escritório</option>
+                                        <option value="medical_supplies">Material Médico</option>
+                                        <option value="equipment">Equipamentos</option>
+                                        <option value="utilities">Utilidades</option>
+                                        <option value="rent">Aluguel</option>
+                                        <option value="insurance">Seguro</option>
+                                        <option value="marketing">Marketing</option>
+                                        <option value="professional_services">Serviços Profissionais</option>
+                                        <option value="travel">Viagens</option>
+                                        <option value="education">Educação</option>
+                                        <option value="other">Outros</option>
+                                        <!-- custom categories injected here by JS -->
+                                    </select>
+                                    <button type="button" class="btn btn-outline-secondary" id="add-custom-category-btn" title="Nova categoria personalizada">
+                                        <i class="fas fa-plus"></i>
+                                    </button>
+                                </div>
+                                <!-- Inline new-category input (hidden by default) -->
+                                <div id="new-category-input-wrap" style="display:none;" class="mt-2">
+                                    <div class="d-flex gap-1 mb-2">
+                                        <input type="text" class="form-control form-control-sm" id="new-category-name" placeholder="Nome da nova categoria" maxlength="60">
+                                        <button type="button" class="btn btn-sm btn-primary" id="save-custom-category-btn">Salvar</button>
+                                        <button type="button" class="btn btn-sm btn-secondary" id="cancel-custom-category-btn">✕</button>
+                                    </div>
+                                    <!-- Suggestion chips -->
+                                    <div class="d-flex flex-wrap gap-1" id="category-suggestion-chips">
+                                        <span class="text-slate-400 me-1" style="font-size:0.72rem;line-height:1.8;">Sugestões:</span>
+                                        <button type="button" class="btn btn-outline-secondary btn-sm category-suggestion-chip" data-name="Limpeza" style="font-size:0.72rem;padding:1px 8px;border-radius:999px;">Limpeza</button>
+                                        <button type="button" class="btn btn-outline-secondary btn-sm category-suggestion-chip" data-name="Manutenção" style="font-size:0.72rem;padding:1px 8px;border-radius:999px;">Manutenção</button>
+                                        <button type="button" class="btn btn-outline-secondary btn-sm category-suggestion-chip" data-name="Impostos/Taxas" style="font-size:0.72rem;padding:1px 8px;border-radius:999px;">Impostos/Taxas</button>
+                                        <button type="button" class="btn btn-outline-secondary btn-sm category-suggestion-chip" data-name="Telefone/Internet" style="font-size:0.72rem;padding:1px 8px;border-radius:999px;">Telefone/Internet</button>
+                                        <button type="button" class="btn btn-outline-secondary btn-sm category-suggestion-chip" data-name="Água/Energia" style="font-size:0.72rem;padding:1px 8px;border-radius:999px;">Água/Energia</button>
+                                        <button type="button" class="btn btn-outline-secondary btn-sm category-suggestion-chip" data-name="Contador" style="font-size:0.72rem;padding:1px 8px;border-radius:999px;">Contador</button>
+                                        <button type="button" class="btn btn-outline-secondary btn-sm category-suggestion-chip" data-name="Folha Salarial" style="font-size:0.72rem;padding:1px 8px;border-radius:999px;">Folha Salarial</button>
+                                        <button type="button" class="btn btn-outline-secondary btn-sm category-suggestion-chip" data-name="Software/Sistema" style="font-size:0.72rem;padding:1px 8px;border-radius:999px;">Software/Sistema</button>
+                                        <button type="button" class="btn btn-outline-secondary btn-sm category-suggestion-chip" data-name="Mobiliário" style="font-size:0.72rem;padding:1px 8px;border-radius:999px;">Mobiliário</button>
+                                        <button type="button" class="btn btn-outline-secondary btn-sm category-suggestion-chip" data-name="Combustível" style="font-size:0.72rem;padding:1px 8px;border-radius:999px;">Combustível</button>
+                                    </div>
+                                </div>
                             </div>
                         </div>
                         <div class="col-md-6">
@@ -252,11 +286,12 @@
         <div class="modal-content">
             <div class="modal-header">
                 <h5 class="modal-title" id="incomeModalLabel">
-                    <i class="fas fa-plus me-2"></i>Nova Receita
+                    <i class="fas fa-plus me-2" id="income-modal-icon"></i><span id="income-modal-title-text">Nova Receita</span>
                 </h5>
                 <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fechar"></button>
             </div>
             <form id="incomeForm">
+                <input type="hidden" id="income-edit-id" name="income_edit_id" value="">
                 <div class="modal-body">
                     <div class="row">
                         <div class="col-md-8">
@@ -270,12 +305,16 @@
                                 <label for="income-amount" class="form-label">Valor *</label>
                                 <div class="input-group">
                                     <span class="input-group-text">R$</span>
-                                    <input type="number" class="form-control" id="income-amount" name="amount" step="0.01" min="0" required>
+                                    <input type="number" class="form-control" id="income-amount" name="amount" step="1" min="0" required>
+                                </div>
+                                <div class="form-check mt-1">
+                                    <input class="form-check-input" type="checkbox" id="income-is-free-return" name="is_free_return" value="true">
+                                    <label class="form-check-label text-muted" for="income-is-free-return" style="font-size: 0.8rem;">Retorno gratuito (valor R$ 0,00)</label>
                                 </div>
                             </div>
                         </div>
                     </div>
-                    
+
                     <div class="row">
                         <div class="col-md-6">
                             <div class="mb-3">
@@ -299,9 +338,19 @@
                             </div>
                         </div>
                     </div>
-                    
+
                     <div class="row">
-                        <div class="col-md-6">
+                        <div class="col-md-4">
+                            <div class="mb-3">
+                                <label for="income-payment-type" class="form-label">Tipo de Atendimento</label>
+                                <select class="form-select" id="income-payment-type" name="payment_type">
+                                    <option value="">Selecione</option>
+                                    <option value="particular">Particular</option>
+                                    <option value="convenio">Convênio</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div class="col-md-4">
                             <div class="mb-3">
                                 <label for="income-payment-method" class="form-label">Forma de Pagamento</label>
                                 <select class="form-select" id="income-payment-method" name="payment_method">
@@ -314,9 +363,9 @@
                                 </select>
                             </div>
                         </div>
-                        <div class="col-md-6">
+                        <div class="col-md-4">
                             <div class="mb-3">
-                                <label for="income-patient" class="form-label">Paciente</label>
+                                <label for="income-patient" class="form-label">Paciente <span id="income-patient-required-badge" class="text-danger" style="display:none;">*</span></label>
                                 <div class="input-group">
                                     <select class="form-select" id="income-patient" name="patient_id">
                                         <option value="">Selecione um paciente</option>
@@ -325,11 +374,11 @@
                                         <i class="fas fa-plus"></i>
                                     </button>
                                 </div>
-                                <small class="text-muted">Deixe em branco se não houver paciente relacionado</small>
+                                <small class="text-muted" id="income-patient-hint">Obrigatório para Consultas</small>
                             </div>
                         </div>
                     </div>
-                    
+
                     <!-- Hidden field for appointment ID (auto-filled when income is from appointment) -->
                     <input type="hidden" id="income-appointment-id" name="appointment_id" value="">
                     

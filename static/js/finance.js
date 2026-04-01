@@ -1,4 +1,23 @@
 // Finance Tab Functions
+function _getFilterPeriod() {
+    // Returns {year, month, label} based on current filter dropdowns (defaults to current month)
+    const now = new Date();
+    const monthNames = ['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'];
+    const yearSel = document.getElementById('year-filter');
+    const monthSel = document.getElementById('month-filter');
+    const year = (yearSel && yearSel.value) ? parseInt(yearSel.value) : now.getFullYear();
+    const month = (monthSel && monthSel.value) ? parseInt(monthSel.value) : (now.getMonth() + 1);
+    const label = monthNames[month - 1] + ' ' + year;
+    return { year, month, label };
+}
+
+function _updatePeriodLabels(label) {
+    const catLabel = document.getElementById('category-chart-period-label');
+    if (catLabel) catLabel.textContent = label;
+    const cfLabel = document.getElementById('cashflow-period-label');
+    if (cfLabel) cfLabel.textContent = label;
+}
+
 function loadFinanceData() {
     // Load expenses and income immediately so the tab never stays loading
     const now = new Date();
@@ -32,11 +51,15 @@ function loadFinanceData() {
             updateUnifiedTransactionsTable(incomes, expenses);
         }
 
-        updateCashFlowChart();
+        const now = new Date();
+        updateCashFlowChart(now.getFullYear(), now.getMonth() + 1);
         updateExpensesCategoryChart(expenses);
         updateFilterDropdowns(expenses, incomes);
         setupFilterEventListeners();
         updateNetIncome(expenses, incomes);
+
+        const monthNames = ['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'];
+        _updatePeriodLabels(monthNames[now.getMonth()] + ' ' + now.getFullYear());
     })
     .catch(error => {
         console.error('Error:', error);
@@ -340,11 +363,9 @@ function updateNetIncome(expenses, incomes) {
 function updateUnifiedTransactionsTable(incomes, expenses) {
     const tbody = document.getElementById('transactions-table-body');
     if (!tbody) return;
-    
-    // Combine and sort transactions by date (newest first)
+
     const transactions = [];
-    
-    // Add incomes
+
     (incomes || []).forEach(income => {
         transactions.push({
             id: income.id,
@@ -355,49 +376,49 @@ function updateUnifiedTransactionsTable(incomes, expenses) {
             amount: parseFloat(income.amount),
             formatted_amount: income.formatted_amount || formatCurrency(income.amount),
             notes: income.notes,
-            payment_method: income.payment_method_display || income.payment_method
+            patient_name: income.patient_name || '',
+            payment_type: income.payment_type_display || income.payment_type || '',
+            is_free_return: income.is_free_return || false,
+            raw: income
         });
     });
-    
-    // Add expenses
+
     (expenses || []).forEach(expense => {
         transactions.push({
             id: expense.id,
             type: 'expense',
             date: expense.expense_date,
             description: expense.description,
-            category: expense.category_display || expense.category,
+            category: expense.category || expense.category_display || '',
             amount: parseFloat(expense.amount),
             formatted_amount: expense.formatted_amount || formatCurrency(expense.amount),
             notes: expense.notes,
-            vendor: expense.vendor
+            patient_name: '',
+            payment_type: '',
+            raw: expense
         });
     });
-    
-    // Sort by date (newest first)
+
     transactions.sort((a, b) => {
         try {
             const dateA = new Date(a.date.split('/').reverse().join('-'));
             const dateB = new Date(b.date.split('/').reverse().join('-'));
             return dateB - dateA;
-        } catch (e) {
-            return 0;
-        }
+        } catch (e) { return 0; }
     });
-    
+
     if (transactions.length === 0) {
         tbody.innerHTML = `
             <tr>
-                <td colspan="6" class="text-center py-5">
-                    <i class="fas fa-receipt fa-3x text-slate-300 mb-3"></i>
+                <td colspan="8" class="text-center py-5">
+                    <i class="fas fa-receipt fa-3x text-slate-300 mb-3 d-block"></i>
                     <h5 class="text-slate-500">Nenhuma transação encontrada</h5>
                     <p class="text-slate-400">Comece adicionando receitas ou despesas.</p>
                 </td>
-            </tr>
-        `;
+            </tr>`;
         return;
     }
-    
+
     let tableHtml = '';
     transactions.forEach(transaction => {
         const isIncome = transaction.type === 'income';
@@ -405,55 +426,55 @@ function updateUnifiedTransactionsTable(incomes, expenses) {
         try {
             const dateObj = new Date(transaction.date.split('/').reverse().join('-'));
             formattedDate = dateObj.toLocaleDateString('pt-BR', { day: '2-digit', month: 'short', year: 'numeric' });
-        } catch (e) {
-            formattedDate = transaction.date;
+        } catch (e) { formattedDate = transaction.date; }
+
+        const patientCell = transaction.patient_name
+            ? `<span class="text-slate-700" style="font-size:0.8rem;">${escapeHtml(transaction.patient_name)}</span>`
+            : `<span class="text-slate-300" style="font-size:0.8rem;">—</span>`;
+
+        let atendCell = '<span class="text-slate-300" style="font-size:0.8rem;">—</span>';
+        if (isIncome) {
+            if (transaction.is_free_return) {
+                atendCell = `<span class="badge" style="font-size:0.7rem;background:#e0e7ff;color:#4338ca;">Retorno Gratuito</span>`;
+            } else if (transaction.payment_type) {
+                const isParticular = transaction.payment_type.toLowerCase().includes('particular');
+                atendCell = `<span class="badge" style="font-size:0.7rem;background:${isParticular ? '#d1fae5' : '#dbeafe'};color:${isParticular ? '#065f46' : '#1e40af'};">${escapeHtml(transaction.payment_type)}</span>`;
+            }
         }
-        
+
+        const displayAmount = transaction.is_free_return
+            ? `<span class="fw-semibold text-slate-400" style="font-size:0.875rem;">Gratuito</span>`
+            : `<span class="fw-semibold ${isIncome ? 'text-emerald-600' : 'text-rose-600'}" style="font-size:0.875rem;">${isIncome ? '+' : '-'} ${transaction.formatted_amount}</span>`;
+
         tableHtml += `
             <tr class="border-bottom">
-                <td class="py-3 px-4 text-slate-500" style="font-size: 0.875rem;">
-                    ${formattedDate}
-                </td>
-                <td class="py-3 px-4">
-                    <span class="text-slate-900 fw-medium">${escapeHtml(transaction.description)}</span>
-                </td>
-                <td class="py-3 px-4">
-                    <span class="badge bg-slate-100 text-slate-700 rounded-full px-3 py-1" style="font-size: 0.75rem; font-weight: 500;">
-                        ${escapeHtml(transaction.category)}
-                    </span>
-                </td>
-                <td class="py-3 px-4">
+                <td class="py-3 px-3 text-slate-500" style="font-size:0.875rem;white-space:nowrap;">${formattedDate}</td>
+                <td class="py-3 px-3"><span class="text-slate-900 fw-medium" style="font-size:0.875rem;">${escapeHtml(transaction.description)}</span></td>
+                <td class="py-3 px-3">${patientCell}</td>
+                <td class="py-3 px-3"><span class="badge bg-slate-100 text-slate-700" style="font-size:0.75rem;">${escapeHtml(transaction.category)}</span></td>
+                <td class="py-3 px-3">
                     <div class="d-flex align-items-center">
-                        <span class="rounded-circle d-inline-block me-2" style="width: 8px; height: 8px; background-color: ${isIncome ? '#10b981' : '#f43f5e'};"></span>
-                        <span class="text-slate-600" style="font-size: 0.875rem;">${isIncome ? 'Receita' : 'Despesa'}</span>
+                        <span class="rounded-circle d-inline-block me-2" style="width:8px;height:8px;flex-shrink:0;background-color:${isIncome ? '#10b981' : '#f43f5e'};"></span>
+                        <span class="text-slate-600" style="font-size:0.875rem;">${isIncome ? 'Receita' : 'Despesa'}</span>
                     </div>
                 </td>
-                <td class="py-3 px-4 text-end">
-                    <span class="fw-semibold ${isIncome ? 'text-emerald-600' : 'text-rose-600'}" style="font-size: 0.875rem;">
-                        ${isIncome ? '+' : '-'} ${transaction.formatted_amount}
-                    </span>
-                </td>
-                <td class="py-3 px-4 text-center">
+                <td class="py-3 px-3">${atendCell}</td>
+                <td class="py-3 px-3 text-end">${displayAmount}</td>
+                <td class="py-3 px-3 text-center">
                     <div class="d-flex align-items-center justify-content-center gap-2">
-                        <button class="btn btn-sm btn-link text-slate-400 p-1" onclick="${isIncome ? 'viewIncome' : 'viewExpense'}(${transaction.id})" title="Editar" style="text-decoration: none;">
-                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-                                <path stroke-linecap="round" stroke-linejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-                            </svg>
+                        <button class="btn btn-sm btn-link text-slate-400 p-1" onclick="${isIncome ? 'viewIncome' : 'viewExpense'}(${transaction.id})" title="Editar" style="text-decoration:none;">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" /></svg>
                         </button>
-                        <button class="btn btn-sm btn-link text-slate-400 p-1" onclick="${isIncome ? 'deleteIncome' : 'deleteExpense'}(${transaction.id})" title="Excluir" style="text-decoration: none;">
-                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-                                <path stroke-linecap="round" stroke-linejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                            </svg>
+                        <button class="btn btn-sm btn-link text-rose-400 p-1" onclick="${isIncome ? 'deleteIncome' : 'deleteExpense'}(${transaction.id})" title="Excluir" style="text-decoration:none;">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
                         </button>
                     </div>
                 </td>
-            </tr>
-        `;
+            </tr>`;
     });
-    
+
     tbody.innerHTML = tableHtml;
 }
-
 function formatCurrency(value) {
     return `R$ ${parseFloat(value).toFixed(2).replace('.', ',').replace(/\B(?=(\d{3})+(?!\d))/g, '.')}`;
 }
@@ -591,65 +612,54 @@ function initializeExpensesCategoryChart() {
     });
 }
 
-// Update Cash Flow Chart with last 6 months data
-// This function always shows the last 6 completed months, regardless of current filter
-function updateCashFlowChart() {
+// Update Cash Flow Chart — 6 months ending at (anchorYear, anchorMonth)
+function updateCashFlowChart(anchorYear, anchorMonth) {
     if (!cashFlowChart) {
         initializeCashFlowChart();
         if (!cashFlowChart) return;
     }
-    
-    // Always fetch last 6 months of data regardless of current filter
-    fetchCashFlowData();
+    const now = new Date();
+    const year = anchorYear || now.getFullYear();
+    const month = anchorMonth || (now.getMonth() + 1);
+    fetchCashFlowData(year, month);
 }
 
-// Fetch last 6 months of data for cash flow chart
-async function fetchCashFlowData() {
-    const now = new Date();
+// Fetch 6 months of data ending at (anchorYear, anchorMonth)
+async function fetchCashFlowData(anchorYear, anchorMonth) {
     const monthNames = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez'];
-    
-    // Get last 6 months labels
+    const now = new Date();
+    const ay = anchorYear || now.getFullYear();
+    const am = anchorMonth || (now.getMonth() + 1);
+
+    // Build 6 months ending at anchor
     const months = [];
-    for (let i = 5; i >= 0; i--) {
-        const date = new Date(now.getFullYear(), now.getMonth() - i, 1);
-        months.push(monthNames[date.getMonth()] + ' ' + date.getFullYear());
-    }
-    
-    // Fetch data for each of the last 6 months
-    const incomeData = [];
-    const expenseData = [];
-    
     const fetchPromises = [];
-    
+
     for (let i = 5; i >= 0; i--) {
-        const targetDate = new Date(now.getFullYear(), now.getMonth() - i, 1);
-        const targetYear = targetDate.getFullYear();
-        const targetMonth = targetDate.getMonth() + 1;
-        
-        // Fetch incomes and expenses for this month
+        // Go back i months from anchor
+        let y = ay;
+        let m = am - i;
+        while (m <= 0) { m += 12; y--; }
+        months.push(monthNames[m - 1] + ' ' + y);
+
         fetchPromises.push(
             Promise.all([
-                fetch(`/dashboard/api/incomes/?year=${targetYear}&month=${targetMonth}`).then(r => r.json()),
-                fetch(`/dashboard/api/expenses/?year=${targetYear}&month=${targetMonth}`).then(r => r.json())
+                fetch(`/dashboard/api/incomes/?year=${y}&month=${m}`).then(r => r.json()),
+                fetch(`/dashboard/api/expenses/?year=${y}&month=${m}`).then(r => r.json())
             ]).then(([incomesData, expensesData]) => {
                 const monthIncomes = incomesData.success ? (incomesData.incomes || []) : [];
                 const monthExpenses = expensesData.success ? (expensesData.expenses || []) : [];
-                
-                const incomeTotal = monthIncomes.reduce((sum, income) => sum + parseFloat(income.amount || 0), 0);
-                const expenseTotal = monthExpenses.reduce((sum, expense) => sum + parseFloat(expense.amount || 0), 0);
-                
+                const incomeTotal = monthIncomes.reduce((sum, inc) => sum + parseFloat(inc.amount || 0), 0);
+                const expenseTotal = monthExpenses.reduce((sum, exp) => sum + parseFloat(exp.amount || 0), 0);
                 return { incomeTotal, expenseTotal };
             })
         );
     }
-    
+
     try {
         const results = await Promise.all(fetchPromises);
-        results.forEach(result => {
-            incomeData.push(result.incomeTotal);
-            expenseData.push(result.expenseTotal);
-        });
-        
+        const incomeData = results.map(r => r.incomeTotal);
+        const expenseData = results.map(r => r.expenseTotal);
         if (cashFlowChart) {
             cashFlowChart.data.labels = months;
             cashFlowChart.data.datasets[0].data = incomeData;
@@ -780,44 +790,37 @@ function updateCategoryBreakdown(expenses) {
 }
 
 function showExpenseModal() {
-    const modal = new bootstrap.Modal(document.getElementById('expenseModal'));
-    
-    // Set today's date as default
+    document.getElementById('expenseForm').reset();
+    document.getElementById('expense-edit-id').value = '';
     const today = new Date().toISOString().split('T')[0];
     document.getElementById('expense-date').value = today;
-    
-    // Clear form
-    document.getElementById('expenseForm').reset();
-    document.getElementById('expense-date').value = today;
-    
+    document.getElementById('expense-modal-title-text').textContent = 'Nova Despesa';
+    document.getElementById('expense-modal-icon').className = 'fas fa-plus me-2';
+    document.getElementById('new-category-input-wrap').style.display = 'none';
+    loadCustomExpenseCategories();
+    const modal = new bootstrap.Modal(document.getElementById('expenseModal'));
     modal.show();
 }
 
 function showIncomeModal(appointmentId = null, patientId = null) {
-    const modal = new bootstrap.Modal(document.getElementById('incomeModal'));
-    
-    // Set today's date as default
+    document.getElementById('incomeForm').reset();
+    document.getElementById('income-edit-id').value = '';
     const today = new Date().toISOString().split('T')[0];
     document.getElementById('income-date').value = today;
-    
-    // Clear form
-    document.getElementById('incomeForm').reset();
-    document.getElementById('income-date').value = today;
-    
-    // Hide patient creation form
+    document.getElementById('income-modal-title-text').textContent = 'Nova Receita';
+    document.getElementById('income-modal-icon').className = 'fas fa-plus me-2';
     document.getElementById('income-patient-create-form').style.display = 'none';
-    
-    // Load patients
+    document.getElementById('income-is-free-return').checked = false;
+    document.getElementById('income-amount').disabled = false;
+    _updateIncomePatientRequired('');
+
     loadPatientsForIncome();
-    
-    // Auto-fill appointment and patient if provided
+
     if (appointmentId) {
         document.getElementById('income-appointment-id').value = appointmentId;
-        // Load patient from appointment
         if (patientId) {
             document.getElementById('income-patient').value = patientId;
         } else {
-            // Fetch appointment to get patient
             fetch(`/dashboard/api/appointments/${appointmentId}/`)
                 .then(response => response.json())
                 .then(data => {
@@ -830,9 +833,44 @@ function showIncomeModal(appointmentId = null, patientId = null) {
     } else {
         document.getElementById('income-appointment-id').value = '';
     }
-    
+
+    const modal = new bootstrap.Modal(document.getElementById('incomeModal'));
     modal.show();
 }
+
+function _updateIncomePatientRequired(category) {
+    const badge = document.getElementById('income-patient-required-badge');
+    const hint = document.getElementById('income-patient-hint');
+    if (category === 'consultation') {
+        if (badge) badge.style.display = '';
+        if (hint) hint.textContent = 'Obrigatório para Consultas';
+    } else {
+        if (badge) badge.style.display = 'none';
+        if (hint) hint.textContent = 'Opcional';
+    }
+}
+
+// Load and inject custom expense categories into the expense-category select
+function loadCustomExpenseCategories() {
+    return fetch('/dashboard/api/expenses/categories/')
+        .then(r => r.json())
+        .then(data => {
+            if (!data.success) return;
+            const select = document.getElementById('expense-category');
+            if (!select) return;
+            // Remove previously injected custom options
+            select.querySelectorAll('option[data-custom]').forEach(o => o.remove());
+            (data.categories || []).forEach(cat => {
+                const opt = document.createElement('option');
+                opt.value = 'custom__' + cat;
+                opt.textContent = cat;
+                opt.dataset.custom = '1';
+                select.appendChild(opt);
+            });
+        })
+        .catch(() => {});
+}
+
 
 function filterExpenses() {
     const year = document.getElementById('year-filter').value;
@@ -950,14 +988,15 @@ function filterFinanceData() {
             updateUnifiedTransactionsTable(incomes, expenses);
         }
         
-            // Update charts
-            if (typeof Chart !== 'undefined') {
-                // Cash flow chart always shows last 6 months, not filtered data
-                updateCashFlowChart();
-                // Expenses category chart uses filtered data
-                updateExpensesCategoryChart(expenses);
-            }
-        
+        // Update charts — both follow the selected filter period
+        if (typeof Chart !== 'undefined') {
+            updateCashFlowChart(filterYear, filterMonth);
+            updateExpensesCategoryChart(expenses);
+        }
+
+        // Update period labels on both charts
+        _updatePeriodLabels(_getFilterPeriod().label);
+
         // Update net income with filtered data
         updateNetIncome(expenses, incomes);
     })
@@ -994,7 +1033,7 @@ function setupFilterEventListeners() {
 // Make function globally available
 window.filterFinanceData = filterFinanceData;
 
-// Handle form submissions
+// Handle form submissions and new UI controls
 document.addEventListener('DOMContentLoaded', function() {
     const expenseForm = document.getElementById('expenseForm');
     if (expenseForm) {
@@ -1003,14 +1042,37 @@ document.addEventListener('DOMContentLoaded', function() {
             createExpense();
         });
     }
-    
+
     const incomeForm = document.getElementById('incomeForm');
     if (incomeForm) {
         incomeForm.addEventListener('submit', function(e) {
             e.preventDefault();
             createIncome();
         });
-        
+
+        // Toggle patient required badge when category changes
+        const incomeCategory = document.getElementById('income-category');
+        if (incomeCategory) {
+            incomeCategory.addEventListener('change', function() {
+                _updateIncomePatientRequired(this.value);
+            });
+        }
+
+        // Free return checkbox: disable/zero amount field
+        const freeReturnChk = document.getElementById('income-is-free-return');
+        if (freeReturnChk) {
+            freeReturnChk.addEventListener('change', function() {
+                const amountInput = document.getElementById('income-amount');
+                if (this.checked) {
+                    amountInput.value = '0';
+                    amountInput.disabled = true;
+                } else {
+                    amountInput.disabled = false;
+                    if (amountInput.value === '0') amountInput.value = '';
+                }
+            });
+        }
+
         // Patient creation button
         const incomeCreatePatientBtn = document.getElementById('income-create-patient-btn');
         if (incomeCreatePatientBtn) {
@@ -1019,7 +1081,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 showIncomePatientCreateForm();
             });
         }
-        
+
         // Cancel patient creation button
         const incomeCancelPatientCreate = document.getElementById('income-cancel-patient-create');
         if (incomeCancelPatientCreate) {
@@ -1029,62 +1091,117 @@ document.addEventListener('DOMContentLoaded', function() {
             });
         }
     }
+
+    // Custom expense category controls
+    const addCatBtn = document.getElementById('add-custom-category-btn');
+    const newCatWrap = document.getElementById('new-category-input-wrap');
+    const saveCatBtn = document.getElementById('save-custom-category-btn');
+    const cancelCatBtn = document.getElementById('cancel-custom-category-btn');
+
+    if (addCatBtn && newCatWrap) {
+        addCatBtn.addEventListener('click', function() {
+            newCatWrap.style.display = newCatWrap.style.display === 'none' ? 'flex' : 'none';
+            if (newCatWrap.style.display !== 'none') {
+                document.getElementById('new-category-name').focus();
+            }
+        });
+    }
+    if (cancelCatBtn && newCatWrap) {
+        cancelCatBtn.addEventListener('click', function() {
+            newCatWrap.style.display = 'none';
+            document.getElementById('new-category-name').value = '';
+        });
+    }
+    // Category suggestion chips: click fills name input and triggers save
+    document.querySelectorAll('.category-suggestion-chip').forEach(function(chip) {
+        chip.addEventListener('click', function() {
+            const nameInput = document.getElementById('new-category-name');
+            if (nameInput) {
+                nameInput.value = chip.dataset.name;
+                if (saveCatBtn) saveCatBtn.click();
+            }
+        });
+    });
+
+    if (saveCatBtn) {
+        saveCatBtn.addEventListener('click', function() {
+            const name = document.getElementById('new-category-name').value.trim();
+            if (!name) { showAlert('Digite um nome para a categoria.', 'warning'); return; }
+            saveCatBtn.disabled = true;
+            fetch('/dashboard/api/expenses/categories/', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'X-CSRFToken': getCookie('csrftoken') },
+                body: JSON.stringify({ name })
+            })
+            .then(r => r.json())
+            .then(data => {
+                if (data.success) {
+                    showAlert('Categoria criada com sucesso!', 'success');
+                    document.getElementById('new-category-name').value = '';
+                    newCatWrap.style.display = 'none';
+                    loadCustomExpenseCategories().then(() => {
+                        // Select the new category
+                        const select = document.getElementById('expense-category');
+                        if (select) select.value = 'custom__' + name;
+                    });
+                } else {
+                    showAlert(data.error || 'Erro ao criar categoria.', 'danger');
+                }
+            })
+            .catch(() => showAlert('Erro ao criar categoria.', 'danger'))
+            .finally(() => { saveCatBtn.disabled = false; });
+        });
+    }
 });
+
 
 function createExpense() {
     const form = document.getElementById('expenseForm');
     const formData = new FormData(form);
-    
-    // Show loading state
+    const editId = document.getElementById('expense-edit-id').value;
+
+    // Handle custom category: strip the 'custom__' prefix
+    const catSelect = document.getElementById('expense-category');
+    if (catSelect && catSelect.value.startsWith('custom__')) {
+        formData.set('category', catSelect.value.replace('custom__', ''));
+    }
+
     const submitBtn = form.querySelector('button[type="submit"]');
     const originalText = submitBtn.innerHTML;
     submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i>Salvando...';
     submitBtn.disabled = true;
-    
-    fetch('/dashboard/api/expenses/create/', {
+
+    const url = editId
+        ? `/dashboard/api/expenses/update/${editId}/`
+        : '/dashboard/api/expenses/create/';
+
+    fetch(url, {
         method: 'POST',
         body: formData,
-        headers: {
-            'X-CSRFToken': getCookie('csrftoken')
-        }
+        headers: { 'X-CSRFToken': getCookie('csrftoken') }
     })
-    .then(response => response.json())
+    .then(r => r.json())
     .then(data => {
         if (data.success) {
-            // Close modal
-            const modal = bootstrap.Modal.getInstance(document.getElementById('expenseModal'));
-            modal.hide();
-            
-            // Show success message
-            showAlert('Despesa criada com sucesso!', 'success');
-            
-            // Reload finance data instead of full page reload
+            bootstrap.Modal.getInstance(document.getElementById('expenseModal')).hide();
+            showAlert(editId ? 'Despesa atualizada com sucesso!' : 'Despesa criada com sucesso!', 'success');
             loadFinanceData();
         } else {
-            showAlert(data.error || 'Erro ao criar despesa', 'danger');
+            showAlert(data.error || 'Erro ao salvar despesa', 'danger');
         }
     })
-    .catch(error => {
-        console.error('Error:', error);
-        showAlert('Erro ao criar despesa', 'danger');
-    })
-    .finally(() => {
-        // Restore button state
-        submitBtn.innerHTML = originalText;
-        submitBtn.disabled = false;
-    });
+    .catch(() => showAlert('Erro ao salvar despesa', 'danger'))
+    .finally(() => { submitBtn.innerHTML = originalText; submitBtn.disabled = false; });
 }
 
 function loadPatientsForIncome() {
     const patientSelect = document.getElementById('income-patient');
-    if (!patientSelect) return;
-    
-    // Clear existing options except the first one
+    if (!patientSelect) return Promise.resolve();
+
     patientSelect.innerHTML = '<option value="">Selecione um paciente</option>';
-    
-    // Fetch patients
-    fetch('/dashboard/api/patients/')
-        .then(response => response.json())
+
+    return fetch('/dashboard/api/patients/')
+        .then(r => r.json())
         .then(data => {
             if (data.success && data.patients) {
                 data.patients.forEach(patient => {
@@ -1095,10 +1212,9 @@ function loadPatientsForIncome() {
                 });
             }
         })
-        .catch(error => {
-            console.error('Error loading patients:', error);
-        });
+        .catch(error => console.error('Error loading patients:', error));
 }
+
 
 function showIncomePatientCreateForm() {
     const form = document.getElementById('income-patient-create-form');
@@ -1123,104 +1239,181 @@ function hideIncomePatientCreateForm() {
 function createIncome() {
     const form = document.getElementById('incomeForm');
     const formData = new FormData(form);
-    
-    // Check if creating new patient
-    const createForm = document.getElementById('income-patient-create-form');
-    const isCreatingPatient = createForm && createForm.style.display !== 'none';
-    
+    const editId = document.getElementById('income-edit-id').value;
+
+    // Validate patient required for consultation
+    const category = document.getElementById('income-category').value;
+    const patientId = document.getElementById('income-patient').value;
+    const isFreeReturn = document.getElementById('income-is-free-return').checked;
+    const isCreatingPatient = document.getElementById('income-patient-create-form').style.display !== 'none';
+
+    if (category === 'consultation' && !patientId && !isCreatingPatient && !isFreeReturn) {
+        showAlert('Consultas devem estar vinculadas a um paciente.', 'danger');
+        return;
+    }
+
+    // Append is_free_return as string
+    formData.set('is_free_return', isFreeReturn ? 'true' : 'false');
+    if (isFreeReturn) {
+        formData.set('amount', '0');
+    }
+
     if (isCreatingPatient) {
-        // Validate patient fields
         const firstName = document.getElementById('income-patient-first-name').value.trim();
         const lastName = document.getElementById('income-patient-last-name').value.trim();
         const dob = document.getElementById('income-patient-dob').value;
         const gender = document.getElementById('income-patient-gender').value;
-        
+
         if (!firstName || !lastName || !dob || !gender) {
             showAlert('Preencha todos os campos obrigatórios do paciente', 'danger');
             return;
         }
-        
-        // Add patient creation flag and data
+
         formData.append('create_patient', 'true');
-        formData.append('patient_first_name', firstName);
-        formData.append('patient_last_name', lastName);
-        formData.append('patient_date_of_birth', dob);
-        formData.append('patient_gender', gender);
-        
+        formData.set('patient_first_name', firstName);
+        formData.set('patient_last_name', lastName);
+        formData.set('patient_date_of_birth', dob);
+        formData.set('patient_gender', gender);
+
         const email = document.getElementById('income-patient-email').value.trim();
         const phone = document.getElementById('income-patient-phone').value.trim();
-        if (email) formData.append('patient_email', email);
-        if (phone) formData.append('patient_phone', phone);
+        if (email) formData.set('patient_email', email);
+        if (phone) formData.set('patient_phone', phone);
     }
-    
-    // Show loading state
+
     const submitBtn = form.querySelector('button[type="submit"]');
     const originalText = submitBtn.innerHTML;
     submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i>Salvando...';
     submitBtn.disabled = true;
-    
-    fetch('/dashboard/api/incomes/create/', {
+
+    const url = editId
+        ? `/dashboard/api/incomes/update/${editId}/`
+        : '/dashboard/api/incomes/create/';
+
+    fetch(url, {
         method: 'POST',
         body: formData,
-        headers: {
-            'X-CSRFToken': getCookie('csrftoken')
-        }
+        headers: { 'X-CSRFToken': getCookie('csrftoken') }
     })
-    .then(response => response.json())
+    .then(r => r.json())
     .then(data => {
         if (data.success) {
-            // Close modal
-            const modal = bootstrap.Modal.getInstance(document.getElementById('incomeModal'));
-            modal.hide();
-            
-            // Show success message
-            showAlert('Receita criada com sucesso!', 'success');
-            
-            // Reload finance data instead of full page reload
+            bootstrap.Modal.getInstance(document.getElementById('incomeModal')).hide();
+            showAlert(editId ? 'Receita atualizada com sucesso!' : 'Receita criada com sucesso!', 'success');
             loadFinanceData();
         } else {
-            showAlert(data.error || 'Erro ao criar receita', 'danger');
+            showAlert(data.error || 'Erro ao salvar receita', 'danger');
         }
     })
-    .catch(error => {
-        console.error('Error:', error);
-        showAlert('Erro ao criar receita', 'danger');
-    })
-    .finally(() => {
-        // Restore button state
-        submitBtn.innerHTML = originalText;
-        submitBtn.disabled = false;
-    });
+    .catch(() => showAlert('Erro ao salvar receita', 'danger'))
+    .finally(() => { submitBtn.innerHTML = originalText; submitBtn.disabled = false; });
 }
 
+
 function viewExpense(expenseId) {
-    // For now, just show a placeholder
-    // In a real implementation, you would fetch expense details
-    const modal = new bootstrap.Modal(document.getElementById('expenseDetailsModal'));
-    document.getElementById('expense-details-content').innerHTML = `
-        <div class="text-center">
-            <i class="fas fa-receipt fa-3x text-muted mb-3"></i>
-            <h5>Detalhes da Despesa #${expenseId}</h5>
-            <p class="text-muted">Funcionalidade em desenvolvimento...</p>
-        </div>
-    `;
+    fetch(`/dashboard/api/expenses/`)
+        .then(r => r.json())
+        .then(data => {
+            if (!data.success) { showAlert('Erro ao carregar despesa.', 'danger'); return; }
+            const expense = (data.expenses || []).find(e => e.id === expenseId);
+            if (!expense) { showAlert('Despesa não encontrada.', 'warning'); return; }
+            _openExpenseModalForEdit(expense);
+        })
+        .catch(() => showAlert('Erro ao carregar despesa.', 'danger'));
+}
+
+function _openExpenseModalForEdit(expense) {
+    document.getElementById('expense-edit-id').value = expense.id;
+    document.getElementById('expense-description').value = expense.description || '';
+    document.getElementById('expense-amount').value = expense.amount || '';
+
+    // Set category (handles both standard and custom values)
+    const catSelect = document.getElementById('expense-category');
+    // Try setting; if not found as an option, it falls back to blank
+    catSelect.value = expense.category_value || expense.category || '';
+
+    // Parse date from DD/MM/YYYY
+    if (expense.expense_date) {
+        const parts = expense.expense_date.split('/');
+        if (parts.length === 3) {
+            document.getElementById('expense-date').value = `${parts[2]}-${parts[1]}-${parts[0]}`;
+        }
+    }
+    document.getElementById('expense-vendor').value = expense.vendor || '';
+    document.getElementById('expense-receipt').value = expense.receipt_number || '';
+    document.getElementById('expense-notes').value = expense.notes || '';
+
+    document.getElementById('expense-modal-title-text').textContent = 'Editar Despesa';
+    document.getElementById('expense-modal-icon').className = 'fas fa-edit me-2';
+
+    loadCustomExpenseCategories().then(() => {
+        // Retry setting category after custom cats are loaded
+        catSelect.value = expense.category_value || expense.category || '';
+    });
+
+    const modal = new bootstrap.Modal(document.getElementById('expenseModal'));
     modal.show();
 }
 
 function viewIncome(incomeId) {
-    // For now, just show a placeholder
-    // In a real implementation, you would fetch income details
-    const modal = new bootstrap.Modal(document.getElementById('incomeDetailsModal'));
-    document.getElementById('income-details-content').innerHTML = `
-        <div class="text-center">
-            <i class="fas fa-chart-line fa-3x text-muted mb-3"></i>
-            <h5>Detalhes da Receita #${incomeId}</h5>
-            <p class="text-muted">Funcionalidade em desenvolvimento...</p>
-        </div>
-    `;
-    modal.show();
+    fetch('/dashboard/api/incomes/')
+        .then(r => r.json())
+        .then(data => {
+            if (!data.success) { showAlert('Erro ao carregar receita.', 'danger'); return; }
+            const income = (data.incomes || []).find(i => i.id === incomeId);
+            if (!income) { showAlert('Receita não encontrada.', 'warning'); return; }
+            _openIncomeModalForEdit(income);
+        })
+        .catch(() => showAlert('Erro ao carregar receita.', 'danger'));
 }
 
+function _openIncomeModalForEdit(income) {
+    document.getElementById('income-edit-id').value = income.id;
+    document.getElementById('income-description').value = income.description || '';
+    document.getElementById('income-amount').value = income.amount || '';
+    document.getElementById('income-category').value = income.category || '';
+
+    const isFreeReturn = income.is_free_return || false;
+    document.getElementById('income-is-free-return').checked = isFreeReturn;
+    document.getElementById('income-amount').disabled = isFreeReturn;
+
+    if (income.income_date) {
+        const parts = income.income_date.split('/');
+        if (parts.length === 3) {
+            document.getElementById('income-date').value = `${parts[2]}-${parts[1]}-${parts[0]}`;
+        }
+    }
+    document.getElementById('income-payment-type').value = income.payment_type || '';
+    document.getElementById('income-payment-method').value = income.payment_method || '';
+    document.getElementById('income-appointment-id').value = income.appointment_id || '';
+    document.getElementById('income-notes').value = income.notes || '';
+
+    document.getElementById('income-modal-title-text').textContent = 'Editar Receita';
+    document.getElementById('income-modal-icon').className = 'fas fa-edit me-2';
+
+    // Toggle patient required badge
+    _updateIncomePatientRequired(income.category);
+
+    // Load patients then set selected; inject fallback option if patient not in list
+    loadPatientsForIncome().then(() => {
+        if (income.patient_id) {
+            const patientSelect = document.getElementById('income-patient');
+            const exists = patientSelect && Array.from(patientSelect.options).some(o => parseInt(o.value) === income.patient_id);
+            if (!exists && patientSelect && income.patient_name) {
+                const opt = document.createElement('option');
+                opt.value = income.patient_id;
+                opt.textContent = income.patient_name;
+                patientSelect.appendChild(opt);
+            }
+            if (patientSelect) patientSelect.value = income.patient_id;
+        }
+    });
+
+    document.getElementById('income-patient-create-form').style.display = 'none';
+
+    const modal = new bootstrap.Modal(document.getElementById('incomeModal'));
+    modal.show();
+}
 function syncAppointmentIncome() {
     if (confirm('Deseja sincronizar as receitas das consultas confirmadas/concluídas? Isso criará registros de receita para todas as consultas que têm valor mas ainda não têm receita registrada.')) {
         // Show loading state
