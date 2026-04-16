@@ -60,16 +60,19 @@
                             <th class="text-slate-800 fw-medium border-0 py-2 px-3 sortable-col" style="font-size: 0.8rem; cursor: pointer; user-select: none;" onclick="sortByColumn('created')">
                                 Data de Cadastro <span id="sort-icon-created" class="sort-arrow ms-1">↕</span>
                             </th>
+                            <th class="text-slate-800 fw-medium border-0 py-2 px-3" style="font-size: 0.8rem;">Fidelidade</th>
                             <th class="text-slate-800 fw-medium border-0 py-2 px-3" style="font-size: 0.8rem;">Ações</th>
                         </tr>
                     </thead>
                     <tbody id="patients-table-body">
                         {% for patient in all_patients %}
+                        {% with loyalty=patient.get_loyalty_metrics %}
                         <tr data-patient-id="{{ patient.id }}"
                             data-name="{{ patient.full_name|lower }}"
                             data-cpf="{{ patient.cpf|default:'' }}"
                             data-age="{{ patient.age|default:0 }}"
                             data-created="{{ patient.created_at|date:'Y-m-d' }}"
+                            data-loyalty="{{ loyalty.status }}"
                             class="border-bottom patient-row patient-row-clickable" style="display: none; cursor: pointer;" onclick="viewPatientDetails({{ patient.id }})"
                         >
                             <td class="py-2 px-3">
@@ -128,6 +131,19 @@
                             <td class="py-2 px-3 text-slate-500" style="font-size: 0.875rem;">
                                 {{ patient.created_at|date:"d/m/Y" }}
                             </td>
+                            <td class="py-2 px-3">
+                                {% if loyalty.status == 'Novo' %}
+                                    <span class="badge bg-primary-subtle text-primary border border-primary-subtle" style="font-size: 0.75rem;">Novo</span>
+                                {% elif loyalty.status == 'Ativo' %}
+                                    <span class="badge bg-success-subtle text-success border border-success-subtle" style="font-size: 0.75rem;">Ativo</span>
+                                {% elif loyalty.status == 'Em Risco' %}
+                                    <span class="badge bg-warning-subtle text-warning border border-warning-subtle" style="font-size: 0.75rem;">Em Risco</span>
+                                {% elif loyalty.status == 'Churn' %}
+                                    <span class="badge bg-danger-subtle text-danger border border-danger-subtle" style="font-size: 0.75rem;">Churn</span>
+                                {% else %}
+                                    <span class="badge bg-light text-muted border" style="font-size: 0.75rem;">{{ loyalty.status }}</span>
+                                {% endif %}
+                            </td>
                             <td class="py-2 px-3" onclick="event.stopPropagation();">
                                 <div class="d-flex align-items-center gap-2">
                                     <button class="btn btn-sm btn-link text-primary p-1" onclick="accessPatientProntuario({{ patient.id }}, '{{ patient.full_name }}')" title="Acessar Prontuário">
@@ -147,6 +163,7 @@
                                 </div>
                             </td>
                         </tr>
+                        {% endwith %}
                         {% empty %}
                         <tr id="patients-empty-row" style="display: none;">
                             <td colspan="7" class="text-center text-slate-500 py-5">
@@ -945,15 +962,19 @@ function viewPatientDetails(patientId) {
 
 function displayPatientDetails(patient) {
     const initials = patient.full_name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2);
+    const loyaltyClass = patient.loyalty_status === 'Ativo' ? 'bg-success' : 
+                         patient.loyalty_status === 'Em Risco' ? 'bg-warning text-dark' : 
+                         patient.loyalty_status === 'Churn' ? 'bg-danger' : 'bg-primary';
+    
     const content = `
-        <ul class="nav nav-tabs mb-3" id="patientDetailsTabs" role="tablist">
+        <ul class="nav nav-tabs mb-2" id="patientDetailsTabs" role="tablist">
             <li class="nav-item" role="presentation">
-                <button class="nav-link active" id="tab-info-btn" data-bs-toggle="tab" data-bs-target="#tab-info" type="button" role="tab">
+                <button class="nav-link active py-1 px-3" id="tab-info-btn" data-bs-toggle="tab" data-bs-target="#tab-info" type="button" role="tab" style="font-size: 0.85rem;">
                     <i class="fas fa-user me-1"></i>Informações
                 </button>
             </li>
             <li class="nav-item" role="presentation">
-                <button class="nav-link" id="tab-files-btn" data-bs-toggle="tab" data-bs-target="#tab-files" type="button" role="tab" onclick="loadPatientFiles(${patient.id})">
+                <button class="nav-link py-1 px-3" id="tab-files-btn" data-bs-toggle="tab" data-bs-target="#tab-files" type="button" role="tab" style="font-size: 0.85rem;" onclick="loadPatientFiles(${patient.id})">
                     <i class="fas fa-paperclip me-1"></i>Arquivos
                 </button>
             </li>
@@ -962,52 +983,93 @@ function displayPatientDetails(patient) {
         <div class="tab-content" id="patientDetailsTabContent">
             <!-- INFO TAB -->
             <div class="tab-pane fade show active" id="tab-info" role="tabpanel">
-                <div class="row">
-                    <div class="col-md-4">
-                        <div class="text-center mb-3">
-                            <div class="bg-primary text-white rounded-circle d-flex align-items-center justify-content-center mx-auto mb-2 fw-bold" style="width:80px;height:80px;font-size:1.5rem;">
-                                ${initials}
-                            </div>
-                            <h5 class="mb-0">${patient.full_name}</h5>
-                            <small class="text-muted">Paciente desde ${patient.created_at}</small>
+                <div class="d-flex align-items-center bg-light p-2 rounded mb-3 border">
+                    <div class="bg-primary text-white rounded-circle d-flex align-items-center justify-content-center fw-bold me-3 shadow-sm" style="width:50px;height:50px;font-size:1.1rem; flex-shrink: 0;">
+                        ${initials}
+                    </div>
+                    <div class="flex-grow-1">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <h5 class="mb-0 text-slate-800" style="font-size: 1.1rem; font-weight: 600;">${patient.full_name}</h5>
+                            <span class="badge ${loyaltyClass}" style="font-size: 0.75rem;">${patient.loyalty_status}</span>
+                        </div>
+                        <div class="text-muted small">
+                            <i class="fas fa-calendar-alt me-1"></i>${patient.age || 0} anos &bull; 
+                            <i class="fas fa-clock me-1"></i>Paciente desde ${patient.created_at}
                         </div>
                     </div>
-                    <div class="col-md-8">
-                        <div class="row">
-                            <div class="col-md-6">
-                                <h6><i class="fas fa-id-card me-2"></i>CPF</h6>
-                                <p class="text-muted">${patient.cpf || 'Não informado'}</p>
-                                <h6><i class="fas fa-envelope me-2"></i>Email</h6>
-                                <p class="text-muted">${patient.email || 'Não informado'}</p>
-                                <h6><i class="fas fa-phone me-2"></i>Telefone</h6>
-                                <p class="text-muted">${patient.phone || 'Não informado'}</p>
-                                <h6><i class="fas fa-birthday-cake me-2"></i>Data de Nascimento</h6>
-                                <p class="text-muted">${patient.date_of_birth ? new Date(patient.date_of_birth).toLocaleDateString('pt-BR') : 'Não informado'}</p>
-                                <h6><i class="fas fa-calendar-alt me-2"></i>Idade</h6>
-                                <p class="text-muted">${patient.age || 0} anos</p>
+                </div>
+
+                <div class="row g-3">
+                    <!-- Contato & Identificação -->
+                    <div class="col-12">
+                        <div class="row g-2 border rounded p-2 bg-white m-0">
+                            <div class="col-md-3">
+                                <label class="text-muted small d-block mb-0" style="font-size: 0.7rem;">CPF</label>
+                                <span class="text-slate-700 fw-medium" style="font-size: 0.9rem;">${patient.cpf || '—'}</span>
                             </div>
-                            <div class="col-md-6">
-                                <h6><i class="fas fa-venus-mars me-2"></i>Sexo</h6>
-                                <p class="text-muted">${patient.gender === 'M' ? 'Masculino' : patient.gender === 'F' ? 'Feminino' : 'Outro'}</p>
-                                <h6><i class="fas fa-map-marker-alt me-2"></i>Endereço</h6>
-                                <p class="text-muted">${patient.address || 'Não informado'}</p>
-                                <h6><i class="fas fa-city me-2"></i>Cidade/Estado</h6>
-                                <p class="text-muted">${patient.city || 'Não informado'}${patient.state ? ', ' + patient.state : ''}</p>
-                                <h6><i class="fas fa-mail-bulk me-2"></i>CEP</h6>
-                                <p class="text-muted">${patient.zip_code || 'Não informado'}</p>
+                            <div class="col-md-3">
+                                <label class="text-muted small d-block mb-0" style="font-size: 0.7rem;">Telefone</label>
+                                <span class="text-slate-700 fw-medium" style="font-size: 0.9rem;">${patient.phone || '—'}</span>
+                            </div>
+                            <div class="col-md-4">
+                                <label class="text-muted small d-block mb-0" style="font-size: 0.7rem;">Email</label>
+                                <span class="text-slate-700 fw-medium text-truncate d-block" style="font-size: 0.9rem;" title="${patient.email}">${patient.email || '—'}</span>
+                            </div>
+                            <div class="col-md-2">
+                                <label class="text-muted small d-block mb-0" style="font-size: 0.7rem;">Sexo</label>
+                                <span class="text-slate-700 fw-medium" style="font-size: 0.9rem;">${patient.gender === 'M' ? 'Masc.' : patient.gender === 'F' ? 'Fem.' : 'Outro'}</span>
+                            </div>
+                            
+                            <div class="col-md-3">
+                                <label class="text-muted small d-block mb-0" style="font-size: 0.7rem;">Nascimento</label>
+                                <span class="text-slate-700 fw-medium" style="font-size: 0.9rem;">${patient.date_of_birth ? new Date(patient.date_of_birth).toLocaleDateString('pt-BR') : '—'}</span>
+                            </div>
+                            <div class="col-md-9">
+                                <label class="text-muted small d-block mb-0" style="font-size: 0.7rem;">Endereço</label>
+                                <span class="text-slate-700 fw-medium text-truncate d-block" style="font-size: 0.9rem;" title="${patient.address}">${patient.address || '—'}</span>
                             </div>
                         </div>
-                        <hr>
-                        <div class="row">
-                            <div class="col-md-6">
-                                <h6><i class="fas fa-user-friends me-2"></i>Contato de Emergência</h6>
-                                <p class="text-muted">${patient.emergency_contact_name || 'Não informado'}</p>
-                                <h6><i class="fas fa-phone-alt me-2"></i>Telefone de Emergência</h6>
-                                <p class="text-muted">${patient.emergency_contact_phone || 'Não informado'}</p>
+                    </div>
+
+                    <!-- Saúde & Emergência -->
+                    <div class="col-12">
+                        <div class="row g-2 border rounded p-2 bg-white m-0">
+                            <div class="col-md-4">
+                                <label class="text-muted small d-block mb-0" style="font-size: 0.7rem;">Plano de Saúde</label>
+                                <span class="text-slate-700 fw-medium" style="font-size: 0.9rem;"><i class="fas fa-heartbeat text-danger me-1" style="font-size: 0.8rem;"></i>${patient.medical_insurance || '—'}</span>
                             </div>
-                            <div class="col-md-6">
-                                <h6><i class="fas fa-heartbeat me-2"></i>Plano de Saúde</h6>
-                                <p class="text-muted">${patient.medical_insurance || 'Não informado'}</p>
+                            <div class="col-md-4">
+                                <label class="text-muted small d-block mb-0" style="font-size: 0.7rem;">Contato Emergência</label>
+                                <span class="text-slate-700 fw-medium" style="font-size: 0.9rem;"><i class="fas fa-user-friends text-muted me-1" style="font-size: 0.8rem;"></i>${patient.emergency_contact_name || '—'}</span>
+                            </div>
+                            <div class="col-md-4">
+                                <label class="text-muted small d-block mb-0" style="font-size: 0.7rem;">Tel. Emergência</label>
+                                <span class="text-slate-700 fw-medium" style="font-size: 0.9rem;"><i class="fas fa-phone-alt text-muted me-1" style="font-size: 0.8rem;"></i>${patient.emergency_contact_phone || '—'}</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Fidelidade (KPI Row) -->
+                    <div class="col-12">
+                        <div class="row g-0 bg-primary-subtle border border-primary-subtle rounded p-2 align-items-center">
+                            <div class="col-auto px-2">
+                                <span class="text-primary fw-bold" style="font-size: 0.75rem;"><i class="fas fa-award me-1"></i>FIDELIDADE</span>
+                            </div>
+                            <div class="col px-3 border-start border-primary-subtle text-center">
+                                <small class="text-muted d-block" style="font-size: 0.65rem;">Última Consulta</small>
+                                <span class="fw-bold text-slate-800" style="font-size: 0.85rem;">${patient.last_visit}</span>
+                            </div>
+                            <div class="col px-3 border-start border-primary-subtle text-center">
+                                <small class="text-muted d-block" style="font-size: 0.65rem;">Intervalo Médio</small>
+                                <span class="fw-bold text-slate-800" style="font-size: 0.85rem;">${patient.avg_interval ? patient.avg_interval + ' dias' : '—'}</span>
+                            </div>
+                            <div class="col px-3 border-start border-primary-subtle text-center">
+                                <small class="text-muted d-block" style="font-size: 0.65rem;">Total Consultas</small>
+                                <span class="fw-bold text-slate-800" style="font-size: 0.85rem;">${patient.total_completed}</span>
+                            </div>
+                            <div class="col px-3 border-start border-primary-subtle text-center">
+                                <small class="text-muted d-block" style="font-size: 0.65rem;">No-show (%)</small>
+                                <span class="fw-bold text-danger" style="font-size: 0.85rem;">${patient.no_show_rate}%</span>
                             </div>
                         </div>
                     </div>

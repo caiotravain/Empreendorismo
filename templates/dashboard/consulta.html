@@ -520,6 +520,49 @@
                 </div>
             </div>
 
+            <!-- ── 7. Transcrição por IA ── -->
+            <div class="consult-card" id="transcription-card">
+                <div class="consult-card-header" onclick="toggleCard(this)">
+                    <span class="icon"><i class="fas fa-microphone-alt"></i></span>
+                    <h2>Transcrição por IA</h2>
+                    <i class="fas fa-chevron-down toggle-icon"></i>
+                </div>
+                <div class="consult-card-body">
+                    <!-- Controls row -->
+                    <div class="d-flex align-items-center gap-3 mb-3 flex-wrap">
+                        <button id="btn-transcribe" type="button"
+                                class="btn btn-outline-primary btn-sm"
+                                onclick="toggleTranscription()">
+                            <i class="fas fa-circle text-secondary me-1" id="transcription-dot"></i>
+                            <span id="transcribe-btn-text">Iniciar Transcrição</span>
+                        </button>
+                        <span id="transcription-status-text" class="text-muted" style="font-size:.8rem;">
+                            Pronto para gravar.
+                        </span>
+                    </div>
+
+                    <!-- Transcription textarea (bound to model field) -->
+                    <div class="mb-3">
+                        <label class="field-label">Transcrição</label>
+                        <textarea name="transcription" id="transcription-text"
+                                  class="form-control" rows="6"
+                                  placeholder="A transcrição aparecerá aqui em tempo real...">{{ consultation.transcription|default:'' }}</textarea>
+                    </div>
+
+                    <!-- AI autofill -->
+                    <div class="d-flex align-items-center gap-3 flex-wrap">
+                        <button type="button" id="btn-ai-autofill"
+                                class="btn btn-sm btn-outline-success"
+                                onclick="aiAutofill()">
+                            <i class="fas fa-magic me-1"></i>Preencher campos com IA
+                        </button>
+                        <small class="text-muted">
+                            Extrai dados da transcrição e preenche os campos vazios automaticamente.
+                        </small>
+                    </div>
+                </div>
+            </div>
+
         </form><!-- /consulta-form -->
     </main>
 </div><!-- /layout -->
@@ -696,6 +739,182 @@ function showToast(msg, type = '') {
     d.textContent = msg;
     c.appendChild(d);
     setTimeout(() => d.remove(), 3500);
+}
+
+// ── Whisper Transcription (OpenAI HTTP API) ───────────────────
+// Each 5-second window is a fresh MediaRecorder so every blob
+// sent to Whisper has its own valid container header.
+let audioStream    = null;
+let mediaRecorder  = null;
+let isRecording    = false;
+let segmentChunks  = [];   // raw data for the current segment
+let segmentTimer   = null; // rotates recording segments every 5 s
+let activeMimeType = '';   // chosen once, reused for all segments
+
+async function toggleTranscription() {
+    if (isRecording) stopRecording();
+    else await startRecording();
+}
+
+async function startRecording() {
+    try {
+        audioStream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
+    } catch (e) {
+        showToast('Erro de microfone: ' + e.message, 'error');
+        return;
+    }
+
+    const mimeTypes = ['audio/webm;codecs=opus', 'audio/webm', 'audio/ogg;codecs=opus', 'audio/ogg'];
+    activeMimeType = mimeTypes.find(t => MediaRecorder.isTypeSupported(t)) || '';
+
+    isRecording = true;
+    setTranscribeUI(true);
+
+    startSegment();
+    // Every 5 s: stop current segment (triggers send via onstop) then start a new one
+    segmentTimer = setInterval(rotateSegment, 5000);
+}
+
+function startSegment() {
+    segmentChunks = [];
+    mediaRecorder = new MediaRecorder(audioStream, activeMimeType ? { mimeType: activeMimeType } : {});
+
+    mediaRecorder.ondataavailable = (e) => {
+        if (e.data?.size > 0) segmentChunks.push(e.data);
+    };
+
+    // onstop fires only after all buffered data has been flushed — safe to send here
+    mediaRecorder.onstop = () => {
+        if (segmentChunks.length > 0) sendSegment([...segmentChunks]);
+    };
+
+    mediaRecorder.start();
+}
+
+function rotateSegment() {
+    // Stopping fires onstop → sendSegment for the completed window
+    if (mediaRecorder?.state !== 'inactive') mediaRecorder.stop();
+    if (isRecording) startSegment();
+}
+
+async function sendSegment(chunks) {
+    const mimeType = activeMimeType || 'audio/webm';
+    const ext = mimeType.includes('ogg') ? 'ogg' : 'webm';
+    const blob = new Blob(chunks, { type: mimeType });
+    if (blob.size < 1500) return; // skip near-silent / empty windows
+
+    const formData = new FormData();
+    formData.append('audio', blob, `segment.${ext}`);
+
+    try {
+        const resp = await fetch(`/dashboard/api/consulta/${APPOINTMENT_ID}/transcribe/`, {
+            method: 'POST',
+            headers: { 'X-CSRFToken': CSRF },
+            body: formData,
+        });
+        const data = await resp.json();
+        if (data.error) { showToast(data.error, 'error'); return; }
+        if (data.text?.trim()) {
+            const ta = document.getElementById('transcription-text');
+            ta.value = (ta.value.trim() ? ta.value.trim() + ' ' : '') + data.text.trim();
+            ta.dispatchEvent(new Event('input', { bubbles: true }));
+            ta.scrollTop = ta.scrollHeight;
+        }
+    } catch {
+        showToast('Erro ao enviar áudio para transcrição', 'error');
+    }
+}
+
+function stopRecording() {
+    clearInterval(segmentTimer);
+    segmentTimer = null;
+    isRecording = false;
+
+    // Stop active recorder — onstop will send the final segment
+    if (mediaRecorder?.state !== 'inactive') mediaRecorder.stop();
+
+    // Release microphone
+    audioStream?.getTracks().forEach(t => t.stop());
+    audioStream = null;
+
+    setTranscribeUI(false);
+}
+
+function setTranscribeUI(recording) {
+    document.getElementById('transcription-status-text').textContent =
+        recording ? 'Gravando...' : 'Pronto para gravar.';
+    document.getElementById('transcription-dot').className =
+        recording ? 'fas fa-circle text-danger me-1' : 'fas fa-circle text-secondary me-1';
+    document.getElementById('transcribe-btn-text').textContent =
+        recording ? 'Parar Transcrição' : 'Iniciar Transcrição';
+    const btn = document.getElementById('btn-transcribe');
+    btn.classList.toggle('btn-danger', recording);
+    btn.classList.toggle('btn-outline-primary', !recording);
+}
+
+// ── AI Auto-fill ──────────────────────────────────────────────
+async function aiAutofill() {
+    const transcription = document.getElementById('transcription-text').value.trim();
+    if (!transcription) {
+        showToast('Nenhuma transcrição disponível para processar', 'error');
+        return;
+    }
+
+    const btn = document.getElementById('btn-ai-autofill');
+    btn.disabled = true;
+    btn.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i>Processando...';
+
+    try {
+        const resp = await fetch(`/dashboard/api/consulta/${APPOINTMENT_ID}/ai-autofill/`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/x-www-form-urlencoded',
+                'X-CSRFToken': CSRF,
+            },
+            body: new URLSearchParams({ transcription }),
+        });
+        const data = await resp.json();
+        if (!data.success) {
+            showToast(data.error || 'Erro ao processar com IA', 'error');
+            return;
+        }
+        const filled = fillFields(data.fields);
+        showToast(`${filled} campo(s) preenchido(s) com sucesso!`, 'success');
+    } catch (err) {
+        showToast('Erro ao conectar com a IA', 'error');
+    } finally {
+        btn.disabled = false;
+        btn.innerHTML = '<i class="fas fa-magic me-1"></i>Preencher campos com IA';
+    }
+}
+
+function fillFields(fields) {
+    const fieldMap = {
+        chief_complaint:      '[name=chief_complaint]',
+        hda:                  '[name=hda]',
+        past_history:         '[name=past_history]',
+        allergies:            '[name=allergies]',
+        current_medications:  '[name=current_medications]',
+        systems_review:       '[name=systems_review]',
+        physical_exam:        '[name=physical_exam]',
+        diagnostic_hypothesis:'[name=diagnostic_hypothesis]',
+        cid10_code:           '[name=cid10_code]',
+        conduct:              '[name=conduct]',
+        exam_requests:        '[name=exam_requests]',
+        return_instructions:  '[name=return_instructions]',
+    };
+    let count = 0;
+    for (const [key, selector] of Object.entries(fieldMap)) {
+        const value = (fields[key] || '').trim();
+        if (!value) continue;
+        const el = document.querySelector(selector);
+        if (el && el.value.trim() === '') {
+            el.value = value;
+            el.dispatchEvent(new Event('input', { bubbles: true }));
+            count++;
+        }
+    }
+    return count;
 }
 </script>
 </body>

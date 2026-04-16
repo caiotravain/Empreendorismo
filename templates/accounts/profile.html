@@ -1,132 +1,212 @@
 {% extends 'base.html' %}
 {% load static %}
 
-{% block title %}Profile - SaaS Platform{% endblock %}
+{% block title %}Perfil - SaaS Platform{% endblock %}
 
 {% block content %}
-<div class="row">
-    <div class="col-lg-4">
-        <div class="card shadow mb-4">
-            <div class="card-body text-center">
-                <div class="avatar-placeholder bg-primary text-white rounded-circle mx-auto mb-3" style="width: 120px; height: 120px; line-height: 120px; font-size: 48px;">
-                    {{ user.username|slice:":2"|upper }}
+<div class="container-fluid py-4">
+    <div class="row g-4">
+        <!-- Sidebar Column -->
+        <div class="col-lg-4">
+            <!-- Profile Overview -->
+            <div class="card shadow-sm border-0 mb-4 rounded-lg overflow-hidden">
+                <div class="bg-primary py-4 text-center">
+                    <div class="avatar-placeholder bg-white text-primary rounded-circle mx-auto shadow-sm d-flex align-items-center justify-content-center fw-bold" style="width: 100px; height: 100px; font-size: 40px;">
+                        {{ user.first_name|default:user.username|slice:":1"|upper }}{{ user.last_name|default:""|slice:":1"|upper }}
+                    </div>
                 </div>
-                <h4 class="card-title">{{ user.username }}</h4>
-                <p class="text-muted">Member since {{ user.date_joined|date:"M Y" }}</p>
-                <button class="btn btn-outline-primary btn-sm" onclick="document.getElementById('profile-settings-card').scrollIntoView({ behavior: 'smooth', block: 'start' });">
-                    <i class="fas fa-edit me-1"></i>Edit Profile
-                </button>
-            </div>
-        </div>
-        
-        <div class="card shadow mb-4">
-            <div class="card-header">
-                <h6 class="m-0 font-weight-bold text-primary">Account Information</h6>
-            </div>
-            <div class="card-body">
-                <div class="mb-3">
-                    <label class="form-label text-muted">Username</label>
-                    <p class="mb-0">{{ user.username }}</p>
-                </div>
-                <div class="mb-3">
-                    <label class="form-label text-muted">Email</label>
-                    <p class="mb-0">{{ user.email|default:"Not provided" }}</p>
-                </div>
-                <div class="mb-3">
-                    <label class="form-label text-muted">Last Login</label>
-                    <p class="mb-0">{{ user.last_login|date:"M d, Y H:i"|default:"Never" }}</p>
-                </div>
-                <div class="mb-0">
-                    <label class="form-label text-muted">Date Joined</label>
-                    <p class="mb-0">{{ user.date_joined|date:"M d, Y" }}</p>
-                </div>
-            </div>
-        </div>
-    </div>
-    
-    <div class="col-lg-8">
-        <div class="card shadow mb-4" id="profile-settings-card">
-            <div class="card-header">
-                <h6 class="m-0 font-weight-bold text-primary">Profile Settings</h6>
-            </div>
-            <div class="card-body">
-                <form id="profile-form">
-                    {% csrf_token %}
-                    <div class="row">
-                        <div class="col-md-6 mb-3">
-                            <label for="firstName" class="form-label">First Name</label>
-                            <input type="text" class="form-control" id="firstName" name="first_name" value="{{ user.first_name|default:'' }}" required>
+                <div class="card-body text-center pt-0" style="margin-top: -20px;">
+                    <div class="bg-white rounded-pill d-inline-block px-3 py-1 shadow-sm mb-3 border">
+                        <span class="text-primary fw-bold small"><i class="fas fa-user-tag me-1"></i>{{ role_name }}</span>
+                    </div>
+                    <h4 class="fw-bold text-slate-800 mb-1">{{ user.get_full_name|default:user.username }}</h4>
+                    <p class="text-muted small mb-3">Membro desde {{ user.date_joined|date:"M Y" }}</p>
+                    
+                    {% if doctor %}
+                    <div class="d-flex justify-content-center gap-2 mb-3">
+                        <div class="px-2 py-1 bg-light rounded text-center" style="min-width: 80px;">
+                            <div class="fw-bold text-slate-800">{{ doctor.patients_count }}</div>
+                            <div class="text-muted" style="font-size: 0.65rem;">Pacientes</div>
                         </div>
-                        <div class="col-md-6 mb-3">
-                            <label for="lastName" class="form-label">Last Name</label>
-                            <input type="text" class="form-control" id="lastName" name="last_name" value="{{ user.last_name|default:'' }}" required>
+                        <div class="px-2 py-1 bg-light rounded text-center" style="min-width: 80px;">
+                            <div class="fw-bold text-slate-800">{{ doctor.active_secretaries_count }}</div>
+                            <div class="text-muted" style="font-size: 0.65rem;">Equipe</div>
                         </div>
                     </div>
+                    {% endif %}
                     
-                    <div class="mb-3">
-                        <label for="email" class="form-label">Email Address</label>
-                        <input type="email" class="form-control" id="email" name="email" value="{{ user.email|default:'' }}" required>
+                    <button class="btn btn-outline-primary w-100 rounded-pill btn-sm" onclick="document.getElementById('profile-settings-card').scrollIntoView({ behavior: 'smooth', block: 'start' });">
+                        <i class="fas fa-user-edit me-1"></i>Editar Perfil
+                    </button>
+                </div>
+            </div>
+            
+            <!-- Quick Info -->
+            <div class="card shadow-sm border-0 rounded-lg">
+                <div class="card-header bg-white border-bottom py-3">
+                    <h6 class="m-0 fw-bold text-slate-800">Informações da Conta</h6>
+                </div>
+                <div class="card-body">
+                    <div class="mb-3 d-flex align-items-center">
+                        <div class="bg-light rounded p-2 me-3"><i class="fas fa-id-badge text-primary"></i></div>
+                        <div>
+                            <label class="text-muted small d-block mb-0">Nome de Usuário</label>
+                            <span class="text-slate-800 fw-medium">{{ user.username }}</span>
+                        </div>
                     </div>
-                    
-                    <div class="d-flex justify-content-between">
-                        <button type="button" class="btn btn-secondary" onclick="resetProfileForm()">
-                            <i class="fas fa-times me-1"></i>Cancel
-                        </button>
-                        <button type="submit" class="btn btn-primary">
-                            <i class="fas fa-save me-1"></i>Save Changes
-                        </button>
+                    <div class="mb-3 d-flex align-items-center">
+                        <div class="bg-light rounded p-2 me-3"><i class="fas fa-envelope text-primary"></i></div>
+                        <div>
+                            <label class="text-muted small d-block mb-0">E-mail</label>
+                            <span class="text-slate-800 fw-medium text-truncate d-inline-block" style="max-width: 180px;">{{ user.email|default:"Não informado" }}</span>
+                        </div>
                     </div>
-                </form>
+                    {% if doctor %}
+                    <div class="mb-3 d-flex align-items-center">
+                        <div class="bg-light rounded p-2 me-3"><i class="fas fa-stethoscope text-primary"></i></div>
+                        <div>
+                            <label class="text-muted small d-block mb-0">CRM</label>
+                            <span class="text-slate-800 fw-medium">{{ doctor.medical_license }}</span>
+                        </div>
+                    </div>
+                    <div class="mb-3 d-flex align-items-center">
+                        <div class="bg-light rounded p-2 me-3"><i class="fas fa-hospital text-primary"></i></div>
+                        <div>
+                            <label class="text-muted small d-block mb-0">Clínica</label>
+                            <span class="text-slate-800 fw-medium">{{ doctor.clinic.name|default:"Sem clínica" }}</span>
+                        </div>
+                    </div>
+                    {% elif secretary %}
+                    <div class="mb-3 d-flex align-items-center">
+                        <div class="bg-light rounded p-2 me-3"><i class="fas fa-hospital text-primary"></i></div>
+                        <div>
+                            <label class="text-muted small d-block mb-0">Clínica</label>
+                            <span class="text-slate-800 fw-medium">{{ secretary.clinic.name|default:"Sem clínica" }}</span>
+                        </div>
+                    </div>
+                    {% endif %}
+                    <div class="d-flex align-items-center mb-0">
+                        <div class="bg-light rounded p-2 me-3"><i class="fas fa-history text-primary"></i></div>
+                        <div>
+                            <label class="text-muted small d-block mb-0">Último Acesso</label>
+                            <span class="text-slate-800 fw-medium">{{ user.last_login|date:"d/m/Y H:i"|default:"Nunca" }}</span>
+                        </div>
+                    </div>
+                </div>
             </div>
         </div>
         
-        <div class="card shadow mb-4">
-            <div class="card-header">
-                <h6 class="m-0 font-weight-bold text-primary">Security Settings</h6>
-            </div>
-            <div class="card-body">
-                <div class="d-grid gap-2">
-                    <button class="btn btn-outline-warning">
-                        <i class="fas fa-key me-2"></i>Change Password
-                    </button>
-                    <button class="btn btn-outline-info">
-                        <i class="fas fa-shield-alt me-2"></i>Two-Factor Authentication
-                    </button>
-                    <button class="btn btn-outline-danger">
-                        <i class="fas fa-trash me-2"></i>Delete Account
-                    </button>
+        <!-- Main Content Column -->
+        <div class="col-lg-8">
+            <!-- Profile Settings -->
+            <div class="card shadow-sm border-0 rounded-lg mb-4" id="profile-settings-card">
+                <div class="card-header bg-white border-bottom py-3">
+                    <h6 class="m-0 fw-bold text-slate-800"><i class="fas fa-cog me-2 text-primary"></i>Configurações do Perfil</h6>
+                </div>
+                <div class="card-body p-4">
+                    <form id="profile-form">
+                        {% csrf_token %}
+                        <div class="row g-3">
+                            <div class="col-md-6 mb-3">
+                                <label for="firstName" class="form-label text-slate-700 small fw-bold">Nome</label>
+                                <input type="text" class="form-control bg-light" id="firstName" name="first_name" value="{{ user.first_name|default:'' }}" required>
+                            </div>
+                            <div class="col-md-6 mb-3">
+                                <label for="lastName" class="form-label text-slate-700 small fw-bold">Sobrenome</label>
+                                <input type="text" class="form-control bg-light" id="lastName" name="last_name" value="{{ user.last_name|default:'' }}" required>
+                            </div>
+                        </div>
+                        
+                        <div class="mb-4">
+                            <label for="email" class="form-label text-slate-700 small fw-bold">Endereço de E-mail</label>
+                            <input type="email" class="form-control bg-light" id="email" name="email" value="{{ user.email|default:'' }}" required>
+                        </div>
+                        
+                        <div class="d-flex justify-content-end gap-2">
+                            <button type="button" class="btn btn-light px-4" onclick="resetProfileForm()">
+                                Cancelar
+                            </button>
+                            <button type="submit" class="btn btn-primary px-4">
+                                <i class="fas fa-save me-1"></i>Salvar Alterações
+                            </button>
+                        </div>
+                    </form>
                 </div>
             </div>
-        </div>
-        
-        <div class="card shadow">
-            <div class="card-header">
-                <h6 class="m-0 font-weight-bold text-primary">Notification Preferences</h6>
-            </div>
-            <div class="card-body">
-                <div class="form-check form-switch mb-3">
-                    <input class="form-check-input" type="checkbox" id="emailNotifications" checked>
-                    <label class="form-check-label" for="emailNotifications">
-                        Email Notifications
-                    </label>
+            
+            <!-- Security & Preferences Row -->
+            <div class="row g-4">
+                <div class="col-md-6">
+                    <!-- Security Settings -->
+                    <div class="card shadow-sm border-0 rounded-lg h-100">
+                        <div class="card-header bg-white border-bottom py-3">
+                            <h6 class="m-0 fw-bold text-slate-800"><i class="fas fa-shield-alt me-2 text-primary"></i>Segurança</h6>
+                        </div>
+                        <div class="card-body">
+                            <div class="d-grid gap-3">
+                                <button class="btn btn-outline-warning text-start">
+                                    <div class="d-flex align-items-center">
+                                        <i class="fas fa-key me-3"></i>
+                                        <div>
+                                            <div class="fw-bold small">Alterar Senha</div>
+                                            <div class="text-muted" style="font-size: 0.7rem;">Atualize sua credencial de acesso</div>
+                                        </div>
+                                    </div>
+                                </button>
+                                <button class="btn btn-outline-info text-start">
+                                    <div class="d-flex align-items-center">
+                                        <i class="fas fa-lock me-3"></i>
+                                        <div>
+                                            <div class="fw-bold small">Autenticação em 2 Etapas</div>
+                                            <div class="text-muted" style="font-size: 0.7rem;">Ative para maior proteção</div>
+                                        </div>
+                                    </div>
+                                </button>
+                                <hr class="my-1">
+                                <button class="btn btn-outline-danger text-start">
+                                    <div class="d-flex align-items-center">
+                                        <i class="fas fa-user-slash me-3"></i>
+                                        <div>
+                                            <div class="fw-bold small">Encerrar Conta</div>
+                                            <div class="text-muted" style="font-size: 0.7rem;">Excluir permanentemente seus dados</div>
+                                        </div>
+                                    </div>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
                 </div>
-                <div class="form-check form-switch mb-3">
-                    <input class="form-check-input" type="checkbox" id="pushNotifications" checked>
-                    <label class="form-check-label" for="pushNotifications">
-                        Push Notifications
-                    </label>
-                </div>
-                <div class="form-check form-switch mb-3">
-                    <input class="form-check-input" type="checkbox" id="marketingEmails">
-                    <label class="form-check-label" for="marketingEmails">
-                        Marketing Emails
-                    </label>
-                </div>
-                <div class="form-check form-switch">
-                    <input class="form-check-input" type="checkbox" id="weeklyReports" checked>
-                    <label class="form-check-label" for="weeklyReports">
-                        Weekly Reports
-                    </label>
+                
+                <div class="col-md-6">
+                    <!-- Notification Preferences -->
+                    <div class="card shadow-sm border-0 rounded-lg h-100">
+                        <div class="card-header bg-white border-bottom py-3">
+                            <h6 class="m-0 fw-bold text-slate-800"><i class="fas fa-bell me-2 text-primary"></i>Preferências</h6>
+                        </div>
+                        <div class="card-body">
+                            <div class="form-check form-switch mb-4">
+                                <input class="form-check-input" type="checkbox" id="emailNotifications" checked>
+                                <label class="form-check-label text-slate-700 fw-medium" for="emailNotifications">
+                                    Notificações por E-mail
+                                </label>
+                                <div class="text-muted small">Receba alertas sobre agendamentos</div>
+                            </div>
+                            <div class="form-check form-switch mb-4">
+                                <input class="form-check-input" type="checkbox" id="pushNotifications" checked>
+                                <label class="form-check-label text-slate-700 fw-medium" for="pushNotifications">
+                                    Notificações Push
+                                </label>
+                                <div class="text-muted small">Alertas em tempo real no navegador</div>
+                            </div>
+                            <div class="form-check form-switch mb-0">
+                                <input class="form-check-input" type="checkbox" id="weeklyReports" checked>
+                                <label class="form-check-label text-slate-700 fw-medium" for="weeklyReports">
+                                    Relatórios Semanais
+                                </label>
+                                <div class="text-muted small">Resumo de desempenho da clínica</div>
+                            </div>
+                        </div>
+                    </div>
                 </div>
             </div>
         </div>
@@ -143,6 +223,11 @@ document.addEventListener('DOMContentLoaded', function() {
         profileForm.addEventListener('submit', function(e) {
             e.preventDefault();
             
+            const btn = this.querySelector('button[type="submit"]');
+            const originalContent = btn.innerHTML;
+            btn.disabled = true;
+            btn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Salvando...';
+            
             const formData = new FormData(profileForm);
             
             fetch('{% url "accounts:update_profile" %}', {
@@ -155,29 +240,21 @@ document.addEventListener('DOMContentLoaded', function() {
             .then(response => response.json())
             .then(data => {
                 if (data.success) {
-                    // Show success message
                     showNotification(data.message || 'Perfil atualizado com sucesso!', 'success');
-                    
-                    // Update displayed values
-                    if (data.user) {
-                        // Update the username display if needed
-                        const usernameDisplay = document.querySelector('.card-title');
-                        if (usernameDisplay && data.user.username) {
-                            // Username doesn't change, but we could update first/last name display
-                        }
-                    }
-                    
-                    // Reload page after a short delay to show updated info
                     setTimeout(() => {
                         window.location.reload();
-                    }, 1500);
+                    }, 1200);
                 } else {
                     showNotification(data.error || 'Erro ao atualizar perfil', 'error');
+                    btn.disabled = false;
+                    btn.innerHTML = originalContent;
                 }
             })
             .catch(error => {
                 console.error('Error:', error);
                 showNotification('Erro ao atualizar perfil. Tente novamente.', 'error');
+                btn.disabled = false;
+                btn.innerHTML = originalContent;
             });
         });
     }
@@ -187,7 +264,6 @@ function resetProfileForm() {
     const form = document.getElementById('profile-form');
     if (form) {
         form.reset();
-        // Reset to original values
         document.getElementById('firstName').value = '{{ user.first_name|default:"" }}';
         document.getElementById('lastName').value = '{{ user.last_name|default:"" }}';
         document.getElementById('email').value = '{{ user.email|default:"" }}';
@@ -210,24 +286,46 @@ function getCookie(name) {
 }
 
 function showNotification(message, type) {
-    // Create notification element
-    const alertClass = type === 'success' ? 'alert-success' : 'alert-danger';
-    const alertDiv = document.createElement('div');
-    alertDiv.className = `alert ${alertClass} alert-dismissible fade show position-fixed`;
-    alertDiv.style.cssText = 'top: 20px; right: 20px; z-index: 9999; min-width: 300px;';
-    alertDiv.innerHTML = `
-        ${message}
-        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+    const alertClass = type === 'success' ? 'bg-success text-white' : 'bg-danger text-white';
+    const notification = document.createElement('div');
+    notification.className = `position-fixed top-0 end-0 p-3 m-3 rounded shadow-lg ${alertClass} animate__animated animate__fadeInRight`;
+    notification.style.zIndex = '9999';
+    notification.innerHTML = `
+        <div class="d-flex align-items-center">
+            <i class="fas ${type === 'success' ? 'fa-check-circle' : 'fa-exclamation-circle'} me-2"></i>
+            <div>${message}</div>
+        </div>
     `;
     
-    document.body.appendChild(alertDiv);
+    document.body.appendChild(notification);
     
-    // Auto remove after 5 seconds
     setTimeout(() => {
-        if (alertDiv.parentNode) {
-            alertDiv.remove();
-        }
-    }, 5000);
+        notification.classList.replace('animate__fadeInRight', 'animate__fadeOutRight');
+        setTimeout(() => notification.remove(), 1000);
+    }, 4000);
 }
 </script>
+
+<style>
+.avatar-placeholder {
+    transition: transform 0.3s ease;
+}
+.avatar-placeholder:hover {
+    transform: scale(1.05);
+}
+.card {
+    transition: all 0.3s ease;
+}
+.card-header {
+    font-size: 0.9rem;
+    letter-spacing: 0.5px;
+}
+.form-control:focus {
+    box-shadow: 0 0 0 0.25rem rgba(13, 110, 253, 0.1);
+    background-color: #fff !important;
+}
+.btn-outline-warning:hover, .btn-outline-info:hover, .btn-outline-danger:hover {
+    color: white !important;
+}
+</style>
 {% endblock %}

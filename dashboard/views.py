@@ -6,7 +6,7 @@ from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_POST
 from django.views.decorators.http import require_http_methods
 from django.db import models
-from django.db.models import Q
+from django.db.models import Q, Count, Sum, Avg, Min, Max
 from datetime import date, timedelta, datetime
 from decimal import Decimal, InvalidOperation
 from .models import Appointment, Patient, Doctor, Clinic, MedicalRecord, Prescription, PrescriptionItem, PrescriptionTemplate, Expense, Income, Medication, WaitingListEntry, AppointmentSettings, CalendarBlock, PatientFile, ConsultationRecord
@@ -571,6 +571,8 @@ def api_patient_detail(request, patient_id):
                 'error': 'Você não tem acesso a este paciente'
             })
         
+        loyalty = patient.get_loyalty_metrics()
+        
         patient_data = {
             'id': patient.id,
             'first_name': patient.first_name,
@@ -591,6 +593,12 @@ def api_patient_detail(request, patient_id):
             'age': patient.age,
             'is_active': patient.is_active,
             'created_at': patient.created_at.strftime('%d/%m/%Y'),
+            # Loyalty metrics
+            'loyalty_status': loyalty['status'],
+            'last_visit': loyalty['last_visit'].strftime('%d/%m/%Y') if loyalty['last_visit'] else 'Nenhuma',
+            'avg_interval': loyalty['avg_interval'],
+            'total_completed': loyalty['total_completed'],
+            'no_show_rate': loyalty['no_show_rate'],
         }
         
         return JsonResponse({
@@ -2977,7 +2985,6 @@ def api_indicators(request):
         # Get period: optional year + month for specific month selection
         from datetime import date, timedelta
         from django.utils import timezone
-        from django.db.models import Count, Sum, Avg, Min
 
         today = timezone.now().date()
         year_param = request.GET.get('year')
@@ -3058,13 +3065,12 @@ def api_indicators(request):
 
         # New patients in period (first appointment ever was in this period)
         patient_ids_in_period = list(appointments.values_list('patient_id', flat=True).distinct())
-        from django.db.models import Min as MinAgg
         new_patients_count = 0
         if patient_ids_in_period:
             first_dates = Appointment.objects.filter(
                 patient_id__in=patient_ids_in_period,
                 doctor__in=doctors_filter
-            ).values('patient_id').annotate(first_ever=MinAgg('appointment_date'))
+            ).values('patient_id').annotate(first_ever=Min('appointment_date'))
             for fd in first_dates:
                 if fd['first_ever'] and start_date <= fd['first_ever'] <= end_date:
                     new_patients_count += 1
@@ -3144,7 +3150,7 @@ def api_indicators(request):
             first_prev = Appointment.objects.filter(
                 patient_id__in=pid_prev,
                 doctor__in=doctors_filter
-            ).values('patient_id').annotate(first_ever=MinAgg('appointment_date'))
+            ).values('patient_id').annotate(first_ever=Min('appointment_date'))
             for fd in first_prev:
                 if fd['first_ever'] and prev_start <= fd['first_ever'] <= prev_end:
                     prev_new += 1
@@ -3177,18 +3183,85 @@ def api_indicators(request):
                 # Remove monthly series entries that pre-date the doctor's join date
                 monthly_agenda = [
                     m for m in monthly_agenda
-                    if m['month'] >= earliest.strftime('%b-%y').lower() or True
-                    # Use date comparison below instead of string comparison
-                ]
-                # Rebuild using start_date awareness: filter out months before join
-                monthly_agenda = [
-                    m for m in monthly_agenda
                     if _month_label_to_date(m['month']) >= date(earliest.year, earliest.month, 1)
                 ]
                 monthly_patients = [
                     m for m in monthly_patients
                     if _month_label_to_date(m['month']) >= date(earliest.year, earliest.month, 1)
                 ]
+
+        # --- LOYALTY METRICS & RETENTION CURVE ---
+        settings = AppointmentSettings.objects.first()
+        churn_months = settings.churn_threshold_months if settings else 12
+        risk_months = settings.churn_risk_months if settings else 6
+        
+        # 1. Total Active Patients (consulted at least 1x in last 12 months)
+        active_cutoff = today - timedelta(days=365)
+        total_active_patients = Appointment.objects.filter(
+            doctor__in=doctors_filter,
+            status='completed',
+            appointment_date__gte=active_cutoff
+        ).values('patient').distinct().count()
+        
+        # 2. Patients at Risk (last visit between risk_months and churn_months)
+        risk_cutoff = today - timedelta(days=risk_months * 30)
+        churn_cutoff = today - timedelta(days=churn_months * 30)
+        
+        patients_last_visit = Appointment.objects.filter(
+            doctor__in=doctors_filter,
+            status='completed'
+        ).values('patient').annotate(last_visit=Max('appointment_date'))
+        
+        risk_count = 0
+        for p in patients_last_visit:
+            if p['last_visit'] and churn_cutoff <= p['last_visit'] <= risk_cutoff:
+                risk_count += 1
+                
+        # 3. Retention Curve (Cohort Analysis)
+        # We'll take 6 cohorts (last 6 months) and track their return in Month 1, 2, 3
+        from dateutil.relativedelta import relativedelta
+        retention_data = []
+        for i in range(5, -1, -1):
+            d = today
+            for _ in range(i):
+                if d.month == 1: d = date(d.year - 1, 12, 1)
+                else: d = date(d.year, d.month - 1, 1)
+            c_start = date(d.year, d.month, 1)
+            if c_start.month == 12: c_end = date(c_start.year, 12, 31)
+            else: c_end = date(c_start.year, c_start.month + 1, 1) - timedelta(days=1)
+            
+            # Find patients whose FIRST appointment EVER with these doctors was in this cohort
+            cohort_patients = Appointment.objects.filter(
+                doctor__in=doctors_filter
+            ).values('patient').annotate(first_visit=Min('appointment_date')).filter(
+                first_visit__gte=c_start, first_visit__lte=c_end
+            ).values_list('patient_id', flat=True)
+            
+            cohort_size = len(cohort_patients)
+            returns = [100] # Month 0 is always 100%
+            
+            if cohort_size > 0:
+                for m_offset in range(1, 4):
+                    # Check if they had ANY appointment in the subsequent months
+                    r_start = c_start + relativedelta(months=m_offset)
+                    r_end = r_start + relativedelta(months=1) - timedelta(days=1)
+                    
+                    returned_count = Appointment.objects.filter(
+                        doctor__in=doctors_filter,
+                        patient_id__in=cohort_patients,
+                        appointment_date__gte=r_start,
+                        appointment_date__lte=r_end,
+                        status='completed'
+                    ).values('patient').distinct().count()
+                    
+                    returns.append(round((returned_count / cohort_size * 100), 1))
+            else:
+                returns = [0, 0, 0, 0]
+                
+            retention_data.append({
+                'cohort': c_start.strftime('%b-%y'),
+                'returns': returns
+            })
 
         return JsonResponse({
             'success': True,
@@ -3223,6 +3296,10 @@ def api_indicators(request):
                 'trend_novos_pct': trend_novos_pct,
                 'trend_retencao_pp': trend_retencao_pp,
                 'trend_media_consultas_pct': trend_media_consultas_pct,
+                # New Loyalty Metrics
+                'total_active_patients': total_active_patients,
+                'risk_count': risk_count,
+                'retention_curve': retention_data,
             }
         })
         
@@ -5252,6 +5329,9 @@ def api_save_consulta(request, appointment_id):
     consultation.exam_requests = data.get('exam_requests', '').strip() or None
     consultation.return_instructions = data.get('return_instructions', '').strip() or None
 
+    # Transcription
+    consultation.transcription = data.get('transcription', '').strip() or None
+
     consultation.save()
 
     return JsonResponse({'success': True, 'message': 'Consulta salva com sucesso'})
@@ -5301,3 +5381,97 @@ def api_complete_consulta(request, appointment_id):
         'message': 'Consulta concluída com sucesso',
         'redirect': '/dashboard/'
     })
+
+
+@login_required
+@require_POST
+def api_transcribe_audio(request, appointment_id):
+    """Receive a short audio blob and return its transcription via OpenAI Whisper."""
+    import openai
+    from django.conf import settings as _s
+    from accounts.utils import can_access_doctor
+
+    appointment = get_object_or_404(Appointment, id=appointment_id)
+    if not can_access_doctor(request.user, appointment.doctor):
+        return JsonResponse({'error': 'Acesso negado'}, status=403)
+
+    audio_file = request.FILES.get('audio')
+    if not audio_file:
+        return JsonResponse({'error': 'Nenhum arquivo de áudio recebido'}, status=400)
+
+    api_key = getattr(_s, 'OPENAI_API_KEY', '')
+    if not api_key:
+        return JsonResponse({'error': 'OPENAI_API_KEY não configurada no servidor'}, status=500)
+
+    try:
+        client = openai.OpenAI(api_key=api_key)
+        # Pass the file as a tuple (filename, bytes, content-type) so Whisper
+        # receives the correct extension and MIME type.
+        audio_bytes = audio_file.read()
+        filename = audio_file.name or 'chunk.webm'
+        response = client.audio.transcriptions.create(
+            model='whisper-1',
+            file=(filename, audio_bytes, audio_file.content_type or 'audio/webm'),
+            language='pt',
+        )
+        return JsonResponse({'text': response.text})
+    except openai.OpenAIError as e:
+        return JsonResponse({'error': f'Erro Whisper: {str(e)}'}, status=500)
+
+
+@login_required
+@require_POST
+def api_ai_autofill(request, appointment_id):
+    """Use GPT-4o-mini to extract structured medical fields from a transcription."""
+    import json
+    import openai
+    from django.conf import settings as _s
+    from accounts.utils import can_access_doctor
+
+    appointment = get_object_or_404(Appointment, id=appointment_id)
+    if not can_access_doctor(request.user, appointment.doctor):
+        return JsonResponse({'error': 'Acesso negado'}, status=403)
+
+    transcription = request.POST.get('transcription', '').strip()
+    if not transcription:
+        return JsonResponse({'error': 'Transcrição vazia'}, status=400)
+
+    api_key = getattr(_s, 'OPENAI_API_KEY', '')
+    if not api_key:
+        return JsonResponse({'error': 'OPENAI_API_KEY não configurada no servidor'}, status=500)
+
+    system_prompt = (
+        'Você é um assistente médico especializado em extrair informações estruturadas '
+        'de transcrições de consultas médicas em português brasileiro.\n\n'
+        'Analise a transcrição e retorne APENAS um JSON válido com exatamente estas chaves '
+        '(use string vazia "" quando a informação não estiver presente):\n'
+        '- chief_complaint: queixa principal do paciente\n'
+        '- hda: história da doença atual\n'
+        '- past_history: antecedentes pessoais e familiares\n'
+        '- allergies: alergias e reações adversas\n'
+        '- current_medications: medicamentos em uso\n'
+        '- systems_review: revisão de sistemas\n'
+        '- physical_exam: achados do exame físico\n'
+        '- diagnostic_hypothesis: hipótese diagnóstica\n'
+        '- cid10_code: código CID-10 se mencionado (formato X00.0), caso contrário ""\n'
+        '- conduct: conduta e plano terapêutico\n'
+        '- exam_requests: solicitação de exames e procedimentos\n'
+        '- return_instructions: orientações de retorno\n\n'
+        'Retorne APENAS o JSON, sem texto adicional.'
+    )
+
+    try:
+        client = openai.OpenAI(api_key=api_key)
+        completion = client.chat.completions.create(
+            model='gpt-4o-mini',
+            messages=[
+                {'role': 'system', 'content': system_prompt},
+                {'role': 'user', 'content': f'Transcrição da consulta:\n{transcription}'},
+            ],
+            response_format={'type': 'json_object'},
+            temperature=0.2,
+        )
+        fields = json.loads(completion.choices[0].message.content)
+        return JsonResponse({'success': True, 'fields': fields})
+    except (openai.OpenAIError, json.JSONDecodeError, KeyError) as e:
+        return JsonResponse({'error': f'Erro ao processar com IA: {str(e)}'}, status=500)

@@ -559,6 +559,7 @@ class ConsultationRecordAdmin(admin.ModelAdmin):
         ('Physical Exam', {'fields': ('physical_exam',), 'classes': ('collapse',)}),
         ('Diagnosis', {'fields': ('diagnostic_hypothesis', 'cid10_code', 'cid10_description'), 'classes': ('collapse',)}),
         ('Treatment Plan', {'fields': ('conduct', 'exam_requests', 'return_instructions'), 'classes': ('collapse',)}),
+        ('AI & Transcription', {'fields': ('transcription',), 'classes': ('collapse',)}),
         ('Lifecycle', {'fields': ('started_at', 'completed_at', 'created_at', 'updated_at'), 'classes': ('collapse',)}),
     )
 

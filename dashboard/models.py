@@ -159,6 +159,100 @@ class Patient(models.Model):
         # Handle both date objects and string dates
         if isinstance(self.date_of_birth, str):
             try:
+                dob = date.fromisoformat(self.date_of_birth)
+            except ValueError:
+                return None
+        else:
+            dob = self.date_of_birth
+            
+        today = date.today()
+        return today.year - dob.year - ((today.month, today.day) < (dob.month, dob.day))
+
+    def get_loyalty_metrics(self):
+        """
+        Calculates and returns loyalty metrics for the patient:
+        - last_visit: date of the last completed appointment
+        - avg_interval: average days between consecutive completed appointments
+        - total_completed: total number of completed appointments
+        - loyalty_status: 'Novo', 'Ativo', 'Em Risco', 'Churn'
+        """
+        from datetime import date
+        from django.utils import timezone
+        from dateutil.relativedelta import relativedelta
+        
+        completed_appointments = self.appointments.filter(status='completed').order_by('appointment_date')
+        total_completed = completed_appointments.count()
+        
+        last_visit = None
+        avg_interval = None
+        
+        if total_completed > 0:
+            last_visit = completed_appointments.last().appointment_date
+            
+            if total_completed > 1:
+                intervals = []
+                prev_date = None
+                for appt in completed_appointments:
+                    if prev_date:
+                        intervals.append((appt.appointment_date - prev_date).days)
+                    prev_date = appt.appointment_date
+                if intervals:
+                    avg_interval = sum(intervals) / len(intervals)
+
+        # Get settings for churn
+        settings = AppointmentSettings.objects.first()
+        churn_months = settings.churn_threshold_months if settings else 12
+        risk_months = settings.churn_risk_months if settings else 6
+        
+        today = timezone.now().date()
+        
+        # Determine Status
+        status = 'Inativo' # Default if no appointments
+        
+        if total_completed == 0:
+            # Check if created recently
+            if self.created_at.date() >= today.replace(day=1):
+                status = 'Novo'
+            else:
+                status = 'Inativo'
+        else:
+            # Check if first ever appointment was this month
+            first_visit = completed_appointments.first().appointment_date
+            if first_visit >= today.replace(day=1):
+                status = 'Novo'
+            else:
+                months_since_last = relativedelta(today, last_visit).years * 12 + relativedelta(today, last_visit).months
+                
+                if months_since_last >= churn_months:
+                    status = 'Churn'
+                elif months_since_last >= risk_months:
+                    status = 'Em Risco'
+                else:
+                    status = 'Ativo'
+                    
+        # No-show Rate
+        all_appts = self.appointments.all()
+        total_appts = all_appts.count()
+        no_show_count = all_appts.filter(status='no_show').count()
+        no_show_rate = (no_show_count / total_appts * 100) if total_appts > 0 else 0
+
+        return {
+            'last_visit': last_visit,
+            'avg_interval': round(avg_interval, 1) if avg_interval is not None else None,
+            'total_completed': total_completed,
+            'status': status,
+            'no_show_rate': round(no_show_rate, 1)
+        }
+
+    @property
+    def age(self):
+        from datetime import date
+        if not self.date_of_birth:
+            return None
+        
+        # Handle both date objects and string dates
+        if isinstance(self.date_of_birth, str):
+            try:
                 from datetime import datetime
                 birth_date = datetime.strptime(self.date_of_birth, '%Y-%m-%d').date()
             except (ValueError, TypeError):
@@ -1399,6 +1493,17 @@ class AppointmentSettings(models.Model):
         default=list,
         help_text="Available cancellation reasons as display names"
     )
+
+    # Churn Settings
+    churn_threshold_months = models.PositiveIntegerField(
+        default=12,
+        help_text="Number of months without a visit to consider a patient as 'Churn'"
+    )
+    
+    churn_risk_months = models.PositiveIntegerField(
+        default=6,
+        help_text="Number of months without a visit to consider a patient 'At Risk'"
+    )
     
     # Price per convenio: dict mapping operator name to price string (e.g. {"Unimed": "150.00", "Amil": "120.00"})
     convenio_prices = models.JSONField(
@@ -1570,6 +1675,9 @@ class ConsultationRecord(models.Model):
     conduct = models.TextField(blank=True, null=True, help_text="Conduta e Plano Terapêutico")
     exam_requests = models.TextField(blank=True, null=True, help_text="Solicitação de Exames e Procedimentos")
     return_instructions = models.TextField(blank=True, null=True, help_text="Orientações de retorno")
+
+    # ── AI / Transcription ───────────────────────────────────────────────────
+    transcription = models.TextField(blank=True, null=True, help_text="Real-time transcription from Whisper Server")
 
     # ── Lifecycle ────────────────────────────────────────────────────────────
     started_at = models.DateTimeField(auto_now_add=True, help_text="When the consultation was started")

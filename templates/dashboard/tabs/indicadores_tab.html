@@ -11,6 +11,7 @@
                     <select id="indicadores-view-dropdown" class="form-select indicadores-dropdown" aria-label="Selecionar visão" style="max-width: 180px;">
                         <option value="performance" selected>Performance</option>
                         <option value="pacientes">Pacientes</option>
+                        <option value="fidelizacao">Fidelização</option>
                     </select>
                 </div>
 
@@ -93,6 +94,38 @@
                         </div>
                     </footer>
                 </div>
+
+                <!-- View C: Fidelização -->
+                <div id="indicadores-view-fidelizacao" class="indicadores-view">
+                    <div class="indicadores-main-grid">
+                        <section class="indicadores-chart-section">
+                            <h2 class="indicadores-chart-title">Curva de Retenção de Pacientes (Coortes)</h2>
+                            <p class="text-muted small mb-2">% de pacientes que retornaram após a primeira consulta</p>
+                            <div class="indicadores-chart-wrap" style="min-height:280px; position:relative;">
+                                <canvas id="chart-fidelizacao" aria-label="Curva de retenção de pacientes por coorte"></canvas>
+                            </div>
+                        </section>
+                        <section class="indicadores-kpi-section">
+                            <h2 class="indicadores-kpi-title">Métricas de Fidelidade</h2>
+                            <div class="indicadores-kpi-grid">
+                                <div class="indicadores-kpi-item"><span class="indicadores-kpi-value" data-metric="total_ativos_12m">—</span><div class="indicadores-kpi-label">Pacientes Ativos (12m)</div></div>
+                                <div class="indicadores-kpi-item"><span class="indicadores-kpi-value" data-metric="taxa_retorno_global">—</span><div class="indicadores-kpi-label">Taxa de Retorno (%)</div></div>
+                                <div class="indicadores-kpi-item"><span class="indicadores-kpi-value" data-metric="tempo_medio_entre_consultas">—</span><div class="indicadores-kpi-label">Tempo Médio entre Consultas (dias)</div></div>
+                                <div class="indicadores-kpi-item"><span class="indicadores-kpi-value" data-metric="pacientes_risco_churn">—</span><div class="indicadores-kpi-label">Pacientes em Risco de Churn</div></div>
+                            </div>
+                        </section>
+                    </div>
+                    <footer class="indicadores-footer mt-4">
+                        <div class="indicadores-footer-header">
+                            <h3 class="indicadores-footer-title">O que significam essas métricas?</h3>
+                        </div>
+                        <div class="p-3 text-muted small">
+                            <p class="mb-1"><strong>Pacientes Ativos (12m):</strong> Pacientes que realizaram pelo menos uma consulta nos últimos 12 meses.</p>
+                            <p class="mb-1"><strong>Taxa de Retorno:</strong> % de pacientes únicos que tiveram mais de uma consulta no histórico.</p>
+                            <p class="mb-1"><strong>Risco de Churn:</strong> Pacientes cuja última consulta foi há mais de 6 meses (configurável).</p>
+                        </div>
+                    </footer>
+                </div>
             </div>
         </div>
     </div>
@@ -103,7 +136,8 @@
     var dropdown = document.getElementById('indicadores-view-dropdown');
     var views = {
         performance: document.getElementById('indicadores-view-performance'),
-        pacientes: document.getElementById('indicadores-view-pacientes')
+        pacientes: document.getElementById('indicadores-view-pacientes'),
+        fidelizacao: document.getElementById('indicadores-view-fidelizacao')
     };
     function setActiveView(key) {
         Object.keys(views).forEach(function(k) {
@@ -224,10 +258,32 @@
         if (v3) v3.textContent = m.avg_consultations_per_patient != null ? m.avg_consultations_per_patient : '—';
         var d3 = document.querySelector('#indicadores-view-pacientes [data-metric="trend_media_delta"]');
         if (d3) { d3.textContent = formatDelta(m.trend_media_consultas_pct, true); d3.className = 'indicadores-trend-delta ' + (m.trend_media_consultas_pct != null && m.trend_media_consultas_pct >= 0 ? 'positive' : 'negative'); }
+        }
+
+        function updateFidelizacaoKPIs(m) {
+        var map = {
+            'total_ativos_12m': m.total_active_patients,
+            'taxa_retorno_global': m.retention_rate + '%',
+            'tempo_medio_entre_consultas': m.avg_consultations_per_patient > 1 ? '—' : '—', // Placeholder logic if needed
+            'pacientes_risco_churn': m.risk_count
+        };
+
+        // Better logic for interval if we added it to API
+        if (m.avg_consultations_per_patient) {
+             // We can use a derived metric or add specifically to API
+        }
+
+        Object.keys(map).forEach(function(key) {
+            var el = document.querySelector('#indicadores-view-fidelizacao [data-metric="' + key + '"]');
+            if (el) el.textContent = map[key] != null ? map[key] : '—';
+        });
     }
 
+    var chartPerformance = null;
+    var chartPacientes = null;
+    var chartFidelizacao = null;
+
     function drawCharts(m) {
-        if (typeof Chart === 'undefined') return;
         var agenda = m.monthly_agenda || [];
         var meses = agenda.map(function(x) { return x.month; });
         if (chartPerformance) { chartPerformance.destroy(); chartPerformance = null; }
@@ -277,6 +333,48 @@
                 }
             });
         }
+
+        var retention = m.retention_curve || [];
+        if (chartFidelizacao) { chartFidelizacao.destroy(); chartFidelizacao = null; }
+        var canvasFid = document.getElementById('chart-fidelizacao');
+        if (canvasFid && retention.length) {
+            var datasets = retention.map(function(cohort, idx) {
+                var colors = ['#0A0A33', '#34d399', '#facc15', '#f87171', '#64748b', '#a855f7'];
+                return {
+                    label: cohort.cohort,
+                    data: cohort.returns,
+                    borderColor: colors[idx % colors.length],
+                    backgroundColor: 'transparent',
+                    borderWidth: 2,
+                    pointRadius: 3,
+                    tension: 0.1
+                };
+            });
+            chartFidelizacao = new Chart(canvasFid, {
+                type: 'line',
+                data: {
+                    labels: ['Mês 0', 'Mês 1', 'Mês 2', 'Mês 3'],
+                    datasets: datasets
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: {
+                        y: { 
+                            beginAtZero: true, 
+                            max: 100,
+                            ticks: { callback: function(v) { return v + '%'; } },
+                            title: { display: true, text: 'Retenção (%)' }
+                        },
+                        x: { title: { display: true, text: 'Meses após primeira consulta' } }
+                    },
+                    plugins: { 
+                        legend: { display: true, position: 'right', labels: { boxWidth: 12, font: { size: 10 } } },
+                        tooltip: { callbacks: { label: function(ctx) { return ctx.dataset.label + ': ' + ctx.raw + '%'; } } }
+                    }
+                }
+            });
+        }
     }
 
     function loadIndicatorsData() {
@@ -302,6 +400,7 @@
                 var m = data.metrics;
                 updatePerformanceKPIs(m);
                 updatePacientesKPIs(m);
+                updateFidelizacaoKPIs(m);
                 drawCharts(m);
             })
             .catch(function(err) { console.error('Indicadores:', err); });

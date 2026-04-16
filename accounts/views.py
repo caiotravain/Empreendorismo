@@ -30,7 +30,24 @@ def register(request):
 
 @login_required
 def profile(request):
-    return render(request, 'accounts/profile.html')
+    from dashboard.models import Doctor, Secretary
+    
+    context = {
+        'user': request.user,
+    }
+    
+    # Try to get professional profile
+    try:
+        context['doctor'] = Doctor.objects.get(user=request.user)
+        context['role_name'] = 'Médico'
+    except Doctor.DoesNotExist:
+        try:
+            context['secretary'] = Secretary.objects.get(user=request.user)
+            context['role_name'] = 'Secretária'
+        except Secretary.DoesNotExist:
+            context['role_name'] = 'Administrador'
+            
+    return render(request, 'accounts/profile.html', context)
 
 @login_required
 @require_POST

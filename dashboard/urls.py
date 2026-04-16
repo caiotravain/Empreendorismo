@@ -94,7 +94,9 @@ urlpatterns = [
     # Consultation (atendimento) page and APIs
     path('consulta/<int:appointment_id>/', views.consulta, name='consulta'),
     path('api/consulta/<int:appointment_id>/save/', views.api_save_consulta, name='api_save_consulta'),
-    path('api/consulta/<int:appointment_id>/complete/', views.api_complete_consulta, name='api_complete_consulta'),
+    path('api/consulta/<int:appointment_id>/complete/',   views.api_complete_consulta,  name='api_complete_consulta'),
+    path('api/consulta/<int:appointment_id>/transcribe/', views.api_transcribe_audio,    name='api_transcribe_audio'),
+    path('api/consulta/<int:appointment_id>/ai-autofill/',views.api_ai_autofill,         name='api_ai_autofill'),
     
     # WhatsApp webhook (with and without trailing slash to handle both cases)
     path('whatsapp/webhook/', whatsapp_views.whatsapp_webhook, name='whatsapp_webhook'),
